@@ -76,6 +76,7 @@ async function seedDatabase() {
 type StoreCtx = {
   products: Product[];
   addProduct: (p: Omit<Product, "id">) => void;
+  importProducts: (list: Omit<Product, "id">[]) => Promise<void>;
   updateProduct: (id: number, patch: Partial<Product>) => void;
   deleteProduct: (id: number) => void;
   resetProducts: () => void;
@@ -153,6 +154,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const np = { ...p, id: Date.now() };
         if (db) void setDoc(pRef(np.id), np);
         else setProducts((prev) => [np, ...prev]);
+      },
+      importProducts: async (list) => {
+        // base timestamp + index guarantees a unique id per item even when
+        // imported in a tight loop within the same millisecond
+        const base = Date.now();
+        const withIds: Product[] = list.map((p, i) => ({ ...p, id: base + i }));
+        if (db) {
+          await Promise.all(withIds.map((p) => setDoc(pRef(p.id), p)));
+        } else {
+          setProducts((prev) => [...withIds, ...prev]);
+        }
       },
       updateProduct: (id, patch) => {
         if (db) void updateDoc(pRef(id), patch);
