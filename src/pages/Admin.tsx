@@ -1,7 +1,8 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, useRef, useState, type FormEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   BadgeCheck,
+  Download,
   Eye,
   LayoutDashboard,
   Loader2,
@@ -13,14 +14,16 @@ import {
   Plus,
   RotateCcw,
   Save,
+  Search,
   Settings as SettingsIcon,
   ShoppingBag,
   Trash2,
+  Upload,
   Wallet,
   X,
 } from "lucide-react";
 import { useStore, type Order, type OrderStatus } from "@/context/StoreContext";
-import { catName, categories, fmt, IMAGE_CHOICES, relTime, type Product } from "@/data/data";
+import { catName, categories, fmt, IMAGE_CHOICES, normalizeImportedProduct, relTime, type Product } from "@/data/data";
 import { ToothMark } from "@/components/ui";
 import { cn } from "@/utils/cn";
 
@@ -231,8 +234,57 @@ export default function Admin() {
   const [saved, setSaved] = useState(false);
   const [wa, setWa] = useState(store.settings.whatsapp);
   const [ship, setShip] = useState(String(store.settings.freeShipping));
+  const [search, setSearch] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importMsg, setImportMsg] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const revenue = useMemo(() => store.orders.reduce((s, o) => s + o.total, 0), [store.orders]);
+
+  const filteredProducts = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return store.products;
+    return store.products.filter(
+      (p) => p.name.toLowerCase().includes(q) || catName(p.cat).toLowerCase().includes(q),
+    );
+  }, [store.products, search]);
+
+  const exportProducts = () => {
+    const blob = new Blob([JSON.stringify(store.products, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `egydent-products-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importProductsFromFile = (file: File) => {
+    setImporting(true);
+    setImportMsg(null);
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const raw = JSON.parse(String(reader.result));
+        const list = Array.isArray(raw) ? raw : [raw];
+        const normalized = list
+          .map((item) => normalizeImportedProduct(item as Record<string, unknown>))
+          .filter((p): p is Omit<Product, "id"> => p !== null);
+        if (normalized.length === 0) {
+          setImportMsg("الملف ده مفيهوش منتجات صالحة للاستيراد");
+        } else {
+          await store.importProducts(normalized);
+          setImportMsg(`تم استيراد ${normalized.length} منتج بنجاح`);
+        }
+      } catch {
+        setImportMsg("تعذّر قراءة الملف — تأكد إنه JSON صحيح");
+      } finally {
+        setImporting(false);
+        setTimeout(() => setImportMsg(null), 4000);
+      }
+    };
+    reader.readAsText(file, "utf-8");
+  };
 
   if (!store.isAdmin) return <Login />;
 
@@ -357,8 +409,40 @@ export default function Admin() {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm text-frost-400">
                 عندك <span className="font-black text-white">{store.products.length}</span> منتج في المتجر
+                {search && (
+                  <span>
+                    {" "}
+                    — <span className="font-black text-volt-300">{filteredProducts.length}</span> نتيجة بحث
+                  </span>
+                )}
               </p>
-              <div className="flex gap-2.5">
+              <div className="flex flex-wrap gap-2.5">
+                <input
+                  type="file"
+                  accept="application/json"
+                  ref={fileRef}
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) importProductsFromFile(file);
+                    e.target.value = "";
+                  }}
+                />
+                <button
+                  onClick={() => fileRef.current?.click()}
+                  disabled={importing}
+                  className="flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2.5 text-xs font-bold text-frost-300 hover:bg-white/5 disabled:opacity-60"
+                >
+                  {importing ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
+                  استيراد
+                </button>
+                <button
+                  onClick={exportProducts}
+                  className="flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2.5 text-xs font-bold text-frost-300 hover:bg-white/5"
+                >
+                  <Download className="size-4" />
+                  تصدير
+                </button>
                 <button
                   onClick={() => {
                     if (confirm("هترجع المنتجات الافتراضية — أي تعديل هيتمسح. متأكد؟")) store.resetProducts();
@@ -381,6 +465,22 @@ export default function Admin() {
               </div>
             </div>
 
+            {importMsg && (
+              <p className="mt-3 rounded-xl border border-volt-500/30 bg-volt-500/10 px-4 py-2.5 text-xs font-bold text-volt-300">
+                {importMsg}
+              </p>
+            )}
+
+            <div className="relative mt-5 max-w-sm">
+              <Search className="absolute right-4 top-1/2 size-4 -translate-y-1/2 text-frost-500" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="ابحث بالاسم أو الفئة..."
+                className="w-full rounded-2xl border border-white/10 bg-ink-950/60 py-3 pl-4 pr-11 text-sm outline-none transition-colors placeholder:text-frost-500/70 focus:border-volt-500/60"
+              />
+            </div>
+
             <div className="mt-5 overflow-x-auto rounded-2xl border border-white/[0.07]">
               <table className="w-full min-w-[640px] text-right text-sm">
                 <thead>
@@ -393,7 +493,14 @@ export default function Admin() {
                   </tr>
                 </thead>
                 <tbody>
-                  {store.products.map((p) => (
+                  {filteredProducts.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-10 text-center text-sm text-frost-500">
+                        مفيش منتجات مطابقة للبحث
+                      </td>
+                    </tr>
+                  )}
+                  {filteredProducts.map((p) => (
                     <tr key={p.id} className="border-b border-white/[0.05] transition-colors last:border-0 hover:bg-white/[0.02]">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
