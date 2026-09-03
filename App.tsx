@@ -2,15 +2,16 @@ import { useEffect, useState } from "react";
 import { initializeApp } from "firebase/app";
 import { getDatabase, ref, onValue, set, push, remove } from "firebase/database";
 
-// إعدادات Firebase - استبدل هذه القيم ببيانات مشروعك
+// إعدادات Firebase - بيانات مشروعك الحقيقية
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyAIa2DzWIpc1CRXLjiYjVnYv-P0EskDXcg",
+  authDomain: "egy-dent-store.firebaseapp.com",
+  databaseURL: "https://egy-dent-store-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "egy-dent-store",
+  storageBucket: "egy-dent-store.firebasestorage.app",
+  messagingSenderId: "829834524174",
+  appId: "1:829834524174:web:2362fb9d9d69cb44776e5f",
+  measurementId: "G-C0FRN9599K"
 };
 
 const app = initializeApp(firebaseConfig);
