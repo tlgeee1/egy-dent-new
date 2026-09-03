@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, Eye, Plus, Star } from "lucide-react";
+import { Check, Eye, Plus, Search, Star } from "lucide-react";
 import { catName, categories, fmt, type Product } from "@/data/data";
 import { useCart } from "@/context/CartContext";
 import { useStore } from "@/context/StoreContext";
@@ -112,7 +112,13 @@ function ProductCard({ p, index }: { p: Product; index: number }) {
 export default function Products() {
   const { products } = useStore();
   const [filter, setFilter] = useState("all");
-  const list = useMemo(() => (filter === "all" ? products : products.filter((p) => p.cat === filter)), [filter, products]);
+  const [q, setQ] = useState("");
+  const list = useMemo(() => {
+    const byCat = filter === "all" ? products : products.filter((p) => p.cat === filter);
+    const query = q.trim().toLowerCase();
+    if (!query) return byCat;
+    return byCat.filter((p) => p.name.toLowerCase().includes(query));
+  }, [filter, products, q]);
 
   return (
     <section id="products" className="relative bg-ink-900/50 py-24 md:py-32">
@@ -129,8 +135,21 @@ export default function Products() {
           desc="مختارات موثوقة من أكبر البراندات العالمية — بضمان الوكيل وتوصيل فوري لحد باب العيادة."
         />
 
+        {/* search */}
+        <Reveal delay={0.05} className="mx-auto mt-10 max-w-md">
+          <div className="relative">
+            <Search className="absolute right-4 top-1/2 size-4 -translate-y-1/2 text-frost-500" />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="ابحث عن منتج..."
+              className="w-full rounded-2xl border border-white/10 bg-ink-900 py-3 pl-4 pr-11 text-sm outline-none transition-colors placeholder:text-frost-500/70 focus:border-volt-500/60"
+            />
+          </div>
+        </Reveal>
+
         {/* filters */}
-        <Reveal delay={0.1} className="mt-10">
+        <Reveal delay={0.1} className="mt-6">
           <div className="flex flex-wrap items-center justify-center gap-2.5">
             {[{ id: "all", name: "كل المنتجات" }, ...categories].map((c) => (
               <button
@@ -155,13 +174,19 @@ export default function Products() {
         </Reveal>
 
         {/* grid */}
-        <motion.div layout className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          <AnimatePresence mode="popLayout">
-            {list.map((p, i) => (
-              <ProductCard key={p.id} p={p} index={i} />
-            ))}
-          </AnimatePresence>
-        </motion.div>
+        {list.length === 0 ? (
+          <p className="mt-12 rounded-2xl border border-dashed border-white/10 py-12 text-center text-sm text-frost-500">
+            مفيش منتجات مطابقة للبحث
+          </p>
+        ) : (
+          <motion.div layout className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <AnimatePresence mode="popLayout">
+              {list.map((p, i) => (
+                <ProductCard key={p.id} p={p} index={i} />
+              ))}
+            </AnimatePresence>
+          </motion.div>
+        )}
       </div>
     </section>
   );
