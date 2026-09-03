@@ -124,6 +124,28 @@ export const DEFAULT_PRODUCTS: Product[] = [
 
 export const catName = (id: string) => categories.find((c) => c.id === id)?.name ?? id;
 
+/**
+ * يقبل ملف استيراد بأي من الشكلين:
+ * - منتج كامل: { name, cat, price, oldPrice?, rating?, sold?, img/imageUrl, badge?, desc? }
+ * - منتج مبسّط (اسم وصورة فقط): { name, imageUrl }
+ * وأي حقل ناقص بياخد قيمة افتراضية آمنة عشان المنتج يظهر صح في المتجر.
+ */
+export function normalizeImportedProduct(raw: Record<string, unknown>): Omit<Product, "id"> | null {
+  const name = typeof raw.name === "string" ? raw.name.trim() : "";
+  const img = typeof raw.img === "string" ? raw.img : typeof raw.imageUrl === "string" ? raw.imageUrl : "";
+  if (!name || !img) return null;
+
+  const cat = typeof raw.cat === "string" && categories.some((c) => c.id === raw.cat) ? raw.cat : "consumables";
+  const price = typeof raw.price === "number" && raw.price > 0 ? raw.price : 0;
+  const oldPrice = typeof raw.oldPrice === "number" && raw.oldPrice > 0 ? raw.oldPrice : undefined;
+  const rating = typeof raw.rating === "number" ? raw.rating : 4.8;
+  const sold = typeof raw.sold === "number" ? raw.sold : 0;
+  const badge = typeof raw.badge === "string" && raw.badge.trim() ? raw.badge : undefined;
+  const desc = typeof raw.desc === "string" ? raw.desc : "";
+
+  return { name, cat, price, oldPrice, rating, sold, img, badge, desc };
+}
+
 export const testimonials = [
   {
     text: "منتجات أصلية وجودة عالية جداً، والأسعار أحسن من أي مورد تعاملت معاه. أنصح أي عيادة تتعامل مع إيجي دنت.",
