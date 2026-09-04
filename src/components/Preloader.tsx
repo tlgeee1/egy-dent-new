@@ -7,7 +7,7 @@ export default function Preloader() {
 
   useEffect(() => {
     const start = performance.now();
-    const dur = 1500;
+    const dur = 850;
     let raf: number;
     const tick = (now: number) => {
       const p = Math.min((now - start) / dur, 1);

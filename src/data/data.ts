@@ -20,7 +20,7 @@ export const IMAGE_CHOICES = [
   "images/p-endo.jpg",
   "images/c-equipment.jpg",
   "images/c-consumables.jpg",
-  "images/hero.png",
+  "images/hero.jpg",
 ];
 
 export const categories = [
