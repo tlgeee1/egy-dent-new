@@ -1,0 +1,116 @@
+From 02d7bb271d67c08a7871bdef0ec3f99de588f937 Mon Sep 17 00:00:00 2001
+From: Claude <assistant@example.com>
+Date: Fri, 4 Sep 2026 13:18:14 +0000
+Subject: [PATCH] Fix translate-caused text overlap, hide fake product ratings
+ on unsold items, show theme toggle on mobile
+
+---
+ index.html                      |  3 ++-
+ src/components/Navbar.tsx       |  2 +-
+ src/components/ProductModal.tsx | 34 +++++++++++++++++----------------
+ src/components/Products.tsx     | 14 ++++++++------
+ 4 files changed, 29 insertions(+), 24 deletions(-)
+
+diff --git a/index.html b/index.html
+index df99ce0..bd04570 100644
+--- a/index.html
++++ b/index.html
+@@ -1,9 +1,10 @@
+ <!doctype html>
+-<html lang="ar" dir="rtl">
++<html lang="ar" dir="rtl" translate="no" class="notranslate">
+   <head>
+     <meta charset="UTF-8" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+     <meta name="description" content="إيجي دنت — المورد الأول لمستلزمات وأجهزة طب الأسنان في مصر. زراعة، تقويم، أدوات ومستهلكات أصلية بأفضل الأسعار مع توصيل لكل المحافظات." />
++    <meta name="google" content="notranslate" />
+     <title>إيجي دنت | EGY DENT — كل مستلزمات طب الأسنان في مكان واحد</title>
+     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%2306b6d4'/%3E%3Cpath fill='%23040810' d='M32 12c-8.8 0-15 6.2-15 14 0 4.2 1.6 7.6 3 10.4 1.2 2.4 2 4.8 2.4 7.8.3 2.4 2 4.4 4.2 4.4 1.9 0 3.4-1.4 3.8-3.3l1.6-6.6 1.6 6.6c.4 1.9 1.9 3.3 3.8 3.3 2.2 0 3.9-2 4.2-4.4.4-3 1.2-5.4 2.4-7.8 1.4-2.8 3-6.2 3-10.4 0-7.8-6.2-14-15-14Z'/%3E%3C/svg%3E" />
+     <link rel="preconnect" href="https://fonts.googleapis.com" />
+diff --git a/src/components/Navbar.tsx b/src/components/Navbar.tsx
+index a86d291..0ba2f21 100644
+--- a/src/components/Navbar.tsx
++++ b/src/components/Navbar.tsx
+@@ -79,7 +79,7 @@ export default function Navbar() {
+               0100 555 1280
+             </a>
+ 
+-            <ThemeToggle className="hidden sm:grid" />
++            <ThemeToggle />
+ 
+             {/* Cart */}
+             <button
+diff --git a/src/components/ProductModal.tsx b/src/components/ProductModal.tsx
+index ab7c15f..600fb8a 100644
+--- a/src/components/ProductModal.tsx
++++ b/src/components/ProductModal.tsx
+@@ -55,23 +55,25 @@ export default function ProductModal() {
+                 <span className="text-xs font-bold tracking-wide text-volt-400">{catName(p.cat)}</span>
+                 <h3 className="mt-2 font-display text-2xl font-black leading-snug md:text-3xl">{p.name}</h3>
+ 
+-                <div className="mt-3 flex items-center gap-3">
+-                  <div className="flex gap-0.5" dir="ltr">
+-                    {Array.from({ length: 5 }).map((_, i) => (
+-                      <Star
+-                        key={i}
+-                        className={
+-                          i < Math.round(p.rating)
+-                            ? "size-4 fill-gold-400 text-gold-400"
+-                            : "size-4 text-frost-500/40"
+-                        }
+-                      />
+-                    ))}
++                {p.sold > 0 && (
++                  <div className="mt-3 flex items-center gap-3">
++                    <div className="flex gap-0.5" dir="ltr">
++                      {Array.from({ length: 5 }).map((_, i) => (
++                        <Star
++                          key={i}
++                          className={
++                            i < Math.round(p.rating)
++                              ? "size-4 fill-gold-400 text-gold-400"
++                              : "size-4 text-frost-500/40"
++                          }
++                        />
++                      ))}
++                    </div>
++                    <span className="text-xs text-frost-400">
++                      {p.rating} · اتباع أكتر من {p.sold} مرة
++                    </span>
+                   </div>
+-                  <span className="text-xs text-frost-400">
+-                    {p.rating} · اتباع أكتر من {p.sold} مرة
+-                  </span>
+-                </div>
++                )}
+ 
+                 <p className="mt-5 text-sm leading-loose text-frost-300 md:text-[15px]">{p.desc}</p>
+ 
+diff --git a/src/components/Products.tsx b/src/components/Products.tsx
+index 2560dd4..944866d 100644
+--- a/src/components/Products.tsx
++++ b/src/components/Products.tsx
+@@ -57,12 +57,14 @@ function ProductCard({ p, index }: { p: Product; index: number }) {
+           عرض التفاصيل
+         </span>
+ 
+-        {/* rating */}
+-        <span className="absolute bottom-3 left-4 flex items-center gap-1.5 rounded-full border border-[var(--line-3)] bg-ink-950/70 px-3 py-1 text-xs font-bold text-[var(--text-primary)] backdrop-blur-md" dir="ltr">
+-          <Star className="size-3.5 fill-gold-400 text-gold-400" />
+-          {p.rating}
+-          <span className="text-frost-500">({p.sold}+)</span>
+-        </span>
++        {/* rating — only show once the product actually has sales/reviews behind it */}
++        {p.sold > 0 && (
++          <span className="absolute bottom-3 left-4 flex items-center gap-1.5 rounded-full border border-[var(--line-3)] bg-ink-950/70 px-3 py-1 text-xs font-bold text-[var(--text-primary)] backdrop-blur-md" dir="ltr">
++            <Star className="size-3.5 fill-gold-400 text-gold-400" />
++            {p.rating}
++            <span className="text-frost-500">({p.sold}+)</span>
++          </span>
++        )}
+       </div>
+ 
+       {/* body */}
+-- 
+2.43.0
+
