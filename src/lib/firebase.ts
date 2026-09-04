@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore, type Firestore } from "firebase/firestore";
+import { initializeFirestore, type Firestore } from "firebase/firestore";
 
 /** ⚙️ إعدادات Firebase — مشروع egy-dent-store */
 const firebaseConfig = {
@@ -20,4 +20,8 @@ const firebaseConfig = {
 const configured = !firebaseConfig.apiKey.startsWith("PASTE");
 
 export const firebaseReady = configured;
-export const db: Firestore | null = configured ? getFirestore(initializeApp(firebaseConfig)) : null;
+// ignoreUndefinedProperties: عشان المنتجات اللي مفيهاش قيمة (زي oldPrice أو badge)
+// متتحفظش بقيمة undefined، لأن Firestore بيرفض ويرمي خطأ صامت لو لقاها.
+export const db: Firestore | null = configured
+  ? initializeFirestore(initializeApp(firebaseConfig), { ignoreUndefinedProperties: true })
+  : null;
