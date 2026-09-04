@@ -79,7 +79,7 @@ export default function Navbar() {
               0100 555 1280
             </a>
 
-            <ThemeToggle className="hidden sm:grid" />
+            <ThemeToggle />
 
             {/* Cart */}
             <button
