@@ -1,47 +1,10 @@
-import { ArrowUpLeft, AtSign, Globe, Heart, Mail, MapPin, Phone, Play, Send } from "lucide-react";
-import { Reveal, ToothMark } from "./ui";
-
-const socials = [
-  { icon: AtSign, label: "انستجرام" },
-  { icon: Globe, label: "لينكدإن" },
-  { icon: Play, label: "يوتيوب" },
-  { icon: Send, label: "تليجرام" },
-];
+import { ArrowUpLeft, Heart, Mail, MapPin, Phone } from "lucide-react";
+import { ToothMark } from "./ui";
 
 export default function Footer() {
   return (
     <footer className="relative overflow-hidden border-t border-[var(--line-2)] bg-ink-900/70">
-      {/* newsletter */}
       <div className="mx-auto max-w-7xl px-5 py-20 lg:px-8">
-        <Reveal>
-          <div className="grid items-center gap-8 rounded-[2rem] border border-volt-500/20 bg-gradient-to-l from-volt-600/[0.12] to-transparent p-8 md:p-12 lg:grid-cols-2">
-            <div>
-              <h3 className="font-display text-3xl font-black leading-tight md:text-4xl">
-                عروض حصرية كل أسبوع
-                <br />
-                <span className="text-volt-400">على ميلك مباشرة</span>
-              </h3>
-              <p className="mt-3 text-sm leading-relaxed text-frost-400">
-                اشترك في النشرة البريدية ويوصلك جديد المنتجات وعروض الجملة قبل أي حد.
-              </p>
-            </div>
-            <form
-              onSubmit={(e) => e.preventDefault()}
-              className="flex flex-col gap-3 sm:flex-row"
-            >
-              <input
-                type="email"
-                required
-                placeholder="بريدك الإلكتروني"
-                className="h-14 flex-1 rounded-2xl border border-[var(--line-3)] bg-ink-950/60 px-5 text-sm outline-none transition-colors placeholder:text-frost-500 focus:border-volt-500/60"
-              />
-              <button className="h-14 rounded-2xl bg-gradient-to-l from-volt-400 to-volt-600 px-8 font-display font-black text-[var(--onaccent)] shadow-[0_12px_32px_rgba(34,211,238,0.3)] transition-transform hover:scale-[1.03] active:scale-95">
-                اشترك دلوقتي
-              </button>
-            </form>
-          </div>
-        </Reveal>
-
         {/* columns */}
         <div className="mt-16 grid gap-12 md:grid-cols-2 lg:grid-cols-[1.3fr_1fr_1fr_1.2fr]">
           <div>
@@ -62,18 +25,6 @@ export default function Footer() {
               من 2011 وإحنا الشريك الأول للعيادات والمعامل في مصر — منتجات أصلية، أسعار جملة،
               ودعم فني من أطباء بيفهموا شغلك.
             </p>
-            <div className="mt-6 flex gap-2.5">
-              {socials.map((s) => (
-                <a
-                  key={s.label}
-                  href="#hero"
-                  aria-label={s.label}
-                  className="grid size-11 place-items-center rounded-xl border border-[var(--line-3)] text-frost-400 transition-all hover:-translate-y-1 hover:border-volt-500/50 hover:bg-volt-500/10 hover:text-volt-300"
-                >
-                  <s.icon className="size-4.5" />
-                </a>
-              ))}
-            </div>
           </div>
 
           <div>
