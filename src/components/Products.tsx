@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, Eye, Plus, Search, Star } from "lucide-react";
 import { catName, categories, fmt, type Product } from "@/data/data";
@@ -26,7 +26,7 @@ function ProductCard({ p, index }: { p: Product; index: number }) {
       initial={{ opacity: 0, y: 40, scale: 0.96 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, scale: 0.94, transition: { duration: 0.25 } }}
-      transition={{ duration: 0.6, delay: index * 0.05, ease: [0.22, 1, 0.36, 1] }}
+      transition={{ duration: 0.6, delay: Math.min(index, 11) * 0.05, ease: [0.22, 1, 0.36, 1] }}
       onClick={() => setQuickView(p)}
       className="group relative flex cursor-pointer flex-col overflow-hidden rounded-[1.75rem] border border-[var(--line-2)] bg-ink-900 transition-colors duration-500 hover:border-volt-500/40 hover:shadow-[0_24px_70px_rgba(6,182,212,0.12)]"
     >
@@ -111,16 +111,34 @@ function ProductCard({ p, index }: { p: Product; index: number }) {
   );
 }
 
+const PAGE_SIZE = 50;
+
 export default function Products() {
   const { products } = useStore();
   const [filter, setFilter] = useState("all");
   const [q, setQ] = useState("");
-  const list = useMemo(() => {
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const filtered = useMemo(() => {
     const byCat = filter === "all" ? products : products.filter((p) => p.cat === filter);
     const query = q.trim().toLowerCase();
     if (!query) return byCat;
     return byCat.filter((p) => p.name.toLowerCase().includes(query));
   }, [filter, products, q]);
+  // نرجّع العداد لأول صفحة كل ما الفلتر أو البحث يتغيّر
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [filter, q]);
+  // لو المستخدم دوس على فئة من قسم الفئات فوق، نفلتر هنا تلقائي
+  useEffect(() => {
+    const onCatSelect = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail;
+      if (id) setFilter(id);
+    };
+    window.addEventListener("set-product-filter", onCatSelect);
+    return () => window.removeEventListener("set-product-filter", onCatSelect);
+  }, []);
+  const list = filtered.slice(0, visibleCount);
+  const hasMore = visibleCount < filtered.length;
 
   return (
     <section id="products" className="relative bg-ink-900/50 py-24 md:py-32">
@@ -188,6 +206,17 @@ export default function Products() {
               ))}
             </AnimatePresence>
           </motion.div>
+        )}
+
+        {hasMore && (
+          <div className="mt-10 flex justify-center">
+            <button
+              onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+              className="rounded-2xl border border-[var(--line-3)] px-8 py-3.5 text-sm font-bold text-frost-300 transition-colors hover:border-volt-500/40 hover:text-volt-300"
+            >
+              عرض المزيد ({filtered.length - visibleCount} منتج متبقي)
+            </button>
+          </div>
         )}
       </div>
     </section>
