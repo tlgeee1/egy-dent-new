@@ -1,178 +1,217 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { initializeApp } from "firebase/app";
-import { getDatabase, ref, onValue, set, push, remove } from "firebase/database";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { doc, onSnapshot, setDoc } from "firebase/firestore";
+import { db, firebaseReady } from "@/lib/firebase";
+import { DEFAULT_PRODUCTS, DEFAULT_WHATSAPP, DEFAULT_FREE_SHIPPING, type Product } from "@/data/data";
 
-// إعدادات Firebase
-const firebaseConfig = {
-  apiKey: "AIzaSyAIa2DzWIpc1CRXLjiYjVnYv-P0EskDXcg",
-  authDomain: "egy-dent-store.firebaseapp.com",
-  databaseURL: "https://egy-dent-store-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "egy-dent-store",
-  storageBucket: "egy-dent-store.firebasestorage.app",
-  messagingSenderId: "829834524174",
-  appId: "1:829834524174:web:2362fb9d9d69cb44776e5f",
-  measurementId: "G-C0FRN9599K"
+/* ---------------- Types ---------------- */
+export type OrderStatus = "جديد" | "مؤكد" | "تم الشحن" | "مكتمل";
+
+export type OrderItem = { id: number; name: string; price: number; qty: number };
+
+export type Order = {
+  id: string;
+  customer: { name: string; clinic: string; phone: string; notes: string };
+  payment: string;
+  items: OrderItem[];
+  total: number;
+  status: OrderStatus;
+  date: number;
 };
 
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-
-// تعريف الأنواع
-export interface Product {
-  id?: string;
-  name: string;
-  imageUrl: string;
-}
-
-export interface CartItem extends Product {
-  quantity: number;
-}
-
-export interface PaymentSettings {
-  vodafone: string;
-  instapay: string;
-  orange: string;
-  etisalat: string;
-  email: string;
+export type Settings = {
   whatsapp: string;
+  freeShipping: number;
+};
+
+interface StoreDoc {
+  products: Product[];
+  orders: Order[];
+  settings: Settings;
 }
 
 interface StoreContextType {
   products: Product[];
-  cart: CartItem[];
-  paymentSettings: PaymentSettings;
+  orders: Order[];
+  settings: Settings;
   loading: boolean;
-  addToCart: (product: Product) => void;
-  removeFromCart: (productId: string) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
-  clearCart: () => void;
+  online: boolean;
+  isAdmin: boolean;
+  login: (password: string) => boolean;
+  logout: () => void;
   addProduct: (product: Omit<Product, "id">) => Promise<void>;
-  deleteProduct: (productId: string) => Promise<void>;
-  savePaymentSettings: (settings: PaymentSettings) => Promise<void>;
+  updateProduct: (id: number, product: Omit<Product, "id">) => Promise<void>;
+  deleteProduct: (id: number) => Promise<void>;
+  importProducts: (products: Omit<Product, "id">[]) => Promise<void>;
+  resetProducts: () => Promise<void>;
+  addOrder: (order: Order) => Promise<void>;
+  setOrderStatus: (id: string, status: OrderStatus) => Promise<void>;
+  deleteOrder: (id: string) => Promise<void>;
+  updateSettings: (settings: Partial<Settings>) => Promise<void>;
 }
+
+const ADMIN_PASSWORD = "egy2025";
+const ADMIN_KEY = "egydent_admin";
+const STORE_COLLECTION = "store";
+const STORE_DOC_ID = "main";
+
+const defaultDoc: StoreDoc = {
+  products: DEFAULT_PRODUCTS,
+  orders: [],
+  settings: { whatsapp: DEFAULT_WHATSAPP, freeShipping: DEFAULT_FREE_SHIPPING },
+};
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [paymentSettings, setPaymentSettings] = useState<PaymentSettings>({
-    vodafone: "",
-    instapay: "",
-    orange: "",
-    etisalat: "",
-    email: "",
-    whatsapp: ""
-  });
+  const [data, setData] = useState<StoreDoc>(defaultDoc);
   const [loading, setLoading] = useState(true);
+  const [online, setOnline] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    // تحميل المنتجات من Firebase
-    const productsRef = ref(db, "products");
-    const unsubscribe = onValue(productsRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        const productsArray: Product[] = Object.entries(data).map(([id, value]) => ({
-          id,
-          ...(value as Omit<Product, "id">)
-        }));
-        setProducts(productsArray);
-      } else {
-        setProducts([]);
-      }
-      setLoading(false);
-    });
-
-    // تحميل إعدادات الدفع
-    const settingsRef = ref(db, "settings/payment");
-    onValue(settingsRef, (snapshot) => {
-      if (snapshot.exists()) {
-        setPaymentSettings(snapshot.val());
-      }
-    });
-
-    // تحميل السلة من localStorage
-    const savedCart = localStorage.getItem("egy-dent-cart");
-    if (savedCart) {
-      try {
-        setCart(JSON.parse(savedCart));
-      } catch {
-        setCart([]);
-      }
+    try {
+      setIsAdmin(localStorage.getItem(ADMIN_KEY) === "1");
+    } catch {
+      /* ignore */
     }
+  }, []);
+
+  useEffect(() => {
+    if (!firebaseReady || !db) {
+      setLoading(false);
+      setOnline(false);
+      return;
+    }
+
+    const ref = doc(db, STORE_COLLECTION, STORE_DOC_ID);
+    const unsubscribe = onSnapshot(
+      ref,
+      (snap) => {
+        if (snap.exists()) {
+          const remote = snap.data() as Partial<StoreDoc>;
+          setData({
+            products: remote.products ?? DEFAULT_PRODUCTS,
+            orders: remote.orders ?? [],
+            settings: remote.settings ?? defaultDoc.settings,
+          });
+        } else {
+          // أول مرة — ابدأ بالبيانات الافتراضية وسجّلها على Firestore
+          setDoc(ref, defaultDoc).catch(() => {
+            /* ignore */
+          });
+          setData(defaultDoc);
+        }
+        setOnline(true);
+        setLoading(false);
+      },
+      () => {
+        setOnline(false);
+        setLoading(false);
+      },
+    );
 
     return () => unsubscribe();
   }, []);
 
-  // حفظ السلة في localStorage
-  useEffect(() => {
-    localStorage.setItem("egy-dent-cart", JSON.stringify(cart));
-  }, [cart]);
+  const persist = async (next: StoreDoc) => {
+    setData(next);
+    if (firebaseReady && db) {
+      const ref = doc(db, STORE_COLLECTION, STORE_DOC_ID);
+      await setDoc(ref, next, { merge: true });
+    }
+  };
 
-  const addToCart = (product: Product) => {
-    setCart(prev => {
-      const existing = prev.find(item => item.id === product.id);
-      if (existing) {
-        return prev.map(item => 
-          item.id === product.id 
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
+  const login = (password: string) => {
+    if (password === ADMIN_PASSWORD) {
+      setIsAdmin(true);
+      try {
+        localStorage.setItem(ADMIN_KEY, "1");
+      } catch {
+        /* ignore */
       }
-      return [...prev, { ...product, quantity: 1 }];
+      return true;
+    }
+    return false;
+  };
+
+  const logout = () => {
+    setIsAdmin(false);
+    try {
+      localStorage.removeItem(ADMIN_KEY);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const nextProductId = (products: Product[]) => (products.length ? Math.max(...products.map((p) => p.id)) + 1 : 1);
+
+  const addProduct = async (product: Omit<Product, "id">) => {
+    const newProduct: Product = { ...product, id: nextProductId(data.products) };
+    await persist({ ...data, products: [...data.products, newProduct] });
+  };
+
+  const updateProduct = async (id: number, product: Omit<Product, "id">) => {
+    await persist({
+      ...data,
+      products: data.products.map((p) => (p.id === id ? { ...product, id } : p)),
     });
   };
 
-  const removeFromCart = (productId: string) => {
-    setCart(prev => prev.filter(item => item.id !== productId));
+  const deleteProduct = async (id: number) => {
+    await persist({ ...data, products: data.products.filter((p) => p.id !== id) });
   };
 
-  const updateQuantity = (productId: string, quantity: number) => {
-    if (quantity <= 0) {
-      removeFromCart(productId);
-      return;
-    }
-    setCart(prev => 
-      prev.map(item => 
-        item.id === productId ? { ...item, quantity } : item
-      )
-    );
+  const importProducts = async (products: Omit<Product, "id">[]) => {
+    let nextId = nextProductId(data.products);
+    const added = products.map((p) => ({ ...p, id: nextId++ }));
+    await persist({ ...data, products: [...data.products, ...added] });
   };
 
-  const clearCart = () => {
-    setCart([]);
+  const resetProducts = async () => {
+    await persist({ ...data, products: DEFAULT_PRODUCTS });
   };
 
-  const addProduct = async (product: Omit<Product, "id">) => {
-    const productsRef = ref(db, "products");
-    await push(productsRef, product);
+  const addOrder = async (order: Order) => {
+    await persist({ ...data, orders: [order, ...data.orders] });
   };
 
-  const deleteProduct = async (productId: string) => {
-    const productRef = ref(db, `products/${productId}`);
-    await remove(productRef);
+  const setOrderStatus = async (id: string, status: OrderStatus) => {
+    await persist({
+      ...data,
+      orders: data.orders.map((o) => (o.id === id ? { ...o, status } : o)),
+    });
   };
 
-  const savePaymentSettings = async (settings: PaymentSettings) => {
-    const settingsRef = ref(db, "settings/payment");
-    await set(settingsRef, settings);
-    setPaymentSettings(settings);
+  const deleteOrder = async (id: string) => {
+    await persist({ ...data, orders: data.orders.filter((o) => o.id !== id) });
+  };
+
+  const updateSettings = async (settings: Partial<Settings>) => {
+    await persist({ ...data, settings: { ...data.settings, ...settings } });
   };
 
   return (
-    <StoreContext.Provider value={{
-      products,
-      cart,
-      paymentSettings,
-      loading,
-      addToCart,
-      removeFromCart,
-      updateQuantity,
-      clearCart,
-      addProduct,
-      deleteProduct,
-      savePaymentSettings
-    }}>
+    <StoreContext.Provider
+      value={{
+        products: data.products,
+        orders: data.orders,
+        settings: data.settings,
+        loading,
+        online,
+        isAdmin,
+        login,
+        logout,
+        addProduct,
+        updateProduct,
+        deleteProduct,
+        importProducts,
+        resetProducts,
+        addOrder,
+        setOrderStatus,
+        deleteOrder,
+        updateSettings,
+      }}
+    >
       {children}
     </StoreContext.Provider>
   );
