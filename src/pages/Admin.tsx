@@ -1,7 +1,5 @@
 import { useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
-import { storage } from "@/lib/firebase";
 import {
   BadgeCheck,
   Download,
@@ -161,14 +159,13 @@ function ProductForm({
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const CLOUDINARY_CLOUD_NAME = "iblruqyz";
+  const CLOUDINARY_UPLOAD_PRESET = "egydent_unsigned";
+
   const handleImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = ""; // يسمح برفع نفس الملف تاني لو احتاج
     if (!file) return;
-    if (!storage) {
-      setErr("رفع الصور مش متاح دلوقتي — تأكد إن Firebase مربوط صح");
-      return;
-    }
     if (!file.type.startsWith("image/")) {
       setErr("اختار ملف صورة صحيح (jpg, png, webp...)");
       return;
@@ -180,12 +177,17 @@ function ProductForm({
     setUploading(true);
     setErr("");
     try {
-      const safeName = file.name.replace(/[^a-zA-Z0-9.]/g, "_");
-      const path = `products/${Date.now()}-${safeName}`;
-      const fileRef = storageRef(storage, path);
-      await uploadBytes(fileRef, file);
-      const url = await getDownloadURL(fileRef);
-      setD((prev) => ({ ...prev, img: url }));
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+
+      const res = await fetch(
+        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+        { method: "POST", body: formData }
+      );
+      const data = await res.json();
+      if (!data.secure_url) throw new Error("no url");
+      setD((prev) => ({ ...prev, img: data.secure_url }));
     } catch {
       setErr("فشل رفع الصورة — حاول تاني");
     } finally {
