@@ -117,7 +117,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setData(next);
     if (firebaseReady && db) {
       const ref = doc(db, STORE_COLLECTION, STORE_DOC_ID);
-      await setDoc(ref, next, { merge: true });
+      try {
+        await setDoc(ref, next, { merge: true });
+      } catch (err) {
+        console.error("فشل حفظ البيانات على قاعدة البيانات:", err);
+        alert("حصل خطأ أثناء حفظ البيانات على قاعدة البيانات — التعديل هيفضل شكله ظاهر بس هيختفي لو عملت Refresh. حاول تاني.");
+      }
     }
   };
 
