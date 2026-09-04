@@ -32,6 +32,7 @@ export default function Categories() {
           <Reveal delay={0.15}>
             <a
               href="#products"
+              onClick={() => window.dispatchEvent(new CustomEvent("set-product-filter", { detail: "all" }))}
               className="group inline-flex items-center gap-2 rounded-full border border-[var(--line-3)] px-6 py-3 text-sm font-bold text-frost-300 transition-all hover:border-volt-500/40 hover:text-volt-300"
             >
               كل المنتجات
@@ -45,6 +46,7 @@ export default function Categories() {
             <Reveal key={c.id} delay={i * 0.08} className={cn(spans[i])}>
               <a
                 href="#products"
+                onClick={() => window.dispatchEvent(new CustomEvent("set-product-filter", { detail: c.id }))}
                 className="group relative block h-full w-full overflow-hidden rounded-[1.75rem] border border-[var(--line-2)] bg-ink-900 transition-colors duration-500 hover:border-volt-500/40"
               >
                 <img
