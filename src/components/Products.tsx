@@ -57,12 +57,14 @@ function ProductCard({ p, index }: { p: Product; index: number }) {
           عرض التفاصيل
         </span>
 
-        {/* rating */}
-        <span className="absolute bottom-3 left-4 flex items-center gap-1.5 rounded-full border border-[var(--line-3)] bg-ink-950/70 px-3 py-1 text-xs font-bold text-[var(--text-primary)] backdrop-blur-md" dir="ltr">
-          <Star className="size-3.5 fill-gold-400 text-gold-400" />
-          {p.rating}
-          <span className="text-frost-500">({p.sold}+)</span>
-        </span>
+        {/* rating — only show once the product actually has sales/reviews behind it */}
+        {p.sold > 0 && (
+          <span className="absolute bottom-3 left-4 flex items-center gap-1.5 rounded-full border border-[var(--line-3)] bg-ink-950/70 px-3 py-1 text-xs font-bold text-[var(--text-primary)] backdrop-blur-md" dir="ltr">
+            <Star className="size-3.5 fill-gold-400 text-gold-400" />
+            {p.rating}
+            <span className="text-frost-500">({p.sold}+)</span>
+          </span>
+        )}
       </div>
 
       {/* body */}
