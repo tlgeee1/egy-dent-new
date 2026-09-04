@@ -55,23 +55,25 @@ export default function ProductModal() {
                 <span className="text-xs font-bold tracking-wide text-volt-400">{catName(p.cat)}</span>
                 <h3 className="mt-2 font-display text-2xl font-black leading-snug md:text-3xl">{p.name}</h3>
 
-                <div className="mt-3 flex items-center gap-3">
-                  <div className="flex gap-0.5" dir="ltr">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <Star
-                        key={i}
-                        className={
-                          i < Math.round(p.rating)
-                            ? "size-4 fill-gold-400 text-gold-400"
-                            : "size-4 text-frost-500/40"
-                        }
-                      />
-                    ))}
+                {p.sold > 0 && (
+                  <div className="mt-3 flex items-center gap-3">
+                    <div className="flex gap-0.5" dir="ltr">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <Star
+                          key={i}
+                          className={
+                            i < Math.round(p.rating)
+                              ? "size-4 fill-gold-400 text-gold-400"
+                              : "size-4 text-frost-500/40"
+                          }
+                        />
+                      ))}
+                    </div>
+                    <span className="text-xs text-frost-400">
+                      {p.rating} · اتباع أكتر من {p.sold} مرة
+                    </span>
                   </div>
-                  <span className="text-xs text-frost-400">
-                    {p.rating} · اتباع أكتر من {p.sold} مرة
-                  </span>
-                </div>
+                )}
 
                 <p className="mt-5 text-sm leading-loose text-frost-300 md:text-[15px]">{p.desc}</p>
 
