@@ -1,5 +1,14 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { doc, onSnapshot, setDoc } from "firebase/firestore";
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  onSnapshot,
+  setDoc,
+  writeBatch,
+} from "firebase/firestore";
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -29,12 +38,6 @@ export type Settings = {
   freeShipping: number;
 };
 
-interface StoreDoc {
-  products: Product[];
-  orders: Order[];
-  settings: Settings;
-}
-
 interface StoreContextType {
   products: Product[];
   orders: Order[];
@@ -56,24 +59,36 @@ interface StoreContextType {
   updateSettings: (settings: Partial<Settings>) => Promise<void>;
 }
 
-const STORE_COLLECTION = "store";
-const STORE_DOC_ID = "main";
+/**
+ * بنية جديدة: كل منتج وكل طلب مستند مستقل في collection خاص بيه،
+ * بدل ما الكل كان محشور في مستند واحد (store/main).
+ * ده بيمنع تعارض التعديلات لما أكتر من أدمن يشتغل في نفس الوقت،
+ * وبيبعد عن حد الـ 1MB للمستند الواحد لما المنتجات تزيد لـ 400+.
+ */
+const PRODUCTS_COLLECTION = "products";
+const ORDERS_COLLECTION = "orders";
+const SETTINGS_COLLECTION = "settings";
+const SETTINGS_DOC_ID = "main";
 
-const defaultDoc: StoreDoc = {
-  products: DEFAULT_PRODUCTS,
-  orders: [],
-  settings: { whatsapp: DEFAULT_WHATSAPP, freeShipping: DEFAULT_FREE_SHIPPING },
-};
+// مسار البيانات القديمة (قبل إعادة الهيكلة) — بيتقرا مرة واحدة بس عشان النقل التلقائي
+const LEGACY_COLLECTION = "store";
+const LEGACY_DOC_ID = "main";
+
+const defaultSettings: Settings = { whatsapp: DEFAULT_WHATSAPP, freeShipping: DEFAULT_FREE_SHIPPING };
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [data, setData] = useState<StoreDoc>(defaultDoc);
+  const [products, setProducts] = useState<Product[]>(DEFAULT_PRODUCTS);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [loading, setLoading] = useState(true);
   const [online, setOnline] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [authChecking, setAuthChecking] = useState(true);
+  const [migrated, setMigrated] = useState(false);
 
+  /* ---------------- Auth ---------------- */
   useEffect(() => {
     if (!auth) {
       setAuthChecking(false);
@@ -87,31 +102,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, []);
 
+  /* ---------------- Live sync: products ---------------- */
   useEffect(() => {
     if (!firebaseReady || !db) {
       setLoading(false);
       setOnline(false);
       return;
     }
-
-    const ref = doc(db, STORE_COLLECTION, STORE_DOC_ID);
     const unsubscribe = onSnapshot(
-      ref,
+      collection(db, PRODUCTS_COLLECTION),
       (snap) => {
-        if (snap.exists()) {
-          const remote = snap.data() as Partial<StoreDoc>;
-          setData({
-            products: remote.products ?? DEFAULT_PRODUCTS,
-            orders: remote.orders ?? [],
-            settings: remote.settings ?? defaultDoc.settings,
-          });
-        } else {
-          // أول مرة — ابدأ بالبيانات الافتراضية وسجّلها على Firestore
-          setDoc(ref, defaultDoc).catch(() => {
-            /* ignore */
-          });
-          setData(defaultDoc);
-        }
+        const list = snap.docs.map((d) => d.data() as Product).sort((a, b) => a.id - b.id);
+        setProducts(list);
         setOnline(true);
         setLoading(false);
       },
@@ -120,22 +122,80 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setLoading(false);
       },
     );
-
     return () => unsubscribe();
   }, []);
 
-  const persist = async (next: StoreDoc) => {
-    setData(next);
-    if (firebaseReady && db) {
-      const ref = doc(db, STORE_COLLECTION, STORE_DOC_ID);
+  /* ---------------- Live sync: orders ---------------- */
+  useEffect(() => {
+    if (!firebaseReady || !db) return;
+    const unsubscribe = onSnapshot(collection(db, ORDERS_COLLECTION), (snap) => {
+      const list = snap.docs.map((d) => d.data() as Order).sort((a, b) => b.date - a.date);
+      setOrders(list);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  /* ---------------- Live sync: settings ---------------- */
+  useEffect(() => {
+    if (!firebaseReady || !db) return;
+    const ref = doc(db, SETTINGS_COLLECTION, SETTINGS_DOC_ID);
+    const unsubscribe = onSnapshot(ref, (snap) => {
+      if (snap.exists()) setSettings(snap.data() as Settings);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  /**
+   * نقل تلقائي لمرة واحدة: لو لسه فيه بيانات قديمة في store/main
+   * ومفيش حاجة اتنقلت للبنية الجديدة لسه، انقلها. بيشتغل بس لما الأدمن
+   * يكون مسجل دخول لأن الكتابة محتاجة صلاحية أدمن حسب قواعد الأمان.
+   */
+  useEffect(() => {
+    const database = db;
+    if (!isAdmin || migrated || !database) return;
+    (async () => {
       try {
-        await setDoc(ref, next, { merge: true });
+        const legacyRef = doc(database, LEGACY_COLLECTION, LEGACY_DOC_ID);
+        const legacySnap = await getDoc(legacyRef);
+        if (!legacySnap.exists()) {
+          setMigrated(true);
+          return;
+        }
+        const existingProducts = await getDocs(collection(database, PRODUCTS_COLLECTION));
+        if (!existingProducts.empty) {
+          // البنية الجديدة عندها بيانات أصلاً — متعملش نقل تاني
+          setMigrated(true);
+          return;
+        }
+
+        const legacy = legacySnap.data() as {
+          products?: Product[];
+          orders?: Order[];
+          settings?: Settings;
+        };
+
+        const batch = writeBatch(database);
+        (legacy.products ?? []).forEach((p) => {
+          batch.set(doc(database, PRODUCTS_COLLECTION, String(p.id)), p);
+        });
+        (legacy.orders ?? []).forEach((o) => {
+          batch.set(doc(database, ORDERS_COLLECTION, o.id), o);
+        });
+        if (legacy.settings) {
+          batch.set(doc(database, SETTINGS_COLLECTION, SETTINGS_DOC_ID), legacy.settings);
+        }
+        await batch.commit();
+        console.info(
+          `تم نقل ${legacy.products?.length ?? 0} منتج و${legacy.orders?.length ?? 0} طلب للبنية الجديدة بنجاح.`,
+        );
+        setMigrated(true);
       } catch (err) {
-        console.error("فشل حفظ البيانات على قاعدة البيانات:", err);
-        alert("حصل خطأ أثناء حفظ البيانات على قاعدة البيانات — التعديل هيفضل شكله ظاهر بس هيختفي لو عملت Refresh. حاول تاني.");
+        console.error("فشل النقل التلقائي للبيانات القديمة:", err);
       }
-    }
-  };
+    })();
+  }, [isAdmin, migrated]);
+
+  /* ---------------- Auth actions ---------------- */
 
   /** يرجّع null لو الدخول نجح، أو رسالة خطأ بالعربي لو فشل */
   const login = async (email: string, password: string): Promise<string | null> => {
@@ -158,59 +218,137 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (auth) signOut(auth);
   };
 
-  const nextProductId = (products: Product[]) => (products.length ? Math.max(...products.map((p) => p.id)) + 1 : 1);
+  /* ---------------- Products ---------------- */
+
+  const reportError = (context: string, err: unknown) => {
+    console.error(context, err);
+    alert("حصل خطأ أثناء حفظ البيانات على قاعدة البيانات — حاول تاني.");
+  };
+
+  const nextProductId = () => (products.length ? Math.max(...products.map((p) => p.id)) + 1 : 1);
 
   const addProduct = async (product: Omit<Product, "id">) => {
-    const newProduct: Product = { ...product, id: nextProductId(data.products) };
-    await persist({ ...data, products: [...data.products, newProduct] });
+    const database = db;
+    if (!database) return;
+    const newProduct: Product = { ...product, id: nextProductId() };
+    try {
+      await setDoc(doc(database, PRODUCTS_COLLECTION, String(newProduct.id)), newProduct);
+    } catch (err) {
+      reportError("فشل إضافة المنتج:", err);
+    }
   };
 
   const updateProduct = async (id: number, product: Omit<Product, "id">) => {
-    await persist({
-      ...data,
-      products: data.products.map((p) => (p.id === id ? { ...product, id } : p)),
-    });
+    const database = db;
+    if (!database) return;
+    try {
+      await setDoc(doc(database, PRODUCTS_COLLECTION, String(id)), { ...product, id });
+    } catch (err) {
+      reportError("فشل تعديل المنتج:", err);
+    }
   };
 
   const deleteProduct = async (id: number) => {
-    await persist({ ...data, products: data.products.filter((p) => p.id !== id) });
+    const database = db;
+    if (!database) return;
+    try {
+      await deleteDoc(doc(database, PRODUCTS_COLLECTION, String(id)));
+    } catch (err) {
+      reportError("فشل حذف المنتج:", err);
+    }
   };
 
-  const importProducts = async (products: Omit<Product, "id">[]) => {
-    let nextId = nextProductId(data.products);
-    const added = products.map((p) => ({ ...p, id: nextId++ }));
-    await persist({ ...data, products: [...data.products, ...added] });
+  const importProducts = async (newProducts: Omit<Product, "id">[]) => {
+    const database = db;
+    if (!database) return;
+    try {
+      let nextId = nextProductId();
+      // Firestore بيسمح بـ 500 عملية كحد أقصى في الـ batch الواحدة
+      for (let i = 0; i < newProducts.length; i += 450) {
+        const chunk = newProducts.slice(i, i + 450);
+        const batch = writeBatch(database);
+        chunk.forEach((p) => {
+          const full: Product = { ...p, id: nextId++ };
+          batch.set(doc(database, PRODUCTS_COLLECTION, String(full.id)), full);
+        });
+        await batch.commit();
+      }
+    } catch (err) {
+      reportError("فشل استيراد المنتجات:", err);
+    }
   };
 
   const resetProducts = async () => {
-    await persist({ ...data, products: DEFAULT_PRODUCTS });
+    const database = db;
+    if (!database) return;
+    try {
+      const existing = await getDocs(collection(database, PRODUCTS_COLLECTION));
+      const deleteBatch = writeBatch(database);
+      existing.docs.forEach((d) => deleteBatch.delete(d.ref));
+      await deleteBatch.commit();
+
+      const addBatch = writeBatch(database);
+      DEFAULT_PRODUCTS.forEach((p) => {
+        addBatch.set(doc(database, PRODUCTS_COLLECTION, String(p.id)), p);
+      });
+      await addBatch.commit();
+    } catch (err) {
+      reportError("فشل إعادة تعيين المنتجات:", err);
+    }
   };
 
+  /* ---------------- Orders ---------------- */
+
   const addOrder = async (order: Order) => {
-    await persist({ ...data, orders: [order, ...data.orders] });
+    const database = db;
+    if (!database) return;
+    try {
+      await setDoc(doc(database, ORDERS_COLLECTION, order.id), order);
+    } catch (err) {
+      reportError("فشل حفظ الطلب:", err);
+    }
   };
 
   const setOrderStatus = async (id: string, status: OrderStatus) => {
-    await persist({
-      ...data,
-      orders: data.orders.map((o) => (o.id === id ? { ...o, status } : o)),
-    });
+    const database = db;
+    if (!database) return;
+    try {
+      const existing = orders.find((o) => o.id === id);
+      if (!existing) return;
+      await setDoc(doc(database, ORDERS_COLLECTION, id), { ...existing, status });
+    } catch (err) {
+      reportError("فشل تحديث حالة الطلب:", err);
+    }
   };
 
   const deleteOrder = async (id: string) => {
-    await persist({ ...data, orders: data.orders.filter((o) => o.id !== id) });
+    const database = db;
+    if (!database) return;
+    try {
+      await deleteDoc(doc(database, ORDERS_COLLECTION, id));
+    } catch (err) {
+      reportError("فشل حذف الطلب:", err);
+    }
   };
 
-  const updateSettings = async (settings: Partial<Settings>) => {
-    await persist({ ...data, settings: { ...data.settings, ...settings } });
+  /* ---------------- Settings ---------------- */
+
+  const updateSettings = async (partial: Partial<Settings>) => {
+    const database = db;
+    if (!database) return;
+    try {
+      await setDoc(doc(database, SETTINGS_COLLECTION, SETTINGS_DOC_ID), { ...settings, ...partial }, { merge: true });
+    } catch (err) {
+      reportError("فشل حفظ الإعدادات:", err);
+    }
   };
 
   return (
     <StoreContext.Provider
       value={{
-        products: data.products,
-        orders: data.orders,
-        settings: data.settings,
+        products,
+        orders,
+        settings,
         loading,
         online,
         isAdmin,

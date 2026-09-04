@@ -1,6 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { initializeFirestore, type Firestore } from "firebase/firestore";
 import { getAuth, type Auth } from "firebase/auth";
+import { getStorage, type FirebaseStorage } from "firebase/storage";
 
 /** ⚙️ إعدادات Firebase — مشروع egy-dent-store */
 const firebaseConfig = {
@@ -32,3 +33,6 @@ export const db: Firestore | null = app
 
 /** تسجيل دخول الأدمن الحقيقي — بدل الباسورد المكتوب في الكود */
 export const auth: Auth | null = app ? getAuth(app) : null;
+
+/** تخزين صور المنتجات الحقيقية (رفع من جهاز الأدمن) */
+export const storage: FirebaseStorage | null = app ? getStorage(app) : null;
