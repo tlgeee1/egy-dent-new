@@ -46,14 +46,19 @@ const statusStyle: Record<OrderStatus, string> = {
 /* ---------------- Login ---------------- */
 function Login() {
   const { login } = useStore();
+  const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
-  const [err, setErr] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const [shake, setShake] = useState(0);
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!login(pass)) {
-      setErr(true);
+    setBusy(true);
+    const error = await login(email, pass);
+    setBusy(false);
+    if (error) {
+      setErr(error);
       setShake((s) => s + 1);
     }
   };
@@ -76,13 +81,31 @@ function Login() {
         <p className="mt-1 text-xs text-frost-500">منطقة خاصة بإدارة المتجر</p>
 
         <div className="relative mt-6">
+          <input
+            type="email"
+            autoComplete="username"
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              setErr(null);
+            }}
+            placeholder="الإيميل"
+            dir="ltr"
+            className={cn(
+              "w-full rounded-2xl border bg-ink-950/70 py-3.5 px-4 text-sm outline-none transition-colors placeholder:text-frost-500/70",
+              err ? "border-red-400/60" : "border-[var(--line-3)] focus:border-volt-500/60",
+            )}
+          />
+        </div>
+        <div className="relative mt-3">
           <Lock className="absolute right-4 top-1/2 size-4 -translate-y-1/2 text-frost-500" />
           <input
             type="password"
+            autoComplete="current-password"
             value={pass}
             onChange={(e) => {
               setPass(e.target.value);
-              setErr(false);
+              setErr(null);
             }}
             placeholder="كلمة المرور"
             className={cn(
@@ -91,13 +114,14 @@ function Login() {
             )}
           />
         </div>
-        {err && <p className="mt-2 text-xs text-red-400">كلمة المرور غير صحيحة</p>}
-        <button className="mt-4 w-full rounded-2xl bg-gradient-to-l from-volt-400 to-volt-600 py-3.5 font-display font-black text-[var(--onaccent)] transition-transform hover:scale-[1.02] active:scale-95">
+        {err && <p className="mt-2 text-xs text-red-400">{err}</p>}
+        <button
+          disabled={busy}
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-volt-400 to-volt-600 py-3.5 font-display font-black text-[var(--onaccent)] transition-transform hover:scale-[1.02] active:scale-95 disabled:opacity-60"
+        >
+          {busy && <Loader2 className="size-4 animate-spin" />}
           دخول
         </button>
-        <p className="mt-4 rounded-xl bg-[var(--fill-3)] py-2 text-[11px] text-frost-500">
-          كلمة المرور الافتراضية: <span className="font-bold text-volt-300" dir="ltr">egy2025</span>
-        </p>
         <a href="#" className="mt-4 inline-block text-xs font-bold text-frost-400 transition-colors hover:text-volt-300">
           العودة للمتجر
         </a>
@@ -285,6 +309,14 @@ export default function Admin() {
     };
     reader.readAsText(file, "utf-8");
   };
+
+  if (store.authChecking) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-ink-950">
+        <Loader2 className="size-8 animate-spin text-volt-400" />
+      </div>
+    );
+  }
 
   if (!store.isAdmin) return <Login />;
 
