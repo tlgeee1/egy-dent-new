@@ -1,6 +1,12 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
-import { db, firebaseReady } from "@/lib/firebase";
+import {
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut,
+  type AuthError,
+} from "firebase/auth";
+import { auth, db, firebaseReady } from "@/lib/firebase";
 import { DEFAULT_PRODUCTS, DEFAULT_WHATSAPP, DEFAULT_FREE_SHIPPING, type Product } from "@/data/data";
 
 /* ---------------- Types ---------------- */
@@ -36,7 +42,8 @@ interface StoreContextType {
   loading: boolean;
   online: boolean;
   isAdmin: boolean;
-  login: (password: string) => boolean;
+  authChecking: boolean;
+  login: (email: string, password: string) => Promise<string | null>;
   logout: () => void;
   addProduct: (product: Omit<Product, "id">) => Promise<void>;
   updateProduct: (id: number, product: Omit<Product, "id">) => Promise<void>;
@@ -49,8 +56,6 @@ interface StoreContextType {
   updateSettings: (settings: Partial<Settings>) => Promise<void>;
 }
 
-const ADMIN_PASSWORD = "egy2025";
-const ADMIN_KEY = "egydent_admin";
 const STORE_COLLECTION = "store";
 const STORE_DOC_ID = "main";
 
@@ -67,13 +72,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [online, setOnline] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [authChecking, setAuthChecking] = useState(true);
 
   useEffect(() => {
-    try {
-      setIsAdmin(localStorage.getItem(ADMIN_KEY) === "1");
-    } catch {
-      /* ignore */
+    if (!auth) {
+      setAuthChecking(false);
+      return;
     }
+    // بيتابع حالة الدخول الحقيقية من Firebase — مش باسورد محفوظ محليًا
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setIsAdmin(!!user);
+      setAuthChecking(false);
+    });
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -126,26 +137,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const login = (password: string) => {
-    if (password === ADMIN_PASSWORD) {
-      setIsAdmin(true);
-      try {
-        localStorage.setItem(ADMIN_KEY, "1");
-      } catch {
-        /* ignore */
+  /** يرجّع null لو الدخول نجح، أو رسالة خطأ بالعربي لو فشل */
+  const login = async (email: string, password: string): Promise<string | null> => {
+    if (!auth) return "الاتصال بقاعدة البيانات مش شغال دلوقتي — حاول تاني بعد شوية";
+    try {
+      await signInWithEmailAndPassword(auth, email.trim(), password);
+      return null;
+    } catch (err) {
+      const code = (err as AuthError).code;
+      if (code === "auth/invalid-email") return "الإيميل غير صحيح";
+      if (code === "auth/user-not-found" || code === "auth/invalid-credential" || code === "auth/wrong-password") {
+        return "الإيميل أو كلمة المرور غير صحيحة";
       }
-      return true;
+      if (code === "auth/too-many-requests") return "محاولات كتير غلط — حاول تاني بعد شوية";
+      return "حصل خطأ أثناء تسجيل الدخول";
     }
-    return false;
   };
 
   const logout = () => {
-    setIsAdmin(false);
-    try {
-      localStorage.removeItem(ADMIN_KEY);
-    } catch {
-      /* ignore */
-    }
+    if (auth) signOut(auth);
   };
 
   const nextProductId = (products: Product[]) => (products.length ? Math.max(...products.map((p) => p.id)) + 1 : 1);
@@ -204,6 +214,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         loading,
         online,
         isAdmin,
+        authChecking,
         login,
         logout,
         addProduct,
