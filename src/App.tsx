@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { CheckCircle2 } from "lucide-react";
 import { StoreProvider } from "@/context/StoreContext";
@@ -17,8 +17,9 @@ import Footer from "@/components/Footer";
 import CartDrawer from "@/components/CartDrawer";
 import CheckoutModal from "@/components/CheckoutModal";
 import ProductModal from "@/components/ProductModal";
-import Admin from "@/pages/Admin";
 import { fmt } from "@/data/data";
+
+const Admin = lazy(() => import("@/pages/Admin"));
 
 function Toast() {
   const { toast, dismissToast, setOpen } = useCart();
@@ -60,7 +61,7 @@ function Store() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const id = setTimeout(() => setLoading(false), 1900);
+    const id = setTimeout(() => setLoading(false), 900);
     return () => clearTimeout(id);
   }, []);
 
@@ -106,7 +107,12 @@ function Shell() {
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
-  if (hash === "#admin") return <Admin />;
+  if (hash === "#admin")
+    return (
+      <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-ink-950 text-frost-400">جارِ التحميل...</div>}>
+        <Admin />
+      </Suspense>
+    );
   return <Store />;
 }
 

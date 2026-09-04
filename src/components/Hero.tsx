@@ -116,7 +116,7 @@ export default function Hero() {
             <motion.div style={{ rotateX: rx, rotateY: ry }} className="relative will-change-transform">
               <div className="absolute -inset-5 rounded-[3rem] bg-gradient-to-br from-volt-500/25 via-transparent to-[#1d4ed8]/20 blur-2xl" />
               <div className="relative overflow-hidden rounded-[2.5rem] border border-[var(--line-3)] shadow-[0_40px_100px_rgba(0,0,0,0.6)]">
-                <img src="images/hero.png" alt="أجهزة ومستلزمات طب الأسنان" className="aspect-[5/4.4] w-full object-cover" />
+                <img src="images/hero.jpg" alt="أجهزة ومستلزمات طب الأسنان" className="aspect-[5/4.4] w-full object-cover" />
                 <div className="absolute inset-0 bg-gradient-to-t from-ink-950/60 via-transparent to-transparent" />
               </div>
 
