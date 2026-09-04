@@ -1,6 +1,7 @@
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { ArrowDown, BadgePercent, ShieldCheck, Sparkles, Truck } from "lucide-react";
 import Marquee from "./Marquee";
+import { useStore } from "@/context/StoreContext";
 
 const stagger = {
   hidden: {},
@@ -12,6 +13,8 @@ const item = {
 };
 
 export default function Hero() {
+  const { products } = useStore();
+  const productCount = products.length;
   const mx = useMotionValue(0.5);
   const my = useMotionValue(0.5);
   const rx = useSpring(useTransform(my, [0, 1], [7, -7]), { stiffness: 120, damping: 18 });
@@ -79,7 +82,7 @@ export default function Hero() {
             {/* mini stats */}
             <motion.dl variants={item} className="mt-12 flex items-center justify-center gap-8 sm:gap-12 lg:justify-start">
               {[
-                ["+2,500", "منتج أصلي"],
+                [`+${productCount.toLocaleString("en-US")}`, "منتج أصلي"],
                 ["+950", "عيادة تثق بينا"],
                 ["24h", "توصيل سريع"],
               ].map(([v, l], i) => (
