@@ -1,5 +1,7 @@
-import { useMemo, useRef, useState, type FormEvent } from "react";
+import { useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
+import { storage } from "@/lib/firebase";
 import {
   BadgeCheck,
   Download,
@@ -156,6 +158,40 @@ function ProductForm({
 }) {
   const [d, setD] = useState<Draft>(initial);
   const [err, setErr] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // يسمح برفع نفس الملف تاني لو احتاج
+    if (!file) return;
+    if (!storage) {
+      setErr("رفع الصور مش متاح دلوقتي — تأكد إن Firebase مربوط صح");
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      setErr("اختار ملف صورة صحيح (jpg, png, webp...)");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setErr("حجم الصورة كبير أوي — أقصى حد 5 ميجا");
+      return;
+    }
+    setUploading(true);
+    setErr("");
+    try {
+      const safeName = file.name.replace(/[^a-zA-Z0-9.]/g, "_");
+      const path = `products/${Date.now()}-${safeName}`;
+      const fileRef = storageRef(storage, path);
+      await uploadBytes(fileRef, file);
+      const url = await getDownloadURL(fileRef);
+      setD((prev) => ({ ...prev, img: url }));
+    } catch {
+      setErr("فشل رفع الصورة — حاول تاني");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const save = () => {
     if (d.name.trim().length < 3) return setErr("اكتب اسم المنتج");
@@ -211,32 +247,64 @@ function ProductForm({
           </div>
           <div className="sm:col-span-2">
             <label className="mb-1.5 block text-xs font-bold text-frost-400">صورة المنتج</label>
-            <div className="grid grid-cols-5 gap-2 sm:grid-cols-9">
-              {IMAGE_CHOICES.map((img) => (
+            <div className="flex items-center gap-4">
+              <div className="relative grid size-24 shrink-0 place-items-center overflow-hidden rounded-2xl border-2 border-[var(--line-3)] bg-ink-950/60">
+                {d.img ? (
+                  <img src={d.img} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <Upload className="size-6 text-frost-500" />
+                )}
+                {uploading && (
+                  <span className="absolute inset-0 grid place-items-center bg-ink-950/70">
+                    <Loader2 className="size-6 animate-spin text-volt-400" />
+                  </span>
+                )}
+              </div>
+              <div className="flex-1 space-y-2">
+                <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
                 <button
-                  key={img}
-                  onClick={() => setD({ ...d, img })}
-                  className={cn(
-                    "relative aspect-square overflow-hidden rounded-xl border-2 transition-all",
-                    d.img === img ? "border-volt-400 ring-2 ring-volt-400/30" : "border-[var(--line-3)] opacity-60 hover:opacity-100",
-                  )}
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="flex items-center gap-2 rounded-xl border border-[var(--line-3)] px-4 py-2.5 text-xs font-bold text-frost-300 transition-colors hover:border-volt-500/50 hover:text-volt-300 disabled:opacity-60"
                 >
-                  <img src={img} alt="" className="h-full w-full object-cover" />
-                  {d.img === img && (
-                    <span className="absolute inset-0 grid place-items-center bg-ink-950/40">
-                      <BadgeCheck className="size-5 text-volt-300" />
-                    </span>
-                  )}
+                  <Upload className="size-4" />
+                  {uploading ? "جارِ الرفع..." : "ارفع صورة من جهازك"}
                 </button>
-              ))}
+                <p className="text-[11px] text-frost-500">JPG أو PNG أو WEBP — لحد 5 ميجا</p>
+              </div>
             </div>
+
+            <details className="mt-3">
+              <summary className="cursor-pointer text-xs font-bold text-frost-400 hover:text-volt-300">أو اختار صورة جاهزة بدل الرفع</summary>
+              <div className="mt-2 grid grid-cols-5 gap-2 sm:grid-cols-9">
+                {IMAGE_CHOICES.map((img) => (
+                  <button
+                    key={img}
+                    type="button"
+                    onClick={() => setD({ ...d, img })}
+                    className={cn(
+                      "relative aspect-square overflow-hidden rounded-xl border-2 transition-all",
+                      d.img === img ? "border-volt-400 ring-2 ring-volt-400/30" : "border-[var(--line-3)] opacity-60 hover:opacity-100",
+                    )}
+                  >
+                    <img src={img} alt="" className="h-full w-full object-cover" />
+                    {d.img === img && (
+                      <span className="absolute inset-0 grid place-items-center bg-ink-950/40">
+                        <BadgeCheck className="size-5 text-volt-300" />
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </details>
           </div>
         </div>
 
         {err && <p className="mt-4 text-xs text-red-400">{err}</p>}
 
         <div className="mt-6 flex gap-3">
-          <button onClick={save} className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-volt-400 to-volt-600 py-3.5 font-display font-black text-[var(--onaccent)] transition-transform hover:scale-[1.02]">
+          <button onClick={save} disabled={uploading} className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-volt-400 to-volt-600 py-3.5 font-display font-black text-[var(--onaccent)] transition-transform hover:scale-[1.02] disabled:opacity-60">
             <Save className="size-4" />
             حفظ المنتج
           </button>
