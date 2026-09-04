@@ -2,6 +2,7 @@ import { ArrowLeft } from "lucide-react";
 import { categories } from "@/data/data";
 import { Reveal, SectionHead } from "./ui";
 import { cn } from "@/utils/cn";
+import { useStore } from "@/context/StoreContext";
 
 const spans = [
   "lg:col-span-2 lg:row-span-1",
@@ -11,6 +12,9 @@ const spans = [
 ];
 
 export default function Categories() {
+  const { products } = useStore();
+  const countFor = (id: string) => products.filter((p) => p.cat === id).length;
+
   return (
     <section id="categories" className="relative py-24 md:py-32">
       <div className="mx-auto max-w-7xl px-5 lg:px-8">
@@ -23,7 +27,7 @@ export default function Categories() {
                 <span className="text-volt-400"> مغطّاة</span>
               </>
             }
-            desc="أكتر من 2,500 منتج في 4 فئات رئيسية — من أول كرسي العيادة لآخر لفة الجفاز."
+            desc={`أكتر من ${products.length.toLocaleString("en-US")} منتج في ${categories.length} فئات رئيسية — من أول كرسي العيادة لآخر لفة الجفاز.`}
           />
           <Reveal delay={0.15}>
             <a
@@ -54,7 +58,7 @@ export default function Categories() {
 
                 {/* count chip */}
                 <span className="absolute right-5 top-5 rounded-full border border-[var(--line-4)] bg-ink-950/60 px-3.5 py-1.5 text-xs font-bold text-volt-200 backdrop-blur-md">
-                  {c.count}
+                  +{countFor(c.id).toLocaleString("en-US")} منتج
                 </span>
 
                 <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 p-6">
