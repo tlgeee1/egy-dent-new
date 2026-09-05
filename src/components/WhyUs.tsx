@@ -25,7 +25,7 @@ const features = [
 ];
 
 const stats = [
-  { to: 2500, suffix: "+", label: "منتج أصلي في المخزون" },
+  { to: 1000, suffix: "+", label: "منتج أصلي في المخزون" },
   { to: 950, suffix: "+", label: "عيادة ومعمل بيتعاملوا معانا" },
   { to: 48, suffix: "h", label: "أقصى مدة توصيل داخل القاهرة" },
   { to: 14, suffix: "+", label: "سنة خبرة في السوق المصري" },
@@ -38,7 +38,7 @@ export default function WhyUs() {
 
       <div className="mx-auto max-w-7xl px-5 lg:px-8">
         {/* stats */}
-        <div className="grid grid-cols-2 overflow-hidden rounded-[2rem] border border-[var(--line-2)] bg-ink-900/70 lg:grid-cols-4">
+        <div className="grid grid-cols-2 overflow-hidden rounded-[2rem] border border-[var(--line-2)] bg-ink-900 lg:grid-cols-4">
           {stats.map((s, i) => (
             <Reveal key={s.label} delay={i * 0.08} className="border-[var(--line-2)] [&:nth-child(odd)]:border-l [&:nth-child(n+3)]:border-t lg:[&:nth-child(n+3)]:border-t-0 lg:[&:not(:last-child)]:border-l">
               <div className="p-7 text-center md:p-10">
