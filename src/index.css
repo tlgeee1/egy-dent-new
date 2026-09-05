@@ -218,6 +218,10 @@ body {
   animation-direction: reverse;
 }
 
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
 /* grain overlay */
 .noise::after {
   content: "";
