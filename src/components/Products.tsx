@@ -40,12 +40,12 @@ function ProductCard({ p, index }: { p: Product; index: number }) {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-ink-900 via-transparent to-transparent" />
 
-        {p.badge && (
+        {p.badge && !p.showcaseOnly && (
           <span className="absolute right-4 top-4 rounded-full bg-gradient-to-l from-gold-400 to-gold-500 px-3 py-1.5 font-display text-xs font-black text-[var(--onaccent)] shadow-lg">
             {p.badge}
           </span>
         )}
-        {discount > 0 && !p.badge && (
+        {discount > 0 && !p.badge && !p.showcaseOnly && (
           <span className="absolute right-4 top-4 rounded-full bg-volt-500 px-3 py-1.5 font-display text-xs font-black text-[var(--onaccent)]">
             -{discount}%
           </span>
@@ -54,11 +54,11 @@ function ProductCard({ p, index }: { p: Product; index: number }) {
         {/* quick view hint */}
         <span className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-full bg-ink-950/70 px-5 py-2.5 text-xs font-bold text-[var(--text-primary)] opacity-0 backdrop-blur-md transition-all duration-300 group-hover:opacity-100">
           <Eye className="size-4 text-volt-300" />
-          عرض التفاصيل
+          {p.showcaseOnly ? "عرض الصورة" : "عرض التفاصيل"}
         </span>
 
         {/* rating — only show once the product actually has sales/reviews behind it */}
-        {p.sold > 0 && (
+        {p.sold > 0 && !p.showcaseOnly && (
           <span className="absolute bottom-3 left-4 flex items-center gap-1.5 rounded-full border border-[var(--line-3)] bg-ink-950/70 px-3 py-1 text-xs font-bold text-[var(--text-primary)] backdrop-blur-md" dir="ltr">
             <Star className="size-3.5 fill-gold-400 text-gold-400" />
             {p.rating}
@@ -73,38 +73,44 @@ function ProductCard({ p, index }: { p: Product; index: number }) {
         <h3 className="mt-1.5 font-display text-lg font-extrabold leading-snug">{p.name}</h3>
 
         <div className="mt-auto flex items-end justify-between gap-3 pt-5">
-          <div>
-            {p.oldPrice && p.oldPrice > 0 && (
-              <p className="text-xs font-medium text-frost-500 line-through">{fmt(p.oldPrice)} جنيه</p>
-            )}
-            <p className="font-display text-2xl font-black text-[var(--text-primary)]">
-              {fmt(p.price)}
-              <span className="mr-1.5 text-xs font-bold text-frost-400">جنيه</span>
-            </p>
-          </div>
+          {p.showcaseOnly ? (
+            <p className="text-xs leading-relaxed text-frost-400">{p.desc || "قريباً في متجرنا"}</p>
+          ) : (
+            <>
+              <div>
+                {p.oldPrice && p.oldPrice > 0 && (
+                  <p className="text-xs font-medium text-frost-500 line-through">{fmt(p.oldPrice)} جنيه</p>
+                )}
+                <p className="font-display text-2xl font-black text-[var(--text-primary)]">
+                  {fmt(p.price)}
+                  <span className="mr-1.5 text-xs font-bold text-frost-400">جنيه</span>
+                </p>
+              </div>
 
-          <button
-            onClick={handleAdd}
-            aria-label={added ? "تمت الإضافة" : "أضف للسلة"}
-            className={cn(
-              "relative grid size-12 shrink-0 place-items-center overflow-hidden rounded-2xl transition-all duration-300 active:scale-90",
-              added
-                ? "bg-emerald-400 text-[var(--onaccent)] shadow-[0_10px_28px_rgba(52,211,153,0.4)]"
-                : "bg-gradient-to-br from-volt-400 to-volt-600 text-[var(--onaccent)] shadow-[0_10px_28px_rgba(34,211,238,0.3)] hover:scale-105",
-            )}
-          >
-            <AnimatePresence mode="wait" initial={false}>
-              {added ? (
-                <motion.span key="c" initial={{ scale: 0, rotate: -90 }} animate={{ scale: 1, rotate: 0 }} exit={{ scale: 0 }}>
-                  <Check className="size-5" strokeWidth={3} />
-                </motion.span>
-              ) : (
-                <motion.span key="p" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0, rotate: 90 }}>
-                  <Plus className="size-5" strokeWidth={3} />
-                </motion.span>
-              )}
-            </AnimatePresence>
-          </button>
+              <button
+                onClick={handleAdd}
+                aria-label={added ? "تمت الإضافة" : "أضف للسلة"}
+                className={cn(
+                  "relative grid size-12 shrink-0 place-items-center overflow-hidden rounded-2xl transition-all duration-300 active:scale-90",
+                  added
+                    ? "bg-emerald-400 text-[var(--onaccent)] shadow-[0_10px_28px_rgba(52,211,153,0.4)]"
+                    : "bg-gradient-to-br from-volt-400 to-volt-600 text-[var(--onaccent)] shadow-[0_10px_28px_rgba(34,211,238,0.3)] hover:scale-105",
+                )}
+              >
+                <AnimatePresence mode="wait" initial={false}>
+                  {added ? (
+                    <motion.span key="c" initial={{ scale: 0, rotate: -90 }} animate={{ scale: 1, rotate: 0 }} exit={{ scale: 0 }}>
+                      <Check className="size-5" strokeWidth={3} />
+                    </motion.span>
+                  ) : (
+                    <motion.span key="p" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0, rotate: 90 }}>
+                      <Plus className="size-5" strokeWidth={3} />
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </button>
+            </>
+          )}
         </div>
       </div>
     </motion.article>
