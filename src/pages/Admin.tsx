@@ -143,6 +143,7 @@ const emptyDraft: Draft = {
   img: IMAGE_CHOICES[0],
   badge: "",
   desc: "",
+  showcaseOnly: false,
 };
 
 function ProductForm({
@@ -246,6 +247,20 @@ function ProductForm({
           <div className="sm:col-span-2">
             <label className="mb-1.5 block text-xs font-bold text-frost-400">الوصف</label>
             <textarea value={d.desc ?? ""} onChange={(e) => setD({ ...d, desc: e.target.value })} rows={2} className={cn(field, "resize-none")} placeholder="مواصفات المنتج..." />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="flex items-center gap-2.5 rounded-2xl border border-[var(--line-3)] bg-ink-950/60 px-4 py-3 text-sm">
+              <input
+                type="checkbox"
+                checked={!!d.showcaseOnly}
+                onChange={(e) => setD({ ...d, showcaseOnly: e.target.checked })}
+                className="size-4 accent-volt-500"
+              />
+              <span>
+                <span className="block font-bold text-frost-200">عرض فقط (بدون سعر أو طلب)</span>
+                <span className="block text-xs text-frost-500">فعّلها للمنتجات اللي صورتها موجودة للعرض بس ومش متاحة فعلياً للبيع — هتظهر بصورتها ووصفها بس من غير سعر أو زرار شراء.</span>
+              </span>
+            </label>
           </div>
           <div className="sm:col-span-2">
             <label className="mb-1.5 block text-xs font-bold text-frost-400">صورة المنتج</label>
@@ -610,6 +625,7 @@ export default function Admin() {
                           <img src={p.img} alt="" className="size-11 rounded-xl object-cover" />
                           <span className="font-bold">{p.name}</span>
                           {p.badge && <span className="rounded-full bg-gold-500/15 px-2 py-0.5 text-[10px] font-bold text-gold-300">{p.badge}</span>}
+                          {p.showcaseOnly && <span className="rounded-full bg-[var(--fill-6)] px-2 py-0.5 text-[10px] font-bold text-frost-400">عرض فقط</span>}
                         </div>
                       </td>
                       <td className="px-4 py-3 text-frost-400">{catName(p.cat)}</td>
