@@ -44,7 +44,7 @@ export default function Offer() {
 
             <div className="relative grid items-center gap-10 p-8 md:p-14 lg:grid-cols-[1.1fr_0.9fr]">
               <div className="text-center lg:text-right">
-                <span className="inline-flex items-center gap-2 rounded-full border border-gold-400/40 bg-gold-500/10 px-4 py-2 text-sm font-extrabold text-gold-300">
+                <span className="inline-flex items-center gap-2 rounded-full border border-gold-400 bg-gold-400 px-4 py-2 text-sm font-extrabold text-[#3a2506]">
                   <Flame className="size-4" />
                   عرض محدود — ينتهي قريباً
                 </span>
@@ -54,7 +54,7 @@ export default function Offer() {
                   جميع المنتجات
                 </h2>
                 <p className="mx-auto mt-4 max-w-md leading-loose text-white/70 lg:mx-0">
-                  استخدم الكود <span className="rounded-lg bg-white/10 px-2.5 py-1 font-display font-black tracking-widest text-gold-300" dir="ltr">EGY20</span> عند
+                  استخدم الكود <span className="rounded-lg bg-white px-2.5 py-1 font-display font-black tracking-widest text-[#3a2506]" dir="ltr">EGY20</span> عند
                   الطلب — على الأجهزة والمستهلكات وكل حاجة.
                 </p>
                 <a
@@ -71,7 +71,7 @@ export default function Offer() {
                 {units.map((u) => (
                   <div
                     key={u.l}
-                    className="rounded-3xl border border-white/15 bg-white/10 px-2 py-6 text-center backdrop-blur-md md:py-8"
+                    className="rounded-3xl border border-[#1d4257] bg-[#0d2836] px-2 py-6 text-center md:py-8"
                   >
                     <p className="font-display text-4xl font-black tabular-nums text-white md:text-5xl">
                       {String(u.v).padStart(2, "0")}

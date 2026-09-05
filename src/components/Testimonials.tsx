@@ -5,7 +5,7 @@ import { cn } from "@/utils/cn";
 
 function Card({ t }: { t: (typeof testimonials)[number] }) {
   return (
-    <figure className="relative w-[320px] shrink-0 rounded-[1.5rem] border border-[var(--line-2)] bg-ink-800/70 p-6 backdrop-blur-sm transition-colors hover:border-volt-500/30 md:w-[380px]">
+    <figure className="relative w-[320px] shrink-0 rounded-[1.5rem] border border-[var(--line-3)] bg-ink-800 p-6 shadow-sm transition-colors hover:border-volt-500/40 md:w-[380px]">
       <Quote className="absolute left-5 top-5 size-7 text-volt-500/20" />
       <div className="flex gap-1" dir="ltr">
         {Array.from({ length: 5 }).map((_, i) => (
