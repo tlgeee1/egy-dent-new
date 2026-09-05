@@ -13,7 +13,7 @@ const spans = [
 
 export default function Categories() {
   const { products } = useStore();
-  const countFor = (id: string) => products.filter((p) => p.cat === id).length;
+  const countFor = (id: string) => products.filter((p) => p.cat === id && !p.showcaseOnly).length;
 
   return (
     <section id="categories" className="relative py-24 md:py-32">
