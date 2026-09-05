@@ -9,6 +9,8 @@ export type Product = {
   img: string;
   badge?: string;
   desc?: string;
+  // منتج للعرض فقط (صورة وشرح بدون سعر) — مش موجود فعلياً في مخزون العميل
+  showcaseOnly?: boolean;
 };
 
 export const IMAGE_CHOICES = [
