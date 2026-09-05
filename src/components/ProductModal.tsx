@@ -55,7 +55,7 @@ export default function ProductModal() {
                 <span className="text-xs font-bold tracking-wide text-volt-400">{catName(p.cat)}</span>
                 <h3 className="mt-2 font-display text-2xl font-black leading-snug md:text-3xl">{p.name}</h3>
 
-                {p.sold > 0 && (
+                {p.sold > 0 && !p.showcaseOnly && (
                   <div className="mt-3 flex items-center gap-3">
                     <div className="flex gap-0.5" dir="ltr">
                       {Array.from({ length: 5 }).map((_, i) => (
@@ -86,60 +86,68 @@ export default function ProductModal() {
                   </span>
                 </div>
 
-                <div className="mt-6 flex items-end gap-3 border-t border-[var(--line-2)] pt-6">
-                  <div>
-                    {p.oldPrice && p.oldPrice > 0 && (
-                      <p className="text-sm text-frost-500 line-through">{fmt(p.oldPrice)} جنيه</p>
-                    )}
-                    <p className="font-display text-4xl font-black text-[var(--text-primary)]">
-                      {fmt(p.price)}
-                      <span className="mr-2 text-sm font-bold text-frost-400">جنيه</span>
-                    </p>
+                {p.showcaseOnly ? (
+                  <div className="mt-6 rounded-2xl border border-[var(--line-2)] bg-[var(--fill-6)] px-5 py-4 text-sm font-bold text-frost-300">
+                    منتج للعرض التوضيحي فقط — تواصل معنا لمعرفة التفاصيل والتوفر
                   </div>
-                </div>
+                ) : (
+                  <>
+                    <div className="mt-6 flex items-end gap-3 border-t border-[var(--line-2)] pt-6">
+                      <div>
+                        {p.oldPrice && p.oldPrice > 0 && (
+                          <p className="text-sm text-frost-500 line-through">{fmt(p.oldPrice)} جنيه</p>
+                        )}
+                        <p className="font-display text-4xl font-black text-[var(--text-primary)]">
+                          {fmt(p.price)}
+                          <span className="mr-2 text-sm font-bold text-frost-400">جنيه</span>
+                        </p>
+                      </div>
+                    </div>
 
-                {/* qty + actions */}
-                <div className="mt-6 flex items-center gap-3">
-                  <div className="flex items-center gap-1 rounded-2xl border border-[var(--line-3)] p-1.5">
+                    {/* qty + actions */}
+                    <div className="mt-6 flex items-center gap-3">
+                      <div className="flex items-center gap-1 rounded-2xl border border-[var(--line-3)] p-1.5">
+                        <button
+                          onClick={() => setQty(Math.max(1, qty - 1))}
+                          className="grid size-9 place-items-center rounded-xl text-frost-300 transition-colors hover:bg-[var(--fill-6)]"
+                          aria-label="تقليل"
+                        >
+                          <Minus className="size-4" />
+                        </button>
+                        <span className="w-9 text-center font-display text-lg font-black tabular-nums">{qty}</span>
+                        <button
+                          onClick={() => setQty(qty + 1)}
+                          className="grid size-9 place-items-center rounded-xl text-frost-300 transition-colors hover:bg-[var(--fill-6)]"
+                          aria-label="زيادة"
+                        >
+                          <Plus className="size-4" />
+                        </button>
+                      </div>
+                      <button
+                        onClick={() => {
+                          add(p.id, qty);
+                          setQuickView(null);
+                          setOpen(true);
+                        }}
+                        className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-volt-400 to-volt-600 py-3.5 font-display font-black text-[var(--onaccent)] shadow-[0_12px_30px_rgba(34,211,238,0.3)] transition-transform hover:scale-[1.02] active:scale-95"
+                      >
+                        <ShoppingBag className="size-5" />
+                        أضف للسلة
+                      </button>
+                    </div>
                     <button
-                      onClick={() => setQty(Math.max(1, qty - 1))}
-                      className="grid size-9 place-items-center rounded-xl text-frost-300 transition-colors hover:bg-[var(--fill-6)]"
-                      aria-label="تقليل"
+                      onClick={() => {
+                        add(p.id, qty);
+                        setQuickView(null);
+                        setOpen(true);
+                      }}
+                      className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-gold-500/40 bg-gold-500/10 py-3 text-sm font-bold text-gold-300 transition-colors hover:bg-gold-500/20"
                     >
-                      <Minus className="size-4" />
+                      <Zap className="size-4" />
+                      اشتري الآن — توصيل سريع
                     </button>
-                    <span className="w-9 text-center font-display text-lg font-black tabular-nums">{qty}</span>
-                    <button
-                      onClick={() => setQty(qty + 1)}
-                      className="grid size-9 place-items-center rounded-xl text-frost-300 transition-colors hover:bg-[var(--fill-6)]"
-                      aria-label="زيادة"
-                    >
-                      <Plus className="size-4" />
-                    </button>
-                  </div>
-                  <button
-                    onClick={() => {
-                      add(p.id, qty);
-                      setQuickView(null);
-                      setOpen(true);
-                    }}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-volt-400 to-volt-600 py-3.5 font-display font-black text-[var(--onaccent)] shadow-[0_12px_30px_rgba(34,211,238,0.3)] transition-transform hover:scale-[1.02] active:scale-95"
-                  >
-                    <ShoppingBag className="size-5" />
-                    أضف للسلة
-                  </button>
-                </div>
-                <button
-                  onClick={() => {
-                    add(p.id, qty);
-                    setQuickView(null);
-                    setOpen(true);
-                  }}
-                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-gold-500/40 bg-gold-500/10 py-3 text-sm font-bold text-gold-300 transition-colors hover:bg-gold-500/20"
-                >
-                  <Zap className="size-4" />
-                  اشتري الآن — توصيل سريع
-                </button>
+                  </>
+                )}
               </div>
             </div>
           </motion.div>
