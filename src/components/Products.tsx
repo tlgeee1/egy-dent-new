@@ -93,8 +93,8 @@ function ProductCard({ p, index }: { p: Product; index: number }) {
                 className={cn(
                   "relative grid size-12 shrink-0 place-items-center overflow-hidden rounded-2xl transition-all duration-300 active:scale-90",
                   added
-                    ? "bg-emerald-400 text-[var(--onaccent)] shadow-[0_10px_28px_rgba(52,211,153,0.4)]"
-                    : "bg-gradient-to-br from-volt-400 to-volt-600 text-[var(--onaccent)] shadow-[0_10px_28px_rgba(34,211,238,0.3)] hover:scale-105",
+                    ? "bg-emerald-400 text-white shadow-[0_10px_28px_rgba(52,211,153,0.4)]"
+                    : "bg-gradient-to-br from-volt-400 to-volt-600 text-white shadow-[0_10px_28px_rgba(34,211,238,0.3)] hover:scale-105",
                 )}
               >
                 <AnimatePresence mode="wait" initial={false}>

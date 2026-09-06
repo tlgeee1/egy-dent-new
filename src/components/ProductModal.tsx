@@ -129,7 +129,7 @@ export default function ProductModal() {
                           setQuickView(null);
                           setOpen(true);
                         }}
-                        className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-volt-400 to-volt-600 py-3.5 font-display font-black text-[var(--onaccent)] shadow-[0_12px_30px_rgba(34,211,238,0.3)] transition-transform hover:scale-[1.02] active:scale-95"
+                        className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-volt-400 to-volt-600 py-3.5 font-display font-black text-white shadow-[0_12px_30px_rgba(34,211,238,0.3)] transition-transform hover:scale-[1.02] active:scale-95"
                       >
                         <ShoppingBag className="size-5" />
                         أضف للسلة
