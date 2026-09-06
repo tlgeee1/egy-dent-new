@@ -43,7 +43,7 @@ export default function Navbar() {
           {/* Logo */}
           <a href="#hero" className="group flex items-center gap-3">
             <span className="grid size-11 place-items-center rounded-2xl bg-gradient-to-br from-volt-400 to-volt-700 shadow-[0_8px_24px_rgba(34,211,238,0.35)] transition-transform duration-500 group-hover:rotate-12">
-              <ToothMark className="size-6 text-[var(--onaccent)]" />
+              <ToothMark className="size-6 text-white" />
             </span>
             <span className="leading-tight">
               <span className="block font-display text-xl font-black">
@@ -84,7 +84,7 @@ export default function Navbar() {
             {/* Cart */}
             <button
               onClick={() => setOpen(true)}
-              className="relative grid size-11 place-items-center rounded-2xl bg-gradient-to-br from-volt-500 to-volt-700 text-[var(--onaccent)] shadow-[0_8px_24px_rgba(34,211,238,0.35)] transition-transform hover:scale-105 active:scale-95"
+              className="relative grid size-11 place-items-center rounded-2xl bg-gradient-to-br from-volt-500 to-volt-700 text-white shadow-[0_8px_24px_rgba(34,211,238,0.35)] transition-transform hover:scale-105 active:scale-95"
               aria-label="سلة التسوق"
             >
               <ShoppingBag className="size-5" />
