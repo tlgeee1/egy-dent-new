@@ -42,7 +42,7 @@ export default function WhyUs() {
           {stats.map((s, i) => (
             <Reveal key={s.label} delay={i * 0.08} className="border-[var(--line-2)] [&:nth-child(odd)]:border-l [&:nth-child(n+3)]:border-t lg:[&:nth-child(n+3)]:border-t-0 lg:[&:not(:last-child)]:border-l">
               <div className="p-7 text-center md:p-10">
-                <p className="font-display text-4xl font-black text-transparent bg-gradient-to-l from-volt-300 to-volt-600 bg-clip-text md:text-5xl">
+                <p className="font-display text-4xl font-black text-[var(--text-primary)] md:text-5xl">
                   <CountUp to={s.to} suffix={s.suffix} />
                 </p>
                 <p className="mt-3 text-xs leading-relaxed text-frost-400 md:text-sm">{s.label}</p>
