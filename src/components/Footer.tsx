@@ -3,7 +3,7 @@ import { ToothMark } from "./ui";
 
 export default function Footer() {
   return (
-    <footer className="relative overflow-hidden border-t border-[var(--line-2)] bg-ink-900/70">
+    <footer className="relative overflow-hidden border-t border-[var(--line-2)] bg-ink-900">
       <div className="mx-auto max-w-7xl px-5 py-20 lg:px-8">
         {/* columns */}
         <div className="mt-16 grid gap-12 md:grid-cols-2 lg:grid-cols-[1.3fr_1fr_1fr_1.2fr]">
@@ -21,7 +21,7 @@ export default function Footer() {
                 </span>
               </span>
             </a>
-            <p className="mt-5 max-w-xs text-sm leading-loose text-frost-400">
+            <p className="mt-5 max-w-xs text-sm leading-loose text-frost-300">
               من 2011 وإحنا الشريك الأول للعيادات والمعامل في مصر — منتجات أصلية، أسعار جملة،
               ودعم فني من أطباء بيفهموا شغلك.
             </p>
@@ -29,7 +29,7 @@ export default function Footer() {
 
           <div>
             <h4 className="font-display text-base font-extrabold text-[var(--text-primary)]">روابط سريعة</h4>
-            <ul className="mt-5 space-y-3 text-sm text-frost-400">
+            <ul className="mt-5 space-y-3 text-sm text-frost-300">
               {[
                 ["الفئات", "#categories"],
                 ["المنتجات المميزة", "#products"],
@@ -49,7 +49,7 @@ export default function Footer() {
 
           <div>
             <h4 className="font-display text-base font-extrabold text-[var(--text-primary)]">الدعم</h4>
-            <ul className="mt-5 space-y-3 text-sm text-frost-400">
+            <ul className="mt-5 space-y-3 text-sm text-frost-300">
               {["سياسة الاستبدال والاسترجاع", "الشحن والتوصيل", "الأسئلة الشائعة", "شروط الاستخدام", "الخصوصية"].map((l) => (
                 <li key={l}>
                   <a href="#hero" className="transition-colors hover:text-volt-300">
@@ -62,7 +62,7 @@ export default function Footer() {
 
           <div>
             <h4 className="font-display text-base font-extrabold text-[var(--text-primary)]">تواصل معانا</h4>
-            <ul className="mt-5 space-y-4 text-sm text-frost-400">
+            <ul className="mt-5 space-y-4 text-sm text-frost-300">
               <li className="flex items-center gap-3">
                 <Phone className="size-4.5 shrink-0 text-volt-400" />
                 <span dir="ltr">0100 555 1280</span>
@@ -78,7 +78,7 @@ export default function Footer() {
             </ul>
             <a
               href="#offer"
-              className="mt-6 inline-flex items-center gap-2 rounded-xl border border-gold-500/40 bg-gold-500/10 px-5 py-3 text-sm font-bold text-gold-400 transition-all hover:gap-3 hover:bg-gold-500/20"
+              className="mt-6 inline-flex items-center gap-2 rounded-xl border border-gold-400 bg-gold-400 px-5 py-3 text-sm font-bold text-[#3a2506] transition-all hover:gap-3 hover:bg-gold-500"
             >
               اطلب عرض سعر للعيادات
               <ArrowUpLeft className="size-4" />
@@ -95,9 +95,9 @@ export default function Footer() {
         >
           EGY DENT
         </p>
-        <div className="absolute inset-x-0 bottom-0 flex flex-col items-center justify-between gap-3 border-t border-[var(--line-1)] bg-ink-950/70 px-5 py-5 backdrop-blur-md md:flex-row lg:px-14">
-          <p className="text-xs text-frost-500">© 2025 إيجي دنت — جميع الحقوق محفوظة</p>
-          <p className="flex items-center gap-1.5 text-xs text-frost-500">
+        <div className="absolute inset-x-0 bottom-0 flex flex-col items-center justify-between gap-3 border-t border-[var(--line-1)] bg-ink-950 px-5 py-5 md:flex-row lg:px-14">
+          <p className="text-xs text-frost-400">© 2025 إيجي دنت — جميع الحقوق محفوظة</p>
+          <p className="flex items-center gap-1.5 text-xs text-frost-400">
             صُنع بـ
             <Heart className="size-3.5 fill-red-400 text-red-400" />
             في مصر
