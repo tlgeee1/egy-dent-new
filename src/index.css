@@ -72,8 +72,12 @@
 }
 
 :root {
-  /* fixed dark text used on bright accent buttons/badges — never flips with theme */
+  /* fixed dark text used on bright accent badges (gold) — never flips with theme */
   --onaccent: #04060d;
+
+  /* text for buttons/icons sitting on the volt gradient — flips per theme because
+     the volt scale itself flips from bright-on-dark to darker-on-light */
+  --onvolt: #04060d;
 
   /* subtle borders/lines (dark defaults) */
   --line-1: rgba(255, 255, 255, 0.06);
@@ -155,8 +159,12 @@
   --text-primary-70: rgba(10, 10, 10, 0.72);
   --text-faint: rgba(10, 10, 10, 0.08);
 
-  /* كتابة غامقة فوق أزرار السماوي/الذهبي عشان تبان واضحة */
+  /* كتابة غامقة فوق أزرار الذهبي عشان تبان واضحة */
   --onaccent: #04060d;
+
+  /* السماوي في الوضع الفاتح بقى غامق (عشان يبان كنص واضح على الأبيض)،
+     يبقى الكتابة فوق أزرار السماوي لازم تبقى بيضا هنا عشان تبان */
+  --onvolt: #ffffff;
 
   --scrollbar-thumb: #b9ecf5;
   --scrollbar-thumb-hover: #8fdff0;
