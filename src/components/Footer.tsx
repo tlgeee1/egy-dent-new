@@ -1,4 +1,4 @@
-import { ArrowUpLeft, Heart, Mail, MapPin, Phone } from "lucide-react";
+import { Heart, Mail, MapPin, Phone } from "lucide-react";
 import { ToothMark } from "./ui";
 
 export default function Footer() {
@@ -76,13 +76,6 @@ export default function Footer() {
                 60 ش الطيران، مدينة نصر، القاهرة
               </li>
             </ul>
-            <a
-              href="#offer"
-              className="mt-6 inline-flex items-center gap-2 rounded-xl border border-gold-400 bg-gold-400 px-5 py-3 text-sm font-bold text-[#3a2506] transition-all hover:gap-3 hover:bg-gold-500"
-            >
-              اطلب عرض سعر للعيادات
-              <ArrowUpLeft className="size-4" />
-            </a>
           </div>
         </div>
       </div>
