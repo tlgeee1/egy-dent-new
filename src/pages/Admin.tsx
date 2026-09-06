@@ -12,7 +12,6 @@ import {
   Pencil,
   Phone,
   Plus,
-  RotateCcw,
   Save,
   Search,
   Settings as SettingsIcon,
@@ -24,7 +23,7 @@ import {
 } from "lucide-react";
 import { useStore, type Order, type OrderStatus } from "@/context/StoreContext";
 import { catName, categories, fmt, IMAGE_CHOICES, normalizeImportedProduct, relTime, type Product } from "@/data/data";
-import { ToothMark } from "@/components/ui";
+import { ToothMark, ThemeToggle } from "@/components/ui";
 import { cn } from "@/utils/cn";
 
 type Tab = "overview" | "products" | "orders" | "settings";
@@ -435,6 +434,7 @@ export default function Admin() {
             </div>
           </div>
           <div className="flex items-center gap-2.5">
+            <ThemeToggle />
             <a href="#" className="flex items-center gap-2 rounded-xl border border-[var(--line-3)] px-4 py-2.5 text-xs font-bold text-frost-300 transition-colors hover:border-volt-500/40 hover:text-volt-300">
               <Eye className="size-4" />
               <span className="hidden sm:inline">عرض المتجر</span>
@@ -559,15 +559,6 @@ export default function Admin() {
                 >
                   <Download className="size-4" />
                   تصدير
-                </button>
-                <button
-                  onClick={() => {
-                    if (confirm("هترجع المنتجات الافتراضية — أي تعديل هيتمسح. متأكد؟")) store.resetProducts();
-                  }}
-                  className="flex items-center gap-2 rounded-xl border border-[var(--line-3)] px-4 py-2.5 text-xs font-bold text-frost-300 hover:bg-[var(--fill-4)]"
-                >
-                  <RotateCcw className="size-4" />
-                  استعادة الافتراضي
                 </button>
                 <button
                   onClick={() => {
