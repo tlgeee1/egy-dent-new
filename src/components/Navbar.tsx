@@ -10,7 +10,7 @@ const links = [
   { label: "الفئات", href: "#categories" },
   { label: "المنتجات", href: "#products" },
   { label: "العرض الخاص", href: "#offer" },
-  { label: "آراء العملاء", href: "#testimonials" },
+  { label: "ضماناتنا", href: "#guarantees" },
   { label: "فروعنا", href: "#branches" },
 ];
 

@@ -34,7 +34,7 @@ export default function Footer() {
                 ["الفئات", "#categories"],
                 ["المنتجات المميزة", "#products"],
                 ["العرض الخاص", "#offer"],
-                ["آراء العملاء", "#testimonials"],
+                ["ضماناتنا", "#guarantees"],
                 ["فروعنا", "#branches"],
                 ["لوحة التحكم", "#admin"],
               ].map(([l, h]) => (
