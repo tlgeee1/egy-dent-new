@@ -1,6 +1,23 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Product } from "@/data/data";
 import { useStore } from "./StoreContext";
+
+const CART_STORAGE_KEY = "egy-dent-cart";
+
+function loadStoredLines(): CartLine[] {
+  try {
+    const raw = localStorage.getItem(CART_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (l): l is CartLine =>
+        l && typeof l.id === "number" && typeof l.qty === "number" && l.qty > 0,
+    );
+  } catch {
+    return [];
+  }
+}
 
 export type CartLine = { id: number; qty: number };
 export type Toast = { id: number; product: Product };
@@ -27,11 +44,20 @@ const Ctx = createContext<CartCtx | null>(null);
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const { products } = useStore();
-  const [lines, setLines] = useState<CartLine[]>([]);
+  const [lines, setLines] = useState<CartLine[]>(() => loadStoredLines());
   const [isOpen, setOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [quickView, setQuickView] = useState<Product | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
+
+  // احفظ السلة في localStorage كل ما تتغير، عشان متتصفرش لما المستخدم يعمل ريفرش للصفحة
+  useEffect(() => {
+    try {
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(lines));
+    } catch {
+      // لو الجهاز مانع التخزين (وضع تصفح خاص مثلاً)، متجاهلش الخطأ وسيب السلة تشتغل في الجلسة الحالية بس
+    }
+  }, [lines]);
 
   const add = useCallback(
     (id: number, qty = 1) => {
