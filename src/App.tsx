@@ -20,6 +20,15 @@ import ProductModal from "@/components/ProductModal";
 import { fmt } from "@/data/data";
 
 const Admin = lazy(() => import("@/pages/Admin"));
+const InfoPage = lazy(() => import("@/pages/InfoPage"));
+
+const INFO_SLUGS: Record<string, string> = {
+  "#returns": "returns",
+  "#shipping": "shipping",
+  "#faq": "faq",
+  "#terms": "terms",
+  "#privacy": "privacy",
+};
 
 function Toast() {
   const { toast, dismissToast, setOpen } = useCart();
@@ -113,6 +122,15 @@ function Shell() {
         <Admin />
       </Suspense>
     );
+
+  const infoSlug = INFO_SLUGS[hash];
+  if (infoSlug)
+    return (
+      <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-ink-950 text-frost-400">جارِ التحميل...</div>}>
+        <InfoPage slug={infoSlug} />
+      </Suspense>
+    );
+
   return <Store />;
 }
 
