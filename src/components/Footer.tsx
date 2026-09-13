@@ -50,9 +50,15 @@ export default function Footer() {
           <div>
             <h4 className="font-display text-base font-extrabold text-[var(--text-primary)]">الدعم</h4>
             <ul className="mt-5 space-y-3 text-sm text-frost-300">
-              {["سياسة الاستبدال والاسترجاع", "الشحن والتوصيل", "الأسئلة الشائعة", "شروط الاستخدام", "الخصوصية"].map((l) => (
-                <li key={l}>
-                  <a href="#hero" className="transition-colors hover:text-volt-300">
+              {[
+                ["سياسة الاستبدال والاسترجاع", "#returns"],
+                ["الشحن والتوصيل", "#shipping"],
+                ["الأسئلة الشائعة", "#faq"],
+                ["شروط الاستخدام", "#terms"],
+                ["الخصوصية", "#privacy"],
+              ].map(([l, h]) => (
+                <li key={h}>
+                  <a href={h} className="transition-colors hover:text-volt-300">
                     {l}
                   </a>
                 </li>
