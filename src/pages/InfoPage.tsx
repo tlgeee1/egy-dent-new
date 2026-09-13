@@ -30,9 +30,15 @@ export default function InfoPage({ slug }: { slug: string }) {
               إيجي <span className="text-volt-400">دنت</span>
             </span>
           </a>
-          <a href="#hero" className="flex items-center gap-1.5 text-sm font-semibold text-frost-300 hover:text-volt-300">
-            الرئيسية <ArrowRight className="size-4" />
-          </a>
+          <button
+            onClick={() => {
+              if (window.history.length > 1) window.history.back();
+              else window.location.hash = "#hero";
+            }}
+            className="flex items-center gap-1.5 text-sm font-semibold text-frost-300 hover:text-volt-300"
+          >
+            رجوع <ArrowRight className="size-4" />
+          </button>
         </div>
       </header>
 

@@ -109,8 +109,10 @@ function Shell() {
 
   useEffect(() => {
     const onHash = () => {
-      setHash(window.location.hash);
-      window.scrollTo({ top: 0 });
+      const newHash = window.location.hash;
+      setHash(newHash);
+      const isSubPage = newHash === "#admin" || !!INFO_SLUGS[newHash];
+      if (isSubPage) window.scrollTo({ top: 0 });
     };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
