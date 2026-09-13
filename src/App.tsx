@@ -11,7 +11,7 @@ import Categories from "@/components/Categories";
 import Products from "@/components/Products";
 import Offer from "@/components/Offer";
 import WhyUs from "@/components/WhyUs";
-import Testimonials from "@/components/Testimonials";
+import Guarantees from "@/components/Guarantees";
 import Branches from "@/components/Branches";
 import Footer from "@/components/Footer";
 import CartDrawer from "@/components/CartDrawer";
@@ -92,7 +92,7 @@ function Store() {
         <Products />
         <Offer />
         <WhyUs />
-        <Testimonials />
+        <Guarantees />
         <Branches />
       </main>
       <Footer />
