@@ -39,7 +39,7 @@ export default function Hero() {
           <motion.div variants={stagger} initial="hidden" animate="show" className="relative z-10 text-center lg:text-right">
             <motion.div variants={item} className="inline-flex items-center gap-2.5 rounded-full border border-volt-500/25 bg-volt-500/[0.07] px-4 py-2 text-sm font-semibold text-volt-300">
               <Sparkles className="size-4" />
-              المورد المعتمد لأكثر من 950 عيادة ومعمل في مصر
+              المورد المعتمد لأكثر من 600 عيادة ومعمل في مصر
             </motion.div>
 
             <motion.h1
@@ -59,7 +59,7 @@ export default function Hero() {
 
             <motion.p variants={item} className="mx-auto mt-6 max-w-xl text-base leading-loose text-frost-400 md:text-lg lg:mx-0">
               من الزراعة والتقويم للأجهزة والمستهلكات — منتجات أصلية 100% بأسعار الجملة،
-              توصيل خلال 24 ساعة داخل القاهرة ولكل محافظات مصر.
+              توصيل خلال 24 ساعة داخل القاهرة والجيزة، و2-4 أيام لباقي محافظات مصر.
             </motion.p>
 
             <motion.div variants={item} className="mt-9 flex flex-col items-center gap-4 sm:flex-row sm:justify-center lg:justify-start">
@@ -83,7 +83,7 @@ export default function Hero() {
             <motion.dl variants={item} className="mt-12 flex items-center justify-center gap-8 sm:gap-12 lg:justify-start">
               {[
                 [`+${productCount.toLocaleString("en-US")}`, "منتج أصلي"],
-                ["+950", "عيادة تثق بينا"],
+                ["+600", "عيادة تثق بينا"],
                 ["24h", "توصيل سريع"],
               ].map(([v, l], i) => (
                 <div key={l} className={i > 0 ? "border-r border-[var(--line-3)] pr-8 sm:pr-12" : ""}>
