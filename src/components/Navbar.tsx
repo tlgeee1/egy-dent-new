@@ -71,12 +71,12 @@ export default function Navbar() {
 
           <div className="flex items-center gap-3">
             <a
-              href="tel:01005551280"
+              href="tel:01151605515"
               className="hidden items-center gap-2 rounded-full border border-[var(--line-3)] px-4 py-2 text-sm font-semibold text-frost-300 transition-colors hover:border-volt-500/40 hover:text-volt-300 xl:flex"
               dir="ltr"
             >
               <Headset className="size-4 text-volt-400" />
-              0100 555 1280
+              0115 160 5515
             </a>
 
             <ThemeToggle />
@@ -170,12 +170,12 @@ export default function Navbar() {
                 ))}
               </ul>
               <a
-                href="tel:01005551280"
+                href="tel:01151605515"
                 className="mt-auto flex items-center justify-center gap-2 rounded-2xl bg-volt-500/10 py-4 font-bold text-volt-300"
                 dir="ltr"
               >
                 <Headset className="size-5" />
-                0100 555 1280
+                0115 160 5515
               </a>
             </motion.div>
           </motion.div>
