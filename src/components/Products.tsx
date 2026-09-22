@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, Eye, Plus, Search, Star } from "lucide-react";
+import { Check, Eye, ImageOff, Plus, Search, Star } from "lucide-react";
 import { catName, categories, fmt, type Product } from "@/data/data";
 import { useCart } from "@/context/CartContext";
 import { useStore } from "@/context/StoreContext";
@@ -10,6 +10,7 @@ import { cn } from "@/utils/cn";
 function ProductCard({ p, index }: { p: Product; index: number }) {
   const { add, setQuickView } = useCart();
   const [added, setAdded] = useState(false);
+  const [imgError, setImgError] = useState(false);
 
   const handleAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -32,12 +33,20 @@ function ProductCard({ p, index }: { p: Product; index: number }) {
     >
       {/* image */}
       <div className="relative h-60 overflow-hidden">
-        <img
-          src={p.img}
-          alt={p.name}
-          loading="lazy"
-          className="h-full w-full object-cover transition-transform duration-[1.1s] ease-out group-hover:scale-[1.08]"
-        />
+        {imgError ? (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-ink-800 to-ink-900 text-frost-500">
+            <ImageOff className="size-8" />
+            <span className="text-[11px] font-bold text-frost-500">الصورة قريباً</span>
+          </div>
+        ) : (
+          <img
+            src={p.img}
+            alt={p.name}
+            loading="lazy"
+            onError={() => setImgError(true)}
+            className="h-full w-full object-cover transition-transform duration-[1.1s] ease-out group-hover:scale-[1.08]"
+          />
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-ink-900 via-transparent to-transparent" />
 
         {p.badge && !p.showcaseOnly && (
