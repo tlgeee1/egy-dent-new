@@ -42,14 +42,19 @@ export default function Branches() {
                       <Clock className="size-4 text-volt-400" />
                       {b.hours}
                     </p>
-                    <a
-                      href={`tel:${b.phone.replace(/\s/g, "")}`}
-                      className="flex items-center gap-2.5 text-frost-300 transition-colors hover:text-volt-300"
-                      dir="ltr"
-                    >
-                      <Phone className="size-4 text-volt-400" />
-                      {b.phone}
-                    </a>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                      {b.phones.map((phone) => (
+                        <a
+                          key={phone}
+                          href={`tel:${phone.replace(/\s/g, "")}`}
+                          className="flex items-center gap-2 text-frost-300 transition-colors hover:text-volt-300"
+                          dir="ltr"
+                        >
+                          <Phone className="size-3.5 text-volt-400" />
+                          {phone}
+                        </a>
+                      ))}
+                    </div>
                   </div>
 
                   <span className="mt-6 inline-flex items-center gap-2 text-sm font-bold text-volt-300 transition-all group-hover:gap-3">

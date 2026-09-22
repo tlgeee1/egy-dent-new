@@ -151,20 +151,20 @@ export function normalizeImportedProduct(raw: Record<string, unknown>): Omit<Pro
 export const branches = [
   {
     city: "مدينة نصر",
-    address: "٦٠ شارع الطيران — بجوار سيتي ستارز",
-    phone: "0100 555 1280",
+    address: "٦٠ شارع الطيران",
+    phones: ["01121300354", "01151605515", "01153859919"],
     hours: "يومياً ١٠ص — ١٠م",
   },
   {
     city: "القصر العيني",
-    address: "٣٠ شارع بستان الفاضل — وسط البلد",
-    phone: "0100 555 1291",
+    address: "٣٠ شارع بستان الفاضل",
+    phones: ["01065624098"],
     hours: "يومياً ١٠ص — ١٠م",
   },
   {
     city: "٦ أكتوبر",
-    address: "أبراج علي الدين — سيتي مول، الدور الأرضي",
-    phone: "0100 555 1302",
+    address: "١٢ ب أبراج علي الدين — سيتي مول",
+    phones: ["01006747210"],
     hours: "يومياً ١١ص — ١١م",
   },
 ];
