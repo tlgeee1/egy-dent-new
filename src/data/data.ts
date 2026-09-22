@@ -180,7 +180,7 @@ export const payments = [
 ];
 
 export const paymentMethods = [
-  { id: "vodafone", name: "فودافون كاش", note: "0100 555 1280" },
+  { id: "vodafone", name: "فودافون كاش", note: "هيتواصل معاك المندوب على واتساب بالرقم" },
   { id: "instapay", name: "إنستاباي InstaPay", note: "egydent@instapay" },
   { id: "orange", name: "أورانج كاش", note: "0128 555 1291" },
   { id: "etisalat", name: "اتصالات كاش", note: "0115 555 1302" },
