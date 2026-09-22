@@ -113,33 +113,6 @@ export const categories = [
     img: "images/p-endo.jpg",
   },
 ];
-    name: "الزراعة والتركيبات",
-    desc: "أطقم زراعة ألمانية وكورية بضمان مدى الحياة",
-    count: "+320 منتج",
-    img: "images/p-implant.jpg",
-  },
-  {
-    id: "equipment",
-    name: "الأجهزة والمعدات",
-    desc: "وحدات عيادات، موتورات وأجهزة تصليب بأحدث التقنيات",
-    count: "+180 منتج",
-    img: "images/c-equipment.jpg",
-  },
-  {
-    id: "ortho",
-    name: "التقويم",
-    desc: "براكتس، أسلاك وأطقم تقويم شفاف معتمدة",
-    count: "+150 منتج",
-    img: "images/p-ortho.jpg",
-  },
-  {
-    id: "consumables",
-    name: "المستهلكات",
-    desc: "كل ما تستهلكه عيادتك يومياً — جاهز للتوصيل الفوري",
-    count: "+900 منتج",
-    img: "images/c-consumables.jpg",
-  },
-];
 
 export const DEFAULT_PRODUCTS: Product[] = [
   {
