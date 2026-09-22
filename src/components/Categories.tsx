@@ -1,15 +1,7 @@
 import { ArrowLeft } from "lucide-react";
 import { categories } from "@/data/data";
 import { Reveal, SectionHead } from "./ui";
-import { cn } from "@/utils/cn";
 import { useStore } from "@/context/StoreContext";
-
-const spans = [
-  "lg:col-span-2 lg:row-span-1",
-  "lg:col-span-1 lg:row-span-2",
-  "lg:col-span-1 lg:row-span-1",
-  "lg:col-span-1 lg:row-span-1",
-];
 
 export default function Categories() {
   const { products } = useStore();
@@ -30,7 +22,7 @@ export default function Categories() {
             desc={`أكتر من ${products.length.toLocaleString("en-US")} منتج في ${categories.length} فئات رئيسية — من أول كرسي العيادة لآخر لفة الجفاز.`}
           />
           <Reveal delay={0.15}>
-            <a
+            
               href="#products"
               onClick={() => window.dispatchEvent(new CustomEvent("set-product-filter", { detail: "all" }))}
               className="group inline-flex items-center gap-2 rounded-full border border-[var(--line-3)] px-6 py-3 text-sm font-bold text-frost-300 transition-all hover:border-volt-500/40 hover:text-volt-300"
@@ -41,10 +33,10 @@ export default function Categories() {
           </Reveal>
         </div>
 
-        <div className="mt-14 grid auto-rows-[300px] grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-14 grid auto-rows-[220px] grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4">
           {categories.map((c, i) => (
-            <Reveal key={c.id} delay={i * 0.08} className={cn(spans[i])}>
-              <a
+            <Reveal key={c.id} delay={i * 0.05}>
+              
                 href="#products"
                 onClick={() => window.dispatchEvent(new CustomEvent("set-product-filter", { detail: c.id }))}
                 className="group relative block h-full w-full overflow-hidden rounded-[1.75rem] border border-[var(--line-2)] bg-ink-900 transition-colors duration-500 hover:border-volt-500/40"
