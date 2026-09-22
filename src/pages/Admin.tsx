@@ -22,7 +22,7 @@ import {
   X,
 } from "lucide-react";
 import { useStore, type Order, type OrderStatus } from "@/context/StoreContext";
-import { catName, categories, fmt, IMAGE_CHOICES, normalizeImportedProduct, relTime, type Product } from "@/data/data";
+import { catName, categories, fmt, normalizeImportedProduct, relTime, type Product } from "@/data/data";
 import { ToothMark, ThemeToggle } from "@/components/ui";
 import { cn } from "@/utils/cn";
 
@@ -139,7 +139,7 @@ const emptyDraft: Draft = {
   oldPrice: undefined,
   rating: 4.8,
   sold: 0,
-  img: IMAGE_CHOICES[0],
+  img: "",
   badge: "",
   desc: "",
   showcaseOnly: false,
@@ -291,10 +291,10 @@ function ProductForm({
               </div>
             </div>
 
-            <details className="mt-3">
+            <details className="mt-3 hidden">
               <summary className="cursor-pointer text-xs font-bold text-frost-400 hover:text-volt-300">أو اختار صورة جاهزة بدل الرفع</summary>
               <div className="mt-2 grid grid-cols-5 gap-2 sm:grid-cols-9">
-                {IMAGE_CHOICES.map((img) => (
+                {[].map((img: string) => (
                   <button
                     key={img}
                     type="button"
