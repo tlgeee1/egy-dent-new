@@ -188,7 +188,7 @@ export const paymentMethods = [
   { id: "cod", name: "الدفع عند الاستلام", note: "كاش مع المندوب" },
 ];
 
-export const DEFAULT_WHATSAPP = "201005551280";
+export const DEFAULT_WHATSAPP = "201151605515";
 export const DEFAULT_FREE_SHIPPING = 500;
 
 export const fmt = (n: number) => n.toLocaleString("en-US");
