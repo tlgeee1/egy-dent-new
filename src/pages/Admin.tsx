@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   BadgeCheck,
@@ -342,6 +342,14 @@ export default function Admin() {
   const [saved, setSaved] = useState(false);
   const [wa, setWa] = useState(store.settings.whatsapp);
   const [ship, setShip] = useState(String(store.settings.freeShipping));
+
+  // الإعدادات بتوصل من Firestore بشكل غير متزامن (live sync)، فلو المستخدم فتح
+  // صفحة الإعدادات قبل ما البيانات توصل، الخانة كانت بتفضل عالقة على القيمة
+  // الافتراضية القديمة حتى لو الحفظ نجح فعلياً. نتابع القيمة الحقيقية أول ما توصل.
+  useEffect(() => {
+    setWa(store.settings.whatsapp);
+    setShip(String(store.settings.freeShipping));
+  }, [store.settings.whatsapp, store.settings.freeShipping]);
   const [search, setSearch] = useState("");
   const [importing, setImporting] = useState(false);
   const [importMsg, setImportMsg] = useState<string | null>(null);
