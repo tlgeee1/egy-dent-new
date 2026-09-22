@@ -181,9 +181,9 @@ export const payments = [
 
 export const paymentMethods = [
   { id: "vodafone", name: "فودافون كاش", note: "هيتواصل معاك المندوب على واتساب بالرقم" },
-  { id: "instapay", name: "إنستاباي InstaPay", note: "egydent@instapay" },
-  { id: "orange", name: "أورانج كاش", note: "0128 555 1291" },
-  { id: "etisalat", name: "اتصالات كاش", note: "0115 555 1302" },
+  { id: "instapay", name: "إنستاباي InstaPay", note: "هيتواصل معاك المندوب على واتساب بالتفاصيل" },
+  { id: "orange", name: "أورانج كاش", note: "هيتواصل معاك المندوب على واتساب بالرقم" },
+  { id: "etisalat", name: "اتصالات كاش", note: "هيتواصل معاك المندوب على واتساب بالرقم" },
   { id: "card", name: "فيزا / ماستركارد", note: "عن الاستلام أو بالفرع" },
   { id: "cod", name: "الدفع عند الاستلام", note: "كاش مع المندوب" },
 ];
