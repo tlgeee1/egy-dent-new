@@ -241,22 +241,36 @@ function App() {
     if (!confirm(`هيتم إضافة ${toAdd.length} صنف جديد من القائمة الجاهزة. تكمل؟`)) return;
 
     setImporting(true);
-    try {
-      const productsRef = ref(db, "products");
-      for (const item of toAdd) {
+    const productsRef = ref(db, "products");
+    let successCount = 0;
+    const failedItems: string[] = [];
+
+    // كل صنف بيتضاف على حدة، فلو صنف فشل الباقي مكملين عادي (مش بيقف الاستيراد كله)
+    for (const item of toAdd) {
+      try {
         await push(productsRef, {
           name: item.name,
           imageUrl: "",
           price: item.price,
           category: item.category
         });
+        successCount++;
+      } catch (error) {
+        console.error(`خطأ في إضافة الصنف "${item.name}":`, error);
+        failedItems.push(item.name);
       }
-      alert(`تم استيراد ${toAdd.length} صنف بنجاح!`);
-    } catch (error) {
-      console.error("خطأ في الاستيراد:", error);
-      alert("حدث خطأ أثناء الاستيراد. راجع الكونسول لمعرفة التفاصيل.");
-    } finally {
-      setImporting(false);
+    }
+
+    setImporting(false);
+
+    if (failedItems.length === 0) {
+      alert(`تم استيراد ${successCount} صنف بنجاح!`);
+    } else {
+      alert(
+        `تم استيراد ${successCount} صنف بنجاح.\nفشل استيراد ${failedItems.length} صنف:\n${failedItems.join(
+          "، "
+        )}\n\nراجع الكونسول (F12) لمعرفة سبب الفشل (غالبًا صلاحيات فايربيز).`
+      );
     }
   };
 
