@@ -51,26 +51,27 @@ export default function Categories() {
                 className="group relative block aspect-[4/5] w-full"
               >
                 <div
-                  className="absolute inset-0 overflow-hidden bg-ink-900 transition-transform duration-500 [filter:drop-shadow(0_2px_6px_rgba(0,0,0,0.35))] group-hover:scale-[1.05]"
+                  className="absolute inset-0 overflow-hidden bg-ink-800 transition-transform duration-500 [filter:drop-shadow(0_2px_6px_rgba(0,0,0,0.35))] group-hover:scale-[1.05]"
                   style={{ clipPath: "url(#category-tooth-clip)" }}
                 >
                   <img
                     src={settings.categoryImages?.[c.id] || c.img}
                     alt={c.name}
                     loading="lazy"
-                    className="absolute inset-0 h-full w-full object-cover opacity-85 transition-transform duration-[1.2s] ease-out group-hover:scale-110"
+                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-[1.2s] ease-out group-hover:scale-110"
                   />
-                  {/* strong solid band at the bottom so the name is always easy to read */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-ink-950 from-15% via-ink-950/80 via-45% to-ink-950/5" />
-                  <div className="absolute inset-0 bg-volt-600/0 transition-colors duration-500 group-hover:bg-volt-600/15" />
+                  {/* الصورة كاملة الوضوح — طبقة سودا خفيفة في الشريط السفلي بس عشان الاسم يتقري.
+                      ألوانها ثابتة (مش بتتغير مع الوضع الفاتح/الغامق) عشان الكتابة البيضا تبان دايماً */}
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[38%] bg-gradient-to-t from-black/80 via-black/45 to-transparent" />
+                  <div className="absolute inset-0 bg-volt-600/0 transition-colors duration-500 group-hover:bg-volt-600/10" />
 
                   {/* count chip */}
-                  <span className="absolute right-1.5 top-1.5 rounded-full bg-ink-950/70 px-1.5 py-0.5 text-[9px] font-bold leading-none text-volt-300 backdrop-blur-sm">
+                  <span className="absolute right-1.5 top-1.5 rounded-full bg-black/60 px-1.5 py-0.5 text-[9px] font-bold leading-none text-white backdrop-blur-sm">
                     +{countFor(c.id).toLocaleString("en-US")}
                   </span>
 
                   {/* name, pinned to the bottom, high-contrast */}
-                  <h3 className="absolute inset-x-0 bottom-0 px-1.5 pb-2.5 pt-1 text-center font-display text-[11px] font-extrabold leading-tight text-white line-clamp-2 sm:text-[13px] md:text-sm">
+                  <h3 className="absolute inset-x-0 bottom-0 px-1.5 pb-2.5 pt-1 text-center font-display text-[12px] font-black leading-tight text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.85)] line-clamp-2 sm:text-[13px] md:text-sm">
                     {c.name}
                   </h3>
                 </div>
