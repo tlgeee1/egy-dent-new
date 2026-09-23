@@ -9,7 +9,6 @@ import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
 import Categories from "@/components/Categories";
 import Products from "@/components/Products";
-import Offer from "@/components/Offer";
 import WhyUs from "@/components/WhyUs";
 import Guarantees from "@/components/Guarantees";
 import Branches from "@/components/Branches";
@@ -90,7 +89,6 @@ function Store() {
         <Hero />
         <Categories />
         <Products />
-        <Offer />
         <WhyUs />
         <Guarantees />
         <Branches />
