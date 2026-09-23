@@ -157,6 +157,14 @@ export default function Products() {
 
   return (
     <section id="products" className="relative bg-ink-900/50 py-24 md:py-32">
+            {/* hidden defs: same tooth-shaped clip path used for category cards */}
+      <svg width="0" height="0" className="absolute" aria-hidden="true" focusable="false">
+        <defs>
+          <clipPath id="product-tooth-clip" clipPathUnits="objectBoundingBox">
+            <path d="M0.06,0.30 C0.06,0.17 0.03,0.06 0.15,0.045 C0.22,0.02 0.28,0.12 0.35,0.12 C0.42,0.12 0.44,0.015 0.5,0.015 C0.56,0.015 0.58,0.12 0.65,0.12 C0.72,0.12 0.78,0.02 0.85,0.045 C0.97,0.06 0.94,0.17 0.94,0.30 L0.94,0.85 C0.94,0.94 0.87,1 0.78,1 L0.22,1 C0.13,1 0.06,0.94 0.06,0.85 Z" />
+          </clipPath>
+        </defs>
+      </svg>
       <div className="pointer-events-none absolute left-1/2 top-0 h-px w-2/3 -translate-x-1/2 bg-gradient-to-l from-transparent via-volt-500/40 to-transparent" />
       <div className="mx-auto max-w-7xl px-5 lg:px-8">
         <SectionHead
