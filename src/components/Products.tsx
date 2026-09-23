@@ -31,23 +31,27 @@ function ProductCard({ p, index }: { p: Product; index: number }) {
       onClick={() => setQuickView(p)}
       className="group relative flex cursor-pointer flex-col overflow-hidden rounded-[1.75rem] border border-[var(--line-2)] bg-ink-900 transition-colors duration-500 hover:border-volt-500/40 hover:shadow-[0_24px_70px_rgba(6,182,212,0.12)]"
     >
-      {/* image */}
-      <div className="relative h-60 overflow-hidden">
-        {imgError ? (
-          <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-ink-800 to-ink-900 text-frost-500">
-            <ImageOff className="size-8" />
-            <span className="text-[11px] font-bold text-frost-500">الصورة قريباً</span>
-          </div>
-        ) : (
-          <img
-            src={p.img}
-            alt={p.name}
-            loading="lazy"
-            onError={() => setImgError(true)}
-            className="h-full w-full object-cover transition-transform duration-[1.1s] ease-out group-hover:scale-[1.08]"
-          />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-ink-900 via-transparent to-transparent" />
+         {/* image */}
+      <div className="relative flex h-60 items-center justify-center overflow-hidden bg-ink-900/40">
+        <div
+          className="relative aspect-[4/5] h-full max-w-[78%] overflow-hidden [filter:drop-shadow(0_6px_18px_rgba(0,0,0,0.35))] transition-transform duration-500 group-hover:scale-[1.03]"
+          style={{ clipPath: "url(#product-tooth-clip)" }}
+        >
+          {imgError ? (
+            <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-ink-800 to-ink-900 text-frost-500">
+              <ImageOff className="size-8" />
+              <span className="text-[11px] font-bold text-frost-500">الصورة قريباً</span>
+            </div>
+          ) : (
+            <img
+              src={p.img}
+              alt={p.name}
+              loading="lazy"
+              onError={() => setImgError(true)}
+              className="h-full w-full object-cover transition-transform duration-[1.1s] ease-out group-hover:scale-[1.08]"
+            />
+          )}
+        </div>
 
         {p.badge && !p.showcaseOnly && (
           <span className="absolute right-4 top-4 rounded-full bg-gradient-to-l from-gold-400 to-gold-500 px-3 py-1.5 font-display text-xs font-black text-[var(--onaccent)] shadow-lg">
