@@ -4,6 +4,7 @@ import {
   BadgeCheck,
   Download,
   Eye,
+  EyeOff,
   LayoutDashboard,
   LayoutGrid,
   Loader2,
@@ -51,6 +52,7 @@ function Login() {
   const { login } = useStore();
   const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
+  const [showPass, setShowPass] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [shake, setShake] = useState(0);
@@ -58,7 +60,9 @@ function Login() {
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
-    const error = await login(email, pass);
+    // كيبورد الموبايل ساعات بيزوّد مسافة في آخر الباسورد (من الاقتراحات)، فلو الدخول فشل نجرّب من غيرها
+    let error = await login(email.trim().toLowerCase(), pass);
+    if (error && pass !== pass.trim()) error = await login(email.trim().toLowerCase(), pass.trim());
     setBusy(false);
     if (error) {
       setErr(error);
@@ -86,6 +90,10 @@ function Login() {
         <div className="relative mt-6">
           <input
             type="email"
+            inputMode="email"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
             autoComplete="username"
             value={email}
             onChange={(e) => {
@@ -103,7 +111,11 @@ function Login() {
         <div className="relative mt-3">
           <Lock className="absolute right-4 top-1/2 size-4 -translate-y-1/2 text-frost-500" />
           <input
-            type="password"
+            type={showPass ? "text" : "password"}
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            dir={pass ? "ltr" : "rtl"}
             autoComplete="current-password"
             value={pass}
             onChange={(e) => {
@@ -112,10 +124,18 @@ function Login() {
             }}
             placeholder="كلمة المرور"
             className={cn(
-              "w-full rounded-2xl border bg-ink-950/70 py-3.5 pl-4 pr-11 text-sm outline-none transition-colors placeholder:text-frost-500/70",
+              "w-full rounded-2xl border bg-ink-950/70 py-3.5 pl-11 pr-11 text-sm outline-none transition-colors placeholder:text-frost-500/70",
               err ? "border-red-400/60" : "border-[var(--line-3)] focus:border-volt-500/60",
             )}
           />
+          <button
+            type="button"
+            onClick={() => setShowPass((v) => !v)}
+            aria-label={showPass ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
+            className="absolute left-3 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-lg text-frost-500 transition-colors hover:text-volt-300"
+          >
+            {showPass ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+          </button>
         </div>
         {err && <p className="mt-2 text-xs text-red-400">{err}</p>}
         <button
