@@ -324,6 +324,20 @@ function ProductForm({
 /* ---------------- Main dashboard ---------------- */
 export default function Admin() {
   const store = useStore();
+
+  // لما اللوحة تتفتح: الاختصار اللي المستخدم بيضيفه للموبايل يفتح على اللوحة نفسها
+  // (manifest خاص + عنوان صفحة مناسب)، وبيرجع لوضعه الطبيعي أول ما نخرج منها.
+  useEffect(() => {
+    const link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
+    const prevHref = link?.getAttribute("href") ?? null;
+    const prevTitle = document.title;
+    if (link) link.setAttribute("href", new URL("manifest-admin.webmanifest", document.baseURI).href);
+    document.title = "لوحة تحكم إيجي دنت";
+    return () => {
+      if (link && prevHref) link.setAttribute("href", prevHref);
+      document.title = prevTitle;
+    };
+  }, []);
   const [tab, setTab] = useState<Tab>("overview");
   const [editing, setEditing] = useState<Draft | "new" | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
