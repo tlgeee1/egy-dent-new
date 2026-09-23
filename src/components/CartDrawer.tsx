@@ -1,5 +1,4 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, ClipboardList, Minus, Plus, ShoppingBag, Trash2, Truck, X } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { useStore } from "@/context/StoreContext";
 import { fmt } from "@/data/data";
@@ -7,11 +6,6 @@ import { fmt } from "@/data/data";
 export default function CartDrawer() {
   const { lines, total, count, isOpen, setOpen, setQty, remove, setCheckoutOpen } = useCart();
   const { products, settings } = useStore();
-
-  const FREE = settings.freeShipping;
-  const progress = Math.min(1, total / FREE);
-  const remaining = Math.max(0, FREE - total);
-
   const quickWhatsapp = () => {
     const items = lines
       .map((l) => {
@@ -19,7 +13,7 @@ export default function CartDrawer() {
         return `• ${p.name} × ${l.qty} = ${fmt(p.price * l.qty)} جنيه`;
       })
       .join("\n");
-    const msg = `أهلاً إيجي دنت،\nعايز أطلب المنتجات دي:\n${items}\n━━━━━━━━━━\nالإجمالي: ${fmt(total)} جنيه${total >= FREE ? "\n(الطلب مستحق للشحن المجاني)" : ""}`;
+        const msg = `أهلاً إيجي دنت،\nعايز أطلب المنتجات دي:\n${items}\n━━━━━━━━━━\nالإجمالي: ${fmt(total)} جنيه`;
     window.open(`https://wa.me/${settings.whatsapp}?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
@@ -80,27 +74,7 @@ export default function CartDrawer() {
               </div>
             ) : (
               <>
-                {/* free shipping bar */}
-                <div className="border-b border-[var(--line-2)] px-5 py-4">
-                  <p className="flex items-center gap-2 text-xs font-bold text-frost-300">
-                    <Truck className="size-4 text-volt-400" />
-                    {remaining > 0 ? (
-                      <>
-                        فاضل <span className="text-gold-400">{fmt(remaining)} جنيه</span> وتوصلك الشحنة مجاناً
-                      </>
-                    ) : (
-                      <span className="text-emerald-400">مبروك! الشحن علينا — رسوم الشحن صفر</span>
-                    )}
-                  </p>
-                  <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-[var(--fill-5)]">
-                    <motion.div
-                      animate={{ width: `${progress * 100}%` }}
-                      transition={{ type: "spring", stiffness: 120, damping: 22 }}
-                      className="h-full rounded-full bg-gradient-to-l from-volt-400 to-emerald-400"
-                    />
-                  </div>
-                </div>
-
+      
                 {/* items */}
                 <div className="flex-1 space-y-3 overflow-y-auto p-5">
                   <AnimatePresence initial={false}>
@@ -164,8 +138,8 @@ export default function CartDrawer() {
                       {fmt(total)} <span className="text-sm font-bold text-frost-400">جنيه</span>
                     </span>
                   </div>
-                  <p className="mt-1 text-[11px] text-frost-500">
-                    {total >= FREE ? "شامل الشحن المجاني" : "رسوم الشحن تتحدد عند تأكيد الطلب"}
+                                  <p className="mt-1 text-[11px] text-frost-500">
+                    رسوم الشحن تتحدد عند تأكيد الطلب
                   </p>
                   <button
                     onClick={() => {
