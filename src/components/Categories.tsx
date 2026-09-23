@@ -4,7 +4,7 @@ import { Reveal, SectionHead } from "./ui";
 import { useStore } from "@/context/StoreContext";
 
 export default function Categories() {
-  const { products } = useStore();
+  const { products, settings } = useStore();
   const countFor = (id: string) => products.filter((p) => p.cat === id && !p.showcaseOnly).length;
 
   return (
@@ -55,7 +55,7 @@ export default function Categories() {
                   style={{ clipPath: "url(#category-tooth-clip)" }}
                 >
                   <img
-                    src={c.img}
+                    src={settings.categoryImages?.[c.id] || c.img}
                     alt={c.name}
                     loading="lazy"
                     className="absolute inset-0 h-full w-full object-cover opacity-85 transition-transform duration-[1.2s] ease-out group-hover:scale-110"

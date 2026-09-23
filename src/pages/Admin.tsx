@@ -5,6 +5,7 @@ import {
   Download,
   Eye,
   LayoutDashboard,
+  LayoutGrid,
   Loader2,
   Lock,
   LogOut,
@@ -26,12 +27,14 @@ import { catName, categories, fmt, normalizeImportedProduct, relTime, type Produ
 import { ToothMark, ThemeToggle } from "@/components/ui";
 import { cn } from "@/utils/cn";
 import { uploadImage } from "@/utils/uploadImage";
+import CategoriesAdmin from "@/pages/CategoriesAdmin";
 
-type Tab = "overview" | "products" | "orders" | "settings";
+type Tab = "overview" | "products" | "categories" | "orders" | "settings";
 
 const tabs: { id: Tab; label: string; icon: typeof Package }[] = [
   { id: "overview", label: "نظرة عامة", icon: LayoutDashboard },
   { id: "products", label: "المنتجات", icon: Package },
+  { id: "categories", label: "الفئات", icon: LayoutGrid },
   { id: "orders", label: "الطلبات", icon: ShoppingBag },
   { id: "settings", label: "الإعدادات", icon: SettingsIcon },
 ];
@@ -641,6 +644,9 @@ export default function Admin() {
             </div>
           </motion.div>
         )}
+
+        {/* ============ CATEGORIES ============ */}
+        {tab === "categories" && <CategoriesAdmin />}
 
         {/* ============ ORDERS ============ */}
         {tab === "orders" && (

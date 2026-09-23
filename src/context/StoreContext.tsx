@@ -36,6 +36,8 @@ export type Order = {
 export type Settings = {
   whatsapp: string;
   freeShipping: number;
+  /** صور الفئات اللي الأدمن رفعها (id الفئة ← رابط الصورة). فاضي = الصورة الافتراضية */
+  categoryImages?: Record<string, string>;
 };
 
 interface StoreContextType {
