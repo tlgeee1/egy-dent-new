@@ -39,10 +39,20 @@ export default function ProductModal() {
             </button>
 
             <div className="grid md:grid-cols-2">
-              {/* image */}
-              <div className="relative min-h-72">
-                <img src={p.img} alt={p.name} className="absolute inset-0 h-full w-full object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-l from-ink-900/70 via-transparent to-transparent md:bg-gradient-to-l" />
+              {/* image — ضرس فقط بدون مربع */}
+              <div className="relative flex min-h-72 items-center justify-center p-6 md:p-8">
+                <svg width="0" height="0" className="absolute" aria-hidden="true" focusable="false">
+                  <defs>
+                    <clipPath id="modal-tooth-clip" clipPathUnits="objectBoundingBox">
+                      <path d="M0.06,0.30 C0.06,0.17 0.03,0.06 0.15,0.045 C0.22,0.02 0.28,0.12 0.35,0.12 C0.42,0.12 0.44,0.015 0.5,0.015 C0.56,0.015 0.58,0.12 0.65,0.12 C0.72,0.12 0.78,0.02 0.85,0.045 C0.97,0.06 0.94,0.17 0.94,0.30 L0.94,0.85 C0.94,0.94 0.87,1 0.78,1 L0.22,1 C0.13,1 0.06,0.94 0.06,0.85 Z" />
+                    </clipPath>
+                  </defs>
+                </svg>
+                <div className="relative aspect-[4/5] w-full max-w-[300px] [filter:drop-shadow(0_10px_24px_rgba(0,0,0,0.4))]">
+                  <div className="h-full w-full overflow-hidden" style={{ clipPath: "url(#modal-tooth-clip)" }}>
+                    <img src={p.img} alt={p.name} className="h-full w-full object-cover" />
+                  </div>
+                </div>
                 {p.badge && (
                   <span className="absolute right-5 top-5 rounded-full bg-gradient-to-l from-gold-400 to-gold-500 px-3.5 py-1.5 font-display text-xs font-black text-[var(--onaccent)]">
                     {p.badge}

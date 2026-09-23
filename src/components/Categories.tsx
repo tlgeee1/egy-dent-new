@@ -62,7 +62,7 @@ export default function Categories() {
                   />
                   {/* الصورة كاملة الوضوح — طبقة سودا خفيفة في الشريط السفلي بس عشان الاسم يتقري.
                       ألوانها ثابتة (مش بتتغير مع الوضع الفاتح/الغامق) عشان الكتابة البيضا تبان دايماً */}
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[38%] bg-gradient-to-t from-black/80 via-black/45 to-transparent" />
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[42%] bg-gradient-to-t from-black/85 via-black/50 to-transparent" />
                   <div className="absolute inset-0 bg-volt-600/0 transition-colors duration-500 group-hover:bg-volt-600/10" />
 
                   {/* count chip */}
@@ -71,7 +71,7 @@ export default function Categories() {
                   </span>
 
                   {/* name, pinned to the bottom, high-contrast */}
-                  <h3 className="absolute inset-x-0 bottom-0 px-1.5 pb-2.5 pt-1 text-center font-display text-[12px] font-black leading-tight text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.85)] line-clamp-2 sm:text-[13px] md:text-sm">
+                  <h3 className="absolute inset-x-0 bottom-0 px-1.5 pb-2.5 pt-1 text-center font-display text-[12px] font-black leading-tight text-[#fcd34d] [text-shadow:0_1px_4px_rgba(0,0,0,0.9)] line-clamp-2 sm:text-[13px] md:text-sm">
                     {c.name}
                   </h3>
                 </div>

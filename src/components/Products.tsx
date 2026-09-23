@@ -29,14 +29,12 @@ function ProductCard({ p, index }: { p: Product; index: number }) {
       exit={{ opacity: 0, scale: 0.94, transition: { duration: 0.25 } }}
       transition={{ duration: 0.6, delay: Math.min(index, 11) * 0.05, ease: [0.22, 1, 0.36, 1] }}
       onClick={() => setQuickView(p)}
-      className="group relative flex cursor-pointer flex-col overflow-hidden rounded-[1.75rem] border border-[var(--line-2)] bg-ink-900 transition-colors duration-500 hover:border-volt-500/40 hover:shadow-[0_24px_70px_rgba(6,182,212,0.12)]"
+      className="group relative flex cursor-pointer flex-col overflow-hidden rounded-[1.75rem] transition-transform duration-500 hover:-translate-y-1"
     >
          {/* image */}
-      <div className="relative flex h-60 items-center justify-center overflow-hidden bg-ink-900/40">
-        <div
-          className="relative aspect-[4/5] h-full max-w-[78%] overflow-hidden [filter:drop-shadow(0_6px_18px_rgba(0,0,0,0.35))] transition-transform duration-500 group-hover:scale-[1.03]"
-          style={{ clipPath: "url(#product-tooth-clip)" }}
-        >
+      <div className="relative flex h-64 items-center justify-center">
+        <div className="relative aspect-[4/5] h-full max-w-[86%] [filter:drop-shadow(0_8px_18px_rgba(0,0,0,0.4))] transition-transform duration-500 group-hover:scale-[1.04]">
+        <div className="h-full w-full overflow-hidden" style={{ clipPath: "url(#product-tooth-clip)" }}>
           {imgError ? (
             <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-ink-800 to-ink-900 text-frost-500">
               <ImageOff className="size-8" />
@@ -51,6 +49,7 @@ function ProductCard({ p, index }: { p: Product; index: number }) {
               className="h-full w-full object-cover transition-transform duration-[1.1s] ease-out group-hover:scale-[1.08]"
             />
           )}
+        </div>
         </div>
 
         {p.badge && !p.showcaseOnly && (
