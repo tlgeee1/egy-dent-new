@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   collection,
   deleteDoc,
@@ -16,7 +16,14 @@ import {
   type AuthError,
 } from "firebase/auth";
 import { auth, db, firebaseReady } from "@/lib/firebase";
-import { DEFAULT_PRODUCTS, DEFAULT_WHATSAPP, DEFAULT_FREE_SHIPPING, type Product } from "@/data/data";
+import {
+  DEFAULT_CATEGORIES,
+  DEFAULT_PRODUCTS,
+  DEFAULT_WHATSAPP,
+  DEFAULT_FREE_SHIPPING,
+  type Category,
+  type Product,
+} from "@/data/data";
 
 /* ---------------- Types ---------------- */
 export type OrderStatus = "جديد" | "مؤكد" | "تم الشحن" | "مكتمل";
@@ -42,6 +49,13 @@ export type Settings = {
 
 interface StoreContextType {
   products: Product[];
+  categories: Category[];
+  catName: (id: string) => string;
+  addCategory: (c: { name: string; desc: string; img: string }) => Promise<void>;
+  updateCategory: (id: string, c: { name: string; desc: string; img: string }) => Promise<void>;
+  /** يرجّع رسالة خطأ لو الفئة فيها منتجات، أو null لو اتحذفت */
+  deleteCategory: (id: string) => Promise<string | null>;
+  moveCategory: (id: string, dir: -1 | 1) => Promise<void>;
   orders: Order[];
   settings: Settings;
   loading: boolean;
@@ -69,6 +83,7 @@ interface StoreContextType {
  */
 const PRODUCTS_COLLECTION = "products";
 const ORDERS_COLLECTION = "orders";
+const CATEGORIES_COLLECTION = "categories";
 const SETTINGS_COLLECTION = "settings";
 const SETTINGS_DOC_ID = "main";
 
@@ -82,6 +97,7 @@ const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [products, setProducts] = useState<Product[]>(DEFAULT_PRODUCTS);
+  const [dbCategories, setDbCategories] = useState<Category[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [loading, setLoading] = useState(true);
@@ -123,6 +139,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setOnline(false);
         setLoading(false);
       },
+    );
+    return () => unsubscribe();
+  }, []);
+
+  /* ---------------- Live sync: categories ---------------- */
+  useEffect(() => {
+    if (!firebaseReady || !db) return;
+    const unsubscribe = onSnapshot(
+      collection(db, CATEGORIES_COLLECTION),
+      (snap) => {
+        const list = snap.docs
+          .map((d) => d.data() as Category)
+          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+        setDbCategories(list);
+      },
+      // لو القراءة اترفضت لأي سبب، نفضل على الفئات الافتراضية بدل ما الموقع يفضى
+      () => setDbCategories([]),
     );
     return () => unsubscribe();
   }, []);
@@ -299,6 +332,81 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  /* ---------------- Categories ---------------- */
+
+  // لسه مفيش فئات في قاعدة البيانات = الموقع شغال بالفئات الافتراضية (مع صور الأدمن القديمة)
+  const categoriesManaged = dbCategories.length > 0;
+  const categories = useMemo<Category[]>(
+    () =>
+      categoriesManaged
+        ? dbCategories
+        : DEFAULT_CATEGORIES.map((c, i) => ({
+            ...c,
+            img: settings.categoryImages?.[c.id] || c.img,
+            order: (i + 1) * 10,
+          })),
+    [categoriesManaged, dbCategories, settings.categoryImages],
+  );
+
+  const catName = (id: string) => categories.find((c) => c.id === id)?.name ?? id;
+
+  /**
+   * بيكتب الفئات المتغيّرة. أول مرة (قبل ما تتنقل الفئات لقاعدة البيانات)
+   * بيكتب القائمة كلها عشان الفئات الافتراضية متضيعش.
+   */
+  const commitCategories = async (next: Category[], changedIds: string[], deletedId?: string): Promise<boolean> => {
+    const database = db;
+    if (!database) return false;
+    try {
+      const batch = writeBatch(database);
+      const toWrite = categoriesManaged ? new Set(changedIds) : new Set(next.map((c) => c.id));
+      next.forEach((c) => {
+        if (toWrite.has(c.id)) batch.set(doc(database, CATEGORIES_COLLECTION, c.id), c);
+      });
+      if (deletedId && categoriesManaged) batch.delete(doc(database, CATEGORIES_COLLECTION, deletedId));
+      await batch.commit();
+      return true;
+    } catch (err) {
+      reportError("فشل حفظ الفئات:", err);
+      return false;
+    }
+  };
+
+  const addCategory = async (c: { name: string; desc: string; img: string }) => {
+    const maxOrder = categories.reduce((m, x) => Math.max(m, x.order ?? 0), 0);
+    const created: Category = {
+      id: `cat-${Date.now().toString(36)}`,
+      name: c.name.trim(),
+      desc: c.desc.trim(),
+      img: c.img,
+      order: maxOrder + 10,
+    };
+    await commitCategories([...categories, created], [created.id]);
+  };
+
+  const updateCategory = async (id: string, c: { name: string; desc: string; img: string }) => {
+    const next = categories.map((x) => (x.id === id ? { ...x, name: c.name.trim(), desc: c.desc.trim(), img: c.img } : x));
+    await commitCategories(next, [id]);
+  };
+
+  const deleteCategory = async (id: string): Promise<string | null> => {
+    const used = products.filter((p) => p.cat === id).length;
+    if (used > 0) return `الفئة دي فيها ${used} منتج — انقل المنتجات لفئة تانية أو احذفها الأول.`;
+    await commitCategories(categories.filter((x) => x.id !== id), [], id);
+    return null;
+  };
+
+  const moveCategory = async (id: string, dir: -1 | 1) => {
+    const idx = categories.findIndex((x) => x.id === id);
+    const target = idx + dir;
+    if (idx < 0 || target < 0 || target >= categories.length) return;
+    const arr = [...categories];
+    [arr[idx], arr[target]] = [arr[target], arr[idx]];
+    const next = arr.map((x, i) => ({ ...x, order: (i + 1) * 10 }));
+    const changed = next.filter((x, i) => x.order !== categories[i]?.order || x.id !== categories[i]?.id).map((x) => x.id);
+    await commitCategories(next, changed);
+  };
+
   /* ---------------- Orders ---------------- */
 
   const addOrder = async (order: Order) => {
@@ -349,6 +457,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     <StoreContext.Provider
       value={{
         products,
+        categories,
+        catName,
+        addCategory,
+        updateCategory,
+        deleteCategory,
+        moveCategory,
         orders,
         settings,
         loading,
