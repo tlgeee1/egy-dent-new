@@ -57,7 +57,7 @@ export default function CheckoutModal() {
     if (Object.keys(errs).length > 0 || items.length === 0) return;
 
     setStage("sending");
-    const id = `EG-${Math.floor(1000 + Math.random() * 9000)}`;
+    `EG-${Date.now().toString(36).toUpperCase()}`;
     const order: Order = {
       id,
       customer: { ...form },
