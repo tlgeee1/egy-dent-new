@@ -25,6 +25,7 @@ import { useStore, type Order, type OrderStatus } from "@/context/StoreContext";
 import { catName, categories, fmt, normalizeImportedProduct, relTime, type Product } from "@/data/data";
 import { ToothMark, ThemeToggle } from "@/components/ui";
 import { cn } from "@/utils/cn";
+import { uploadImage } from "@/utils/uploadImage";
 
 type Tab = "overview" | "products" | "orders" | "settings";
 
@@ -159,37 +160,17 @@ function ProductForm({
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const CLOUDINARY_CLOUD_NAME = "iblruqyz";
-  const CLOUDINARY_UPLOAD_PRESET = "egydent_unsigned";
-
   const handleImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = ""; // يسمح برفع نفس الملف تاني لو احتاج
     if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      setErr("اختار ملف صورة صحيح (jpg, png, webp...)");
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setErr("حجم الصورة كبير أوي — أقصى حد 5 ميجا");
-      return;
-    }
     setUploading(true);
     setErr("");
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-
-      const res = await fetch(
-        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
-        { method: "POST", body: formData }
-      );
-      const data = await res.json();
-      if (!data.secure_url) throw new Error("no url");
-      setD((prev) => ({ ...prev, img: data.secure_url }));
-    } catch {
-      setErr("فشل رفع الصورة — حاول تاني");
+      const url = await uploadImage(file);
+      setD((prev) => ({ ...prev, img: url }));
+    } catch (error) {
+      setErr(error instanceof Error ? error.message : "فشل رفع الصورة — حاول تاني");
     } finally {
       setUploading(false);
     }
@@ -287,7 +268,7 @@ function ProductForm({
                   <Upload className="size-4" />
                   {uploading ? "جارِ الرفع..." : "ارفع صورة من جهازك"}
                 </button>
-                <p className="text-[11px] text-frost-500">JPG أو PNG أو WEBP — لحد 5 ميجا</p>
+                <p className="text-[11px] text-frost-500">JPG أو PNG أو WEBP — بيتصغّر تلقائياً لأقل من 1 ميجا</p>
               </div>
             </div>
 
