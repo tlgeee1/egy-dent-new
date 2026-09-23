@@ -27,7 +27,6 @@ export default function CheckoutModal() {
     [lines, products],
   );
   const total = items.reduce((s, x) => s + x.p.price * x.qty, 0);
-  const freeShip = total >= settings.freeShipping;
 
   const [form, setForm] = useState({ name: "", clinic: "", phone: "", notes: "" });
   const [payment, setPayment] = useState("");
@@ -79,8 +78,7 @@ export default function CheckoutModal() {
       `━━━━━━━━━━`,
       ...order.items.map((i) => `• ${i.name} × ${i.qty} = ${fmt(i.price * i.qty)} جنيه`),
       `━━━━━━━━━━`,
-      `الإجمالي: ${fmt(total)} جنيه${freeShip ? " (شحن مجاني)" : ""}`,
-      `طريقة الدفع: ${order.payment}`,
+      `الإجمالي: ${fmt(total)} جنيه`,      `طريقة الدفع: ${order.payment}`,
     ]
       .filter(Boolean)
       .join("\n");
@@ -275,15 +273,9 @@ export default function CheckoutModal() {
                   </div>
 
                   <div className="mt-5 space-y-2 border-t border-[var(--line-2)] pt-4 text-sm">
-                    <div className="flex justify-between text-frost-400">
-                      <span>المنتجات</span>
-                      <span>{fmt(total)} جنيه</span>
-                    </div>
-                    <div className="flex justify-between text-frost-400">
+                                       <div className="flex justify-between text-frost-400">
                       <span>الشحن</span>
-                      <span className={freeShip ? "font-bold text-emerald-400" : ""}>
-                        {freeShip ? "مجاني" : "يُحدد عند التأكيد"}
-                      </span>
+                      <span>يُحدد عند التأكيد</span>
                     </div>
                     <div className="flex justify-between border-t border-[var(--line-2)] pt-3 font-display text-xl font-black">
                       <span>الإجمالي</span>
