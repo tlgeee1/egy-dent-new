@@ -28,7 +28,7 @@
   /* Muted text */
   --color-frost-300: #c3ccdd;
   --color-frost-400: #93a0b8;
-  --color-frost-500: #66718c;
+  --color-frost-500: #8b96ae;
 
   --animate-marquee: marquee 32s linear infinite;
   --animate-marquee-slow: marquee 55s linear infinite;
@@ -127,7 +127,7 @@
 
   --color-frost-300: #262626;
   --color-frost-400: #525252;
-  --color-frost-500: #8a8a8a;
+  --color-frost-500: #666666;
 
   /* الذهبي أغمق في الوضع الفاتح عشان يبان على الأبيض بدل ما يختفي */
   --color-gold-300: #b45309;
