@@ -13,103 +13,98 @@ export type Product = {
   showcaseOnly?: boolean;
 };
 
-export const categories = [
+export type Category = {
+  id: string;
+  name: string;
+  desc: string;
+  img: string;
+  /** ترتيب الظهور (الأصغر أولاً) */
+  order?: number;
+};
+
+export const DEFAULT_CATEGORIES: Category[] = [
   {
     id: "gloves",
     name: "جوانتي",
     desc: "جوانتي فحص وجراحة بجودة موثوقة ومقاسات متعددة",
-    count: "",
     img: "images/c-consumables.jpg",
   },
   {
     id: "masks",
     name: "ماسك",
     desc: "كمامات طبية معتمدة لحماية إضافية أثناء العلاج",
-    count: "",
     img: "images/c-consumables.jpg",
   },
   {
     id: "rubber-base-regular",
     name: "رابر بيز عادي",
     desc: "مواد طبع (Rubber Base) عادية بدقة طبع عالية",
-    count: "",
     img: "images/p-composite.jpg",
   },
   {
     id: "rubber-base-addition-silicone",
     name: "رابر بيز ادشن سيلكون",
     desc: "مواد طبع سيليكون إضافي (Addition Silicone) بدقة فائقة",
-    count: "",
     img: "images/p-composite.jpg",
   },
   {
     id: "composite",
     name: "كمبوزيت",
     desc: "حشوات كمبوزيت تجميلية بدرجات لون متعددة",
-    count: "",
     img: "images/p-composite.jpg",
   },
   {
     id: "alginate",
     name: "الجينيت",
     desc: "مادة الجينات لأخذ المقاسات بدقة وسهولة",
-    count: "",
     img: "images/c-consumables.jpg",
   },
   {
     id: "instruments-pakistani",
     name: "انسترومنت باكستاني",
     desc: "أدوات أسنان استانلس ستيل باكستانية الصنع",
-    count: "",
     img: "images/p-endo.jpg",
   },
   {
     id: "ketabirka-chinese",
     name: "جتابيركا صيني",
     desc: "جتابيركا صيني الصنع بجودة موثوقة",
-    count: "",
     img: "images/p-endo.jpg",
   },
   {
     id: "ketabirka-meta-2",
     name: "جتابيركا ميتا 2%",
     desc: "جتابيركا ميتا تركيز 2%",
-    count: "",
     img: "images/p-endo.jpg",
   },
   {
     id: "ketabirka-meta-4",
     name: "جتابيركا ميتا 4%",
     desc: "جتابيركا ميتا تركيز 4%",
-    count: "",
     img: "images/p-endo.jpg",
   },
   {
     id: "ketabirka-meta-6",
     name: "جتابيركا ميتا 6%",
     desc: "جتابيركا ميتا تركيز 6%",
-    count: "",
     img: "images/p-endo.jpg",
   },
   {
     id: "paper-point-2",
     name: "بيبر بوينت 2%",
     desc: "بيبر بوينت تركيز 2% لعلاج الجذور",
-    count: "",
     img: "images/p-endo.jpg",
   },
   {
     id: "paper-point-4",
     name: "بيبر بوينت 4%",
     desc: "بيبر بوينت تركيز 4% لعلاج الجذور",
-    count: "",
     img: "images/p-endo.jpg",
   },
   {
     id: "paper-point-6",
     name: "بيبر بوينت 6%",
     desc: "بيبر بوينت تركيز 6% لعلاج الجذور",
-    count: "",
     img: "images/p-endo.jpg",
   },
 ];
@@ -958,22 +953,28 @@ export const DEFAULT_PRODUCTS: Product[] = [
   },
 ];
 
-export const catName = (id: string) => categories.find((c) => c.id === id)?.name ?? id;
-
 /**
  * يقبل ملف استيراد بأي من الشكلين:
  * - منتج كامل: { name, cat, price, oldPrice?, rating?, sold?, img/imageUrl, badge?, desc? }
  * - منتج مبسّط (اسم وصورة فقط): { name, imageUrl }
  * وأي حقل ناقص بياخد قيمة افتراضية آمنة عشان المنتج يظهر صح في المتجر.
  */
-export function normalizeImportedProduct(raw: Record<string, unknown>): Omit<Product, "id"> | null {
+/** توحيد الاسم للمقارنة: بدون مسافات زيادة وحروف كبيرة/صغيرة */
+export const normName = (v: string) => v.trim().replace(/\s+/g, " ").toLowerCase();
+
+export function normalizeImportedProduct(
+  raw: Record<string, unknown>,
+  cats: Category[],
+): Omit<Product, "id"> | null {
   const name = typeof raw.name === "string" ? raw.name.trim() : "";
   const img = typeof raw.img === "string" ? raw.img : typeof raw.imageUrl === "string" ? raw.imageUrl : "";
   if (!name || !img) return null;
 
-  // فئة مش موجودة (أو ناقصة) = نتخطى المنتج بدل ما نحطه في فئة وهمية ويختفي من الفلاتر
-  if (typeof raw.cat !== "string" || !categories.some((c) => c.id === raw.cat)) return null;
-  const cat = raw.cat;
+  // الفئة بتتطابق بالـ id أو باسم الفئة (عربي) — لو مش موجودة نتخطى المنتج
+  const rawCat = typeof raw.cat === "string" ? raw.cat : typeof raw.category === "string" ? raw.category : "";
+  const match = cats.find((c) => c.id === rawCat.trim()) ?? cats.find((c) => normName(c.name) === normName(rawCat));
+  if (!match) return null;
+  const cat = match.id;
   const price = typeof raw.price === "number" && raw.price > 0 ? raw.price : 0;
   const oldPrice = typeof raw.oldPrice === "number" && raw.oldPrice > 0 ? raw.oldPrice : undefined;
   const rating = typeof raw.rating === "number" ? raw.rating : 4.8;

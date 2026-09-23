@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, Eye, ImageOff, Plus, Search, Star } from "lucide-react";
-import { catName, categories, fmt, type Product } from "@/data/data";
+import { fmt, type Product } from "@/data/data";
 import { useCart } from "@/context/CartContext";
 import { useStore } from "@/context/StoreContext";
 import { SectionHead, Reveal } from "./ui";
@@ -9,6 +9,7 @@ import { cn } from "@/utils/cn";
 
 function ProductCard({ p, index }: { p: Product; index: number }) {
   const { add, setQuickView } = useCart();
+  const { catName } = useStore();
   const [added, setAdded] = useState(false);
   const [imgError, setImgError] = useState(false);
 
@@ -132,7 +133,7 @@ function ProductCard({ p, index }: { p: Product; index: number }) {
 const PAGE_SIZE = 50;
 
 export default function Products() {
-  const { products } = useStore();
+  const { products, categories } = useStore();
   const [filter, setFilter] = useState("all");
   const [q, setQ] = useState("");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);

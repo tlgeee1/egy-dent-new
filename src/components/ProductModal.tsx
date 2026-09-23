@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { BadgeCheck, Minus, Plus, ShoppingBag, Star, Truck, X, Zap } from "lucide-react";
 import { useCart } from "@/context/CartContext";
-import { catName, fmt } from "@/data/data";
+import { useStore } from "@/context/StoreContext";
+import { fmt } from "@/data/data";
 
 export default function ProductModal() {
   const { quickView: p, setQuickView, add, setOpen } = useCart();
+  const { catName } = useStore();
   const [qty, setQty] = useState(1);
 
   useEffect(() => {

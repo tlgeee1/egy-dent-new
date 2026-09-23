@@ -1,10 +1,9 @@
 import { ArrowLeft } from "lucide-react";
-import { categories } from "@/data/data";
 import { Reveal, SectionHead } from "./ui";
 import { useStore } from "@/context/StoreContext";
 
 export default function Categories() {
-  const { products, settings } = useStore();
+  const { products, categories } = useStore();
   const countFor = (id: string) => products.filter((p) => p.cat === id && !p.showcaseOnly).length;
 
   return (
@@ -55,7 +54,7 @@ export default function Categories() {
                   style={{ clipPath: "url(#category-tooth-clip)" }}
                 >
                   <img
-                    src={settings.categoryImages?.[c.id] || c.img}
+                    src={c.img || "images/c-consumables.jpg"}
                     alt={c.name}
                     loading="lazy"
                     className="absolute inset-0 h-full w-full object-cover transition-transform duration-[1.2s] ease-out group-hover:scale-110"

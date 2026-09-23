@@ -23,7 +23,7 @@ import {
   X,
 } from "lucide-react";
 import { useStore, type Order, type OrderStatus } from "@/context/StoreContext";
-import { catName, categories, fmt, normalizeImportedProduct, relTime, type Product } from "@/data/data";
+import { fmt, normalizeImportedProduct, relTime, type Product } from "@/data/data";
 import { ToothMark, ThemeToggle } from "@/components/ui";
 import { cn } from "@/utils/cn";
 import { uploadImage } from "@/utils/uploadImage";
@@ -158,7 +158,11 @@ function ProductForm({
   onClose: () => void;
   onSave: (d: Draft) => void;
 }) {
-  const [d, setD] = useState<Draft>(initial);
+  const { categories } = useStore();
+  // لو فئة المنتج مش موجودة (مثلاً منتج جديد) نبدأ بأول فئة فعلية بدل فئة وهمية
+  const [d, setD] = useState<Draft>(() =>
+    categories.some((c) => c.id === initial.cat) || categories.length === 0 ? initial : { ...initial, cat: categories[0].id },
+  );
   const [err, setErr] = useState("");
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -345,9 +349,9 @@ export default function Admin() {
     const q = search.trim().toLowerCase();
     if (!q) return store.products;
     return store.products.filter(
-      (p) => p.name.toLowerCase().includes(q) || catName(p.cat).toLowerCase().includes(q),
+      (p) => p.name.toLowerCase().includes(q) || store.catName(p.cat).toLowerCase().includes(q),
     );
-  }, [store.products, search]);
+  }, [store.products, store.catName, search]);
 
   const exportProducts = () => {
     const blob = new Blob([JSON.stringify(store.products, null, 2)], { type: "application/json" });
@@ -368,7 +372,7 @@ export default function Admin() {
         const raw = JSON.parse(String(reader.result));
         const list = Array.isArray(raw) ? raw : [raw];
         const normalized = list
-          .map((item) => normalizeImportedProduct(item as Record<string, unknown>))
+          .map((item) => normalizeImportedProduct(item as Record<string, unknown>, store.categories))
           .filter((p): p is Omit<Product, "id"> => p !== null);
         if (normalized.length === 0) {
           setImportMsg("الملف ده مفيهوش منتجات صالحة للاستيراد");
@@ -615,7 +619,7 @@ export default function Admin() {
                           {p.showcaseOnly && <span className="rounded-full bg-[var(--fill-6)] px-2 py-0.5 text-[10px] font-bold text-frost-400">عرض فقط</span>}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-frost-400">{catName(p.cat)}</td>
+                      <td className="px-4 py-3 text-frost-400">{store.catName(p.cat)}</td>
                       <td className="px-4 py-3 font-display font-black text-volt-300">{fmt(p.price)} ج</td>
                       <td className="px-4 py-3 text-frost-500">{p.oldPrice ? `${fmt(p.oldPrice)} ج` : "—"}</td>
                       <td className="px-4 py-3">
