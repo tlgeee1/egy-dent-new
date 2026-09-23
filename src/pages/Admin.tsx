@@ -374,13 +374,18 @@ export default function Admin() {
           setImportMsg("الملف ده مفيهوش منتجات صالحة للاستيراد");
         } else {
           await store.importProducts(normalized);
-          setImportMsg(`تم استيراد ${normalized.length} منتج بنجاح`);
+          const skipped = list.length - normalized.length;
+          setImportMsg(
+            skipped > 0
+              ? `تم استيراد ${normalized.length} منتج، وتم تخطّي ${skipped} (فئة غير موجودة أو بيانات ناقصة)`
+              : `تم استيراد ${normalized.length} منتج بنجاح`,
+          );
         }
       } catch {
         setImportMsg("تعذّر قراءة الملف — تأكد إنه JSON صحيح");
       } finally {
         setImporting(false);
-        setTimeout(() => setImportMsg(null), 4000);
+        setTimeout(() => setImportMsg(null), 8000);
       }
     };
     reader.readAsText(file, "utf-8");
