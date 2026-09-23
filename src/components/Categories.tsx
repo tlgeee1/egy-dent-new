@@ -33,46 +33,46 @@ export default function Categories() {
           </Reveal>
         </div>
 
-        <div className="mt-10 grid auto-rows-[148px] grid-cols-2 gap-3 sm:mt-14 sm:auto-rows-[190px] sm:grid-cols-3 sm:gap-5 lg:grid-cols-4 lg:auto-rows-[220px]">
+        {/* hidden defs: the tooth-shaped clip path every category card uses */}
+        <svg width="0" height="0" className="absolute" aria-hidden="true" focusable="false">
+          <defs>
+            <clipPath id="category-tooth-clip" clipPathUnits="objectBoundingBox">
+              <path d="M0.06,0.30 C0.06,0.17 0.03,0.06 0.15,0.045 C0.22,0.02 0.28,0.12 0.35,0.12 C0.42,0.12 0.44,0.015 0.5,0.015 C0.56,0.015 0.58,0.12 0.65,0.12 C0.72,0.12 0.78,0.02 0.85,0.045 C0.97,0.06 0.94,0.17 0.94,0.30 L0.94,0.85 C0.94,0.94 0.87,1 0.78,1 L0.22,1 C0.13,1 0.06,0.94 0.06,0.85 Z" />
+            </clipPath>
+          </defs>
+        </svg>
+
+        <div className="mt-10 grid grid-cols-3 gap-3 sm:mt-14 sm:grid-cols-4 sm:gap-4 md:grid-cols-5 lg:grid-cols-6">
           {categories.map((c, i) => (
-            <Reveal key={c.id} delay={i * 0.05}>
+            <Reveal key={c.id} delay={i * 0.04}>
               <a
                 href="#products"
                 onClick={() => window.dispatchEvent(new CustomEvent("set-product-filter", { detail: c.id }))}
-                className="group relative block h-full w-full overflow-hidden rounded-2xl border border-[var(--line-2)] bg-ink-900 transition-colors duration-500 hover:border-volt-500/40 sm:rounded-[1.75rem]"
+                className="group relative block aspect-[4/5] w-full"
               >
-                <img
-                  src={c.img}
-                  alt={c.name}
-                  loading="lazy"
-                  className="absolute inset-0 h-full w-full object-cover opacity-80 transition-all duration-[1.2s] ease-out group-hover:scale-110 group-hover:opacity-100"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-ink-950 via-ink-950/50 to-transparent" />
-                <div className="absolute inset-0 bg-volt-600/0 transition-colors duration-500 group-hover:bg-volt-600/10" />
+                <div
+                  className="absolute inset-0 overflow-hidden bg-ink-900 transition-transform duration-500 [filter:drop-shadow(0_2px_6px_rgba(0,0,0,0.35))] group-hover:scale-[1.05]"
+                  style={{ clipPath: "url(#category-tooth-clip)" }}
+                >
+                  <img
+                    src={c.img}
+                    alt={c.name}
+                    loading="lazy"
+                    className="absolute inset-0 h-full w-full object-cover opacity-85 transition-transform duration-[1.2s] ease-out group-hover:scale-110"
+                  />
+                  {/* strong solid band at the bottom so the name is always easy to read */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-ink-950 from-15% via-ink-950/80 via-45% to-ink-950/5" />
+                  <div className="absolute inset-0 bg-volt-600/0 transition-colors duration-500 group-hover:bg-volt-600/15" />
 
-                {/* count chip */}
-                <span className="absolute right-2.5 top-2.5 rounded-full border border-[var(--line-4)] bg-ink-950/60 px-2 py-1 text-[10px] font-bold leading-none text-volt-200 backdrop-blur-md sm:right-5 sm:top-5 sm:px-3.5 sm:py-1.5 sm:text-xs">
-                  +{countFor(c.id).toLocaleString("en-US")}
-                </span>
-
-                <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 p-3 sm:gap-4 sm:p-6">
-                  <div className="min-w-0">
-                    <span
-                      className="hidden font-display text-[11px] font-bold tracking-widest text-volt-400 sm:inline"
-                      dir="ltr"
-                    >
-                      {String(i + 1).padStart(2, "0")} /
-                    </span>
-                    <h3 className="font-display text-[13px] font-extrabold leading-snug line-clamp-2 sm:mt-1 sm:text-2xl md:text-[1.7rem]">
-                      {c.name}
-                    </h3>
-                    <p className="mt-1.5 hidden max-w-xs text-sm leading-relaxed text-frost-400 opacity-0 transition-all duration-500 [transform:translateY(8px)] group-hover:opacity-100 group-hover:[transform:translateY(0)] sm:block">
-                      {c.desc}
-                    </p>
-                  </div>
-                  <span className="grid size-8 shrink-0 place-items-center rounded-full border border-[var(--line-4)] bg-[var(--fill-4)] text-[var(--text-primary)] backdrop-blur-md transition-all duration-500 group-hover:border-volt-400 group-hover:bg-volt-500 group-hover:text-[var(--onaccent)] sm:size-12">
-                    <ArrowLeft className="size-3.5 transition-transform duration-500 group-hover:-rotate-45 sm:size-5" />
+                  {/* count chip */}
+                  <span className="absolute right-1.5 top-1.5 rounded-full bg-ink-950/70 px-1.5 py-0.5 text-[9px] font-bold leading-none text-volt-300 backdrop-blur-sm">
+                    +{countFor(c.id).toLocaleString("en-US")}
                   </span>
+
+                  {/* name, pinned to the bottom, high-contrast */}
+                  <h3 className="absolute inset-x-0 bottom-0 px-1.5 pb-2.5 pt-1 text-center font-display text-[11px] font-extrabold leading-tight text-white line-clamp-2 sm:text-[13px] md:text-sm">
+                    {c.name}
+                  </h3>
                 </div>
               </a>
             </Reveal>
