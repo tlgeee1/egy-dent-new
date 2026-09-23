@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>الصفحة غير موجودة | إيجي دنت</title>
+    <style>
+      html,body{height:100%;margin:0}
+      body{display:grid;place-items:center;background:#040810;color:#e6edf7;font-family:"Cairo",system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;text-align:center;padding:24px}
+      .code{font-size:clamp(80px,22vw,160px);font-weight:900;line-height:1;color:#22d3ee;letter-spacing:4px}
+      h1{margin:12px 0 8px;font-size:clamp(20px,5vw,28px)}
+      p{margin:0 0 28px;color:#94a3b8}
+      a{display:inline-block;background:linear-gradient(90deg,#38e1f7,#06b6d4);color:#040810;font-weight:800;text-decoration:none;padding:14px 32px;border-radius:16px}
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="code" dir="ltr">404</div>
+      <h1>الصفحة دي مش موجودة</h1>
+      <p>ممكن يكون الرابط اتغيّر أو اتكتب غلط.</p>
+      <a id="home" href="/">الرجوع للرئيسية</a>
+    </main>
+    <script>
+      // على github.io المتجر جوه مجلد المشروع، وعلى الدومين الخاص بيبقى في الجذر
+      if (location.hostname.endsWith("github.io")) {
+        var seg = location.pathname.split("/")[1];
+        if (seg) document.getElementById("home").href = "/" + seg + "/";
+      }
+    </script>
+  </body>
+</html>

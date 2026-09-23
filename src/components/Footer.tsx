@@ -37,7 +37,6 @@ export default function Footer() {
                 ["العرض الخاص", "#offer"],
                 ["ضماناتنا", "#guarantees"],
                 ["فروعنا", "#branches"],
-                ["لوحة التحكم", "#admin"],
               ].map(([l, h]) => (
                 <li key={h}>
                   <a href={h} className="transition-colors hover:text-volt-300">
@@ -111,7 +110,7 @@ export default function Footer() {
           EGY DENT
         </p>
         <div className="absolute inset-x-0 bottom-0 flex flex-col items-center justify-between gap-3 border-t border-[var(--line-1)] bg-ink-950 px-5 py-5 md:flex-row lg:px-14">
-          <p className="text-xs text-frost-400">© 2025 إيجي دنت — جميع الحقوق محفوظة</p>
+          <p className="text-xs text-frost-400">© {new Date().getFullYear()} إيجي دنت — جميع الحقوق محفوظة</p>
           <p className="flex items-center gap-1.5 text-xs text-frost-400">
             صُنع بـ
             <Heart className="size-3.5 fill-red-400 text-red-400" />
