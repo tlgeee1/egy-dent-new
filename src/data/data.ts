@@ -971,7 +971,9 @@ export function normalizeImportedProduct(raw: Record<string, unknown>): Omit<Pro
   const img = typeof raw.img === "string" ? raw.img : typeof raw.imageUrl === "string" ? raw.imageUrl : "";
   if (!name || !img) return null;
 
-  const cat = typeof raw.cat === "string" && categories.some((c) => c.id === raw.cat) ? raw.cat : "consumables";
+  // فئة مش موجودة (أو ناقصة) = نتخطى المنتج بدل ما نحطه في فئة وهمية ويختفي من الفلاتر
+  if (typeof raw.cat !== "string" || !categories.some((c) => c.id === raw.cat)) return null;
+  const cat = raw.cat;
   const price = typeof raw.price === "number" && raw.price > 0 ? raw.price : 0;
   const oldPrice = typeof raw.oldPrice === "number" && raw.oldPrice > 0 ? raw.oldPrice : undefined;
   const rating = typeof raw.rating === "number" ? raw.rating : 4.8;
@@ -1021,6 +1023,12 @@ export const paymentMethods = [
   { id: "card", name: "فيزا / ماستركارد", note: "عن الاستلام أو بالفرع" },
   { id: "cod", name: "الدفع عند الاستلام", note: "كاش مع المندوب" },
 ];
+
+// روابط السوشيال — أي رابط فاضي بيختفي من الموقع
+export const socialLinks = {
+  facebook: "https://www.facebook.com/profile.php?id=100063929207977",
+  instagram: "",
+};
 
 export const DEFAULT_WHATSAPP = "201151605515";
 export const DEFAULT_FREE_SHIPPING = 500;

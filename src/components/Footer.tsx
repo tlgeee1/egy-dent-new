@@ -1,5 +1,6 @@
 import { Heart, Mail, MapPin, Phone } from "lucide-react";
 import { ToothMark } from "./ui";
+import { socialLinks } from "@/data/data";
 
 export default function Footer() {
   return (
@@ -81,6 +82,21 @@ export default function Footer() {
                 <MapPin className="size-4.5 shrink-0 translate-y-0.5 text-volt-400" />
                 60 ش الطيران، مدينة نصر، القاهرة
               </li>
+              {socialLinks.facebook && (
+                <li>
+                  <a
+                    href={socialLinks.facebook}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-3 transition-colors hover:text-volt-300"
+                  >
+                    <svg viewBox="0 0 24 24" className="size-4.5 shrink-0 fill-current text-volt-400" aria-hidden="true">
+                      <path d="M13.5 22v-8.2h2.8l.5-3.3h-3.3V8.4c0-.95.4-1.7 1.8-1.7h1.6V3.8c-.3 0-1.3-.15-2.4-.15-2.5 0-4.2 1.5-4.2 4.3v2.55H7.5v3.3h2.8V22h3.2Z" />
+                    </svg>
+                    صفحتنا على فيسبوك
+                  </a>
+                </li>
+              )}
             </ul>
           </div>
         </div>
