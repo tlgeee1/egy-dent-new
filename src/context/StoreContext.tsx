@@ -67,6 +67,7 @@ interface StoreContextType {
   addProduct: (product: Omit<Product, "id">) => Promise<void>;
   updateProduct: (id: number, product: Omit<Product, "id">) => Promise<void>;
   deleteProduct: (id: number) => Promise<void>;
+  deleteProducts: (ids: number[]) => Promise<void>;
   importProducts: (products: Omit<Product, "id">[]) => Promise<void>;
   resetProducts: () => Promise<void>;
   addOrder: (order: Order) => Promise<void>;
@@ -293,6 +294,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const deleteProducts = async (ids: number[]) => {
+    const database = db;
+    if (!database || ids.length === 0) return;
+    try {
+      // Firestore بيسمح بـ 500 عملية كحد أقصى في الـ batch الواحدة
+      for (let i = 0; i < ids.length; i += 450) {
+        const batch = writeBatch(database);
+        ids.slice(i, i + 450).forEach((id) => batch.delete(doc(database, PRODUCTS_COLLECTION, String(id))));
+        await batch.commit();
+      }
+    } catch (err) {
+      reportError("فشل حذف المنتجات:", err);
+    }
+  };
+
   const importProducts = async (newProducts: Omit<Product, "id">[]) => {
     const database = db;
     if (!database) return;
@@ -474,6 +490,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         addProduct,
         updateProduct,
         deleteProduct,
+        deleteProducts,
         importProducts,
         resetProducts,
         addOrder,
