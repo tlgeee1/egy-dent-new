@@ -72,6 +72,79 @@ export default function BulkImages({ onClose }: { onClose: () => void }) {
   );
   const targetIds = useMemo(() => new Set(targets.map((t) => t.id)), [targets]);
 
+  /* ---------- وضع "صورة واحدة لمجموعة منتجات" ---------- */
+  const [mode, setMode] = useState<"each" | "group">("each");
+  const [filterText, setFilterText] = useState("");
+  const [excluded, setExcluded] = useState<Set<number>>(new Set());
+  const [groupFile, setGroupFile] = useState<File | null>(null);
+  const [groupUrl, setGroupUrl] = useState<string | null>(null);
+  const [groupMsg, setGroupMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [groupProgress, setGroupProgress] = useState(0);
+  const groupFileRef = useRef<HTMLInputElement>(null);
+
+  // المنتجات اللي اسمها فيه النص المكتوب (تطابق متصل: "اصلي K" مش بتطابق "اصلي لونج K")
+  const groupTargets = useMemo(() => {
+    const f = norm(filterText);
+    return f ? targets.filter((t) => norm(t.name).includes(f)) : targets;
+  }, [targets, filterText]);
+  const groupSelected = useMemo(() => groupTargets.filter((t) => !excluded.has(t.id)), [groupTargets, excluded]);
+
+  useEffect(() => {
+    setExcluded(new Set());
+    setGroupMsg(null);
+  }, [catFilter, filterText, onlyPlaceholder]);
+
+  useEffect(() => () => {
+    if (groupUrl) URL.revokeObjectURL(groupUrl);
+  }, [groupUrl]);
+
+  const onGroupFile = (e: ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    setGroupFile(f);
+    setGroupUrl(URL.createObjectURL(f));
+    setGroupMsg(null);
+  };
+
+  const toggleExcluded = (id: number) =>
+    setExcluded((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+
+  const applyGroup = async () => {
+    if (!groupFile || groupSelected.length === 0) return;
+    setRunning(true);
+    setGroupMsg(null);
+    setGroupProgress(0);
+    try {
+      // بنرفع الصورة مرة واحدة بس، وبنحط نفس الرابط على كل المنتجات المحددة
+      const url = await uploadImage(groupFile);
+      const list = [...groupSelected];
+      let next = 0;
+      let done = 0;
+      const worker = async () => {
+        while (next < list.length) {
+          const p = list[next++];
+          const { id, ...rest } = p;
+          await updateProduct(id, { ...rest, img: url });
+          setGroupProgress(++done);
+        }
+      };
+      await Promise.all([worker(), worker(), worker(), worker()]);
+      setGroupMsg({ ok: true, text: `تم تطبيق الصورة على ${list.length} منتج` });
+      setGroupFile(null);
+      setGroupUrl(null);
+    } catch (err) {
+      setGroupMsg({ ok: false, text: err instanceof Error ? err.message : "فشل الرفع — جرّب تاني" });
+    } finally {
+      setRunning(false);
+    }
+  };
+
   const onFiles = (e: ChangeEvent<HTMLInputElement>) => {
     const list = Array.from(e.target.files ?? []).filter((f) => f.type.startsWith("image/") || /\.(jpe?g|png|webp|heic)$/i.test(f.name));
     e.target.value = "";
@@ -182,8 +255,29 @@ export default function BulkImages({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        <p className="mt-2 text-xs leading-relaxed text-frost-400">
-          اختار الفئة، وبعدين كل الصور مرة واحدة، وكل صورة بتتربط بمنتجها. راجع الربط قبل الحفظ.
+        <div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl border border-[var(--line-3)] bg-ink-950/50 p-1.5">
+          {(
+            [
+              ["each", "صورة لكل منتج"],
+              ["group", "صورة واحدة لمجموعة"],
+            ] as const
+          ).map(([k, label]) => (
+            <button
+              key={k}
+              onClick={() => setMode(k)}
+              disabled={running}
+              className={`rounded-xl px-3 py-2.5 text-xs font-black transition-colors ${
+                mode === k ? "bg-volt-500/20 text-volt-300" : "text-frost-400 hover:text-frost-200"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-3 text-xs leading-relaxed text-frost-400">
+          {mode === "each"
+            ? "اختار الفئة، وبعدين كل الصور مرة واحدة، وكل صورة بتتربط بمنتجها. راجع الربط قبل الحفظ."
+            : "اختار الفئة، وبعدين صورة علبة واحدة، وهتتحط على كل المنتجات اللي تحت (مثلاً كل مقاسات جتابيركا ميتا 4%)."}
         </p>
 
         {/* نطاق المنتجات */}
@@ -208,6 +302,85 @@ export default function BulkImages({ onClose }: { onClose: () => void }) {
           المنتجات المتاحة للربط: <span className="font-black text-volt-300">{targets.length}</span>
         </p>
 
+        {mode === "group" && (
+          <div className="mt-4 space-y-4">
+            <div>
+              <label className="mb-1.5 block text-[11px] font-bold text-frost-400">
+                كلمة تفرّق النوع (اختياري) — لو الفئة فيها أكتر من نوع
+              </label>
+              <input
+                value={filterText}
+                onChange={(e) => setFilterText(e.target.value)}
+                disabled={running}
+                className={field}
+                placeholder="مثال: اصلي K   أو   لونج K   أو   مصري"
+              />
+            </div>
+
+            <div className="rounded-2xl border border-[var(--line-2)] bg-ink-950/40 p-3">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <p className="text-xs font-bold text-frost-300">
+                  هتتطبق على <span className="font-black text-volt-300">{groupSelected.length}</span> منتج
+                </p>
+                {groupTargets.length > 0 && (
+                  <button
+                    onClick={() => setExcluded(excluded.size ? new Set() : new Set(groupTargets.map((t) => t.id)))}
+                    disabled={running}
+                    className="text-[11px] font-bold text-frost-500 hover:text-volt-300"
+                  >
+                    {excluded.size ? "تحديد الكل" : "إلغاء الكل"}
+                  </button>
+                )}
+              </div>
+              {groupTargets.length === 0 ? (
+                <p className="text-[11px] text-amber-400">مفيش منتجات مطابقة. غيّر الفئة أو الكلمة، أو شيل علامة "المنتجات اللي صورتها مؤقتة بس".</p>
+              ) : (
+                <div className="max-h-44 space-y-1 overflow-y-auto pr-1">
+                  {groupTargets.map((t) => (
+                    <label key={t.id} className="flex cursor-pointer items-center gap-2 rounded-lg px-1.5 py-1 text-[11px] text-frost-300 hover:bg-[var(--fill-4)]">
+                      <input
+                        type="checkbox"
+                        checked={!excluded.has(t.id)}
+                        onChange={() => toggleExcluded(t.id)}
+                        disabled={running}
+                        className="size-3.5 accent-[#06b6d4]"
+                      />
+                      {t.name}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <input ref={groupFileRef} type="file" accept="image/*" onChange={onGroupFile} className="hidden" />
+            <div className="flex items-center gap-3">
+              {groupUrl && <img src={groupUrl} alt="" className="size-20 shrink-0 rounded-xl object-cover" />}
+              <button
+                onClick={() => groupFileRef.current?.click()}
+                disabled={running}
+                className="flex items-center gap-2 rounded-xl border border-[var(--line-3)] px-4 py-2.5 text-xs font-bold text-frost-300 hover:bg-[var(--fill-4)] disabled:opacity-50"
+              >
+                <Upload className="size-4" />
+                {groupUrl ? "تغيير الصورة" : "اختيار الصورة"}
+              </button>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={applyGroup}
+                disabled={running || !groupFile || groupSelected.length === 0}
+                className="flex items-center gap-2 rounded-2xl bg-gradient-to-l from-volt-400 to-volt-600 px-6 py-3 text-sm font-black text-[var(--onaccent)] disabled:opacity-50"
+              >
+                {running && <Loader2 className="size-4 animate-spin" />}
+                {running ? `جاري التطبيق… ${groupProgress}/${groupSelected.length}` : `رفع وتطبيق على ${groupSelected.length} منتج`}
+              </button>
+              {groupMsg && <p className={`text-xs font-bold ${groupMsg.ok ? "text-emerald-400" : "text-red-400"}`}>{groupMsg.text}</p>}
+            </div>
+          </div>
+        )}
+
+        {mode === "each" && (
+          <>
         {/* اختيار الصور */}
         <input ref={fileRef} type="file" accept="image/*" multiple onChange={onFiles} className="hidden" />
         <div className="mt-4 flex flex-wrap gap-2">
@@ -312,6 +485,8 @@ export default function BulkImages({ onClose }: { onClose: () => void }) {
         )}
         {rows.length > 0 && linked.length < rows.length && !running && (
           <p className="mt-2 text-[11px] text-amber-400">في {rows.length - linked.length} صورة مش مربوطة بمنتج، ومش هتترفع.</p>
+        )}
+          </>
         )}
       </motion.div>
     </div>
