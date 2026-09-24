@@ -4,6 +4,7 @@ import {
   BadgeCheck,
   Download,
   Eye,
+  ImagePlus,
   EyeOff,
   LayoutDashboard,
   LayoutGrid,
@@ -29,6 +30,7 @@ import { ToothMark, ThemeToggle } from "@/components/ui";
 import { cn } from "@/utils/cn";
 import { uploadImage } from "@/utils/uploadImage";
 import CategoriesAdmin from "@/pages/CategoriesAdmin";
+import BulkImages from "@/pages/BulkImages";
 
 type Tab = "overview" | "products" | "categories" | "orders" | "settings";
 
@@ -374,6 +376,7 @@ export default function Admin() {
   }, [store.settings.whatsapp, store.settings.freeShipping]);
   const [search, setSearch] = useState("");
   const [importing, setImporting] = useState(false);
+  const [showBulk, setShowBulk] = useState(false);
   const [importMsg, setImportMsg] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -587,6 +590,13 @@ export default function Admin() {
                 >
                   {importing ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
                   استيراد
+                </button>
+                <button
+                  onClick={() => setShowBulk(true)}
+                  className="flex items-center gap-2 rounded-xl border border-[var(--line-3)] px-4 py-2.5 text-xs font-bold text-frost-300 hover:bg-[var(--fill-4)]"
+                >
+                  <ImagePlus className="size-4" />
+                  رفع صور بالجملة
                 </button>
                 <button
                   onClick={exportProducts}
@@ -818,6 +828,8 @@ export default function Admin() {
       </main>
 
       {/* product form modal */}
+      {showBulk && <BulkImages onClose={() => setShowBulk(false)} />}
+
       <AnimatePresence>
         {editing && (
           <ProductForm
