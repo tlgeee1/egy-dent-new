@@ -25,7 +25,7 @@ import {
   X,
 } from "lucide-react";
 import { useStore, type Order, type OrderStatus } from "@/context/StoreContext";
-import { fmt, normalizeImportedProduct, relTime, type Product } from "@/data/data";
+import { fmt, normName, normalizeImportedProduct, relTime, type Product } from "@/data/data";
 import { ToothMark, ThemeToggle } from "@/components/ui";
 import { cn } from "@/utils/cn";
 import { uploadImage } from "@/utils/uploadImage";
@@ -382,6 +382,31 @@ export default function Admin() {
 
   const revenue = useMemo(() => store.orders.reduce((s, o) => s + o.total, 0), [store.orders]);
 
+  // منتجات مكررة (نفس الاسم ونفس الفئة): بنسيب الأقدم (أقل id) وبنعتبر الباقي نسخ زيادة
+  const duplicateIds = useMemo(() => {
+    const seen = new Set<string>();
+    const extra: number[] = [];
+    [...store.products]
+      .sort((a, b) => a.id - b.id)
+      .forEach((p) => {
+        const k = `${p.cat}|${normName(p.name)}`;
+        if (seen.has(k)) extra.push(p.id);
+        else seen.add(k);
+      });
+    return extra;
+  }, [store.products]);
+
+  const removeDuplicates = async () => {
+    const n = duplicateIds.length;
+    if (!n) return;
+    if (!confirm(`في ${n} منتج مكرر (نفس الاسم ونفس الفئة).\nهيتحذف النسخ الزيادة ويفضل الأقدم من كل منتج.\n\nتكمّل؟`)) return;
+    setImporting(true);
+    await store.deleteProducts(duplicateIds);
+    setImporting(false);
+    setImportMsg(`تم حذف ${n} منتج مكرر`);
+    setTimeout(() => setImportMsg(null), 8000);
+  };
+
   const filteredProducts = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return store.products;
@@ -414,12 +439,25 @@ export default function Admin() {
         if (normalized.length === 0) {
           setImportMsg("الملف ده مفيهوش منتجات صالحة للاستيراد");
         } else {
-          await store.importProducts(normalized);
-          const skipped = list.length - normalized.length;
+          // نتخطى أي منتج موجود بنفس الاسم والفئة (وده بيحمي من استيراد نفس الملف مرتين)
+          const seen = new Set(store.products.map((p) => `${p.cat}|${normName(p.name)}`));
+          const fresh = normalized.filter((p) => {
+            const k = `${p.cat}|${normName(p.name)}`;
+            if (seen.has(k)) return false;
+            seen.add(k);
+            return true;
+          });
+          const dupes = normalized.length - fresh.length;
+          const invalid = list.length - normalized.length;
+          if (fresh.length > 0) await store.importProducts(fresh);
+          const notes = [
+            dupes > 0 ? `${dupes} مكرر (موجود بالفعل)` : "",
+            invalid > 0 ? `${invalid} فئة غير موجودة أو بيانات ناقصة` : "",
+          ].filter(Boolean);
           setImportMsg(
-            skipped > 0
-              ? `تم استيراد ${normalized.length} منتج، وتم تخطّي ${skipped} (فئة غير موجودة أو بيانات ناقصة)`
-              : `تم استيراد ${normalized.length} منتج بنجاح`,
+            fresh.length > 0
+              ? `تم استيراد ${fresh.length} منتج${notes.length ? `، وتم تخطّي ${notes.join(" و")}` : " بنجاح"}`
+              : `مفيش منتجات جديدة للاستيراد — تم تخطّي ${notes.join(" و")}`,
           );
         }
       } catch {
@@ -591,6 +629,16 @@ export default function Admin() {
                   {importing ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
                   استيراد
                 </button>
+                {duplicateIds.length > 0 && (
+                  <button
+                    onClick={removeDuplicates}
+                    disabled={importing}
+                    className="flex items-center gap-2 rounded-xl border border-amber-400/50 bg-amber-400/10 px-4 py-2.5 text-xs font-bold text-amber-300 hover:bg-amber-400/20 disabled:opacity-60"
+                  >
+                    <Trash2 className="size-4" />
+                    حذف المكرر ({duplicateIds.length})
+                  </button>
+                )}
                 <button
                   onClick={() => setShowBulk(true)}
                   className="flex items-center gap-2 rounded-xl border border-[var(--line-3)] px-4 py-2.5 text-xs font-bold text-frost-300 hover:bg-[var(--fill-4)]"
