@@ -107,7 +107,7 @@ function ProductCard({ p, index }: { p: Product; index: number }) {
                   "relative grid size-8 shrink-0 place-items-center overflow-hidden rounded-xl transition-all duration-300 active:scale-90 sm:size-12 sm:rounded-2xl",
                   added
                     ? "bg-emerald-400 text-white shadow-[0_10px_28px_rgba(52,211,153,0.4)]"
-                    : "bg-gradient-to-br from-gold-400 to-gold-500 text-[var(--onaccent)] shadow-[0_10px_28px_rgba(251,191,36,0.4)] hover:scale-105",
+                    : "bg-gradient-to-br from-sky-400 to-sky-500 text-white shadow-[0_10px_28px_rgba(56,189,248,0.4)] hover:scale-105",
                 )}
               >
                 <AnimatePresence mode="wait" initial={false}>
