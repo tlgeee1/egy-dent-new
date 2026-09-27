@@ -33,7 +33,7 @@ function ProductCard({ p, index }: { p: Product; index: number }) {
       className="group relative flex cursor-pointer flex-col overflow-hidden rounded-[1.75rem] transition-transform duration-500 hover:-translate-y-1"
     >
          {/* image */}
-      <div className="relative flex h-64 items-center justify-center">
+      <div className="relative flex h-28 items-center justify-center sm:h-64">
         <div className="relative aspect-[4/5] h-full max-w-[86%] [filter:drop-shadow(0_8px_18px_rgba(0,0,0,0.4))] transition-transform duration-500 group-hover:scale-[1.04]">
         <div className="h-full w-full overflow-hidden" style={{ clipPath: "url(#product-tooth-clip)" }}>
           {imgError ? (
@@ -54,26 +54,26 @@ function ProductCard({ p, index }: { p: Product; index: number }) {
         </div>
 
         {p.badge && !p.showcaseOnly && (
-          <span className="absolute right-4 top-4 rounded-full bg-gradient-to-l from-gold-400 to-gold-500 px-3 py-1.5 font-display text-xs font-black text-[var(--onaccent)] shadow-lg">
+          <span className="absolute right-1.5 top-1.5 rounded-full bg-gradient-to-l from-gold-400 to-gold-500 px-2 py-0.5 font-display text-[9px] font-black text-[var(--onaccent)] shadow-lg sm:right-4 sm:top-4 sm:px-3 sm:py-1.5 sm:text-xs">
             {p.badge}
           </span>
         )}
         {discount > 0 && !p.badge && !p.showcaseOnly && (
-          <span className="absolute right-4 top-4 rounded-full bg-volt-500 px-3 py-1.5 font-display text-xs font-black text-[var(--onaccent)]">
+          <span className="absolute right-1.5 top-1.5 rounded-full bg-volt-500 px-2 py-0.5 font-display text-[9px] font-black text-[var(--onaccent)] sm:right-4 sm:top-4 sm:px-3 sm:py-1.5 sm:text-xs">
             -{discount}%
           </span>
         )}
 
-        {/* quick view hint */}
-        <span className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-full bg-ink-950/70 px-5 py-2.5 text-xs font-bold text-[var(--text-primary)] opacity-0 backdrop-blur-md transition-all duration-300 group-hover:opacity-100">
+        {/* quick view hint — hidden on mobile (no hover there anyway) */}
+        <span className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-full bg-ink-950/70 px-5 py-2.5 text-xs font-bold text-[var(--text-primary)] opacity-0 backdrop-blur-md transition-all duration-300 group-hover:opacity-100 sm:flex">
           <Eye className="size-4 text-volt-300" />
           {p.showcaseOnly ? "عرض الصورة" : "عرض التفاصيل"}
         </span>
 
         {/* rating — only show once the product actually has sales/reviews behind it */}
         {p.sold > 0 && !p.showcaseOnly && (
-          <span className="absolute bottom-3 left-4 flex items-center gap-1.5 rounded-full border border-[var(--line-3)] bg-ink-950/70 px-3 py-1 text-xs font-bold text-[var(--text-primary)] backdrop-blur-md" dir="ltr">
-            <Star className="size-3.5 fill-gold-400 text-gold-400" />
+          <span className="absolute bottom-1.5 left-1.5 flex items-center gap-1 rounded-full border border-[var(--line-3)] bg-ink-950/70 px-1.5 py-0.5 text-[9px] font-bold text-[var(--text-primary)] backdrop-blur-md sm:bottom-3 sm:left-4 sm:gap-1.5 sm:px-3 sm:py-1 sm:text-xs" dir="ltr">
+            <Star className="size-2.5 fill-gold-400 text-gold-400 sm:size-3.5" />
             {p.rating}
             <span className="text-frost-500">({p.sold}+)</span>
           </span>
@@ -81,22 +81,22 @@ function ProductCard({ p, index }: { p: Product; index: number }) {
       </div>
 
       {/* body */}
-      <div className="flex flex-1 flex-col p-5">
-        <span className="text-[11px] font-bold tracking-wide text-volt-400">{catName(p.cat)}</span>
-        <h3 className="mt-1.5 font-display text-lg font-extrabold leading-snug">{p.name}</h3>
+      <div className="flex flex-1 flex-col p-2.5 sm:p-5">
+        <span className="text-[9px] font-bold tracking-wide text-volt-400 sm:text-[11px]">{catName(p.cat)}</span>
+        <h3 className="mt-1 font-display text-xs font-extrabold leading-snug line-clamp-2 sm:mt-1.5 sm:text-lg">{p.name}</h3>
 
-        <div className="mt-auto flex items-end justify-between gap-3 pt-5">
+        <div className="mt-auto flex items-end justify-between gap-1.5 pt-2.5 sm:gap-3 sm:pt-5">
           {p.showcaseOnly ? (
-            <p className="text-xs leading-relaxed text-frost-400">{p.desc || "قريباً في متجرنا"}</p>
+            <p className="text-[10px] leading-relaxed text-frost-400 sm:text-xs">{p.desc || "قريباً في متجرنا"}</p>
           ) : (
             <>
               <div>
                 {p.oldPrice && p.oldPrice > 0 && (
-                  <p className="text-xs font-medium text-frost-500 line-through">{fmt(p.oldPrice)} جنيه</p>
+                  <p className="text-[10px] font-medium text-frost-500 line-through sm:text-xs">{fmt(p.oldPrice)} جنيه</p>
                 )}
-                <p className="font-display text-2xl font-black text-[var(--text-primary)]">
+                <p className="font-display text-sm font-black text-[var(--text-primary)] sm:text-2xl">
                   {fmt(p.price)}
-                  <span className="mr-1.5 text-xs font-bold text-frost-400">جنيه</span>
+                  <span className="mr-1 text-[9px] font-bold text-frost-400 sm:mr-1.5 sm:text-xs">جنيه</span>
                 </p>
               </div>
 
@@ -104,7 +104,7 @@ function ProductCard({ p, index }: { p: Product; index: number }) {
                 onClick={handleAdd}
                 aria-label={added ? "تمت الإضافة" : "أضف للسلة"}
                 className={cn(
-                  "relative grid size-12 shrink-0 place-items-center overflow-hidden rounded-2xl transition-all duration-300 active:scale-90",
+                  "relative grid size-8 shrink-0 place-items-center overflow-hidden rounded-xl transition-all duration-300 active:scale-90 sm:size-12 sm:rounded-2xl",
                   added
                     ? "bg-emerald-400 text-white shadow-[0_10px_28px_rgba(52,211,153,0.4)]"
                     : "bg-gradient-to-br from-volt-400 to-volt-600 text-[var(--onvolt)] shadow-[0_10px_28px_rgba(34,211,238,0.3)] hover:scale-105",
@@ -113,11 +113,11 @@ function ProductCard({ p, index }: { p: Product; index: number }) {
                 <AnimatePresence mode="wait" initial={false}>
                   {added ? (
                     <motion.span key="c" initial={{ scale: 0, rotate: -90 }} animate={{ scale: 1, rotate: 0 }} exit={{ scale: 0 }}>
-                      <Check className="size-5" strokeWidth={3} />
+                      <Check className="size-3.5 sm:size-5" strokeWidth={3} />
                     </motion.span>
                   ) : (
                     <motion.span key="p" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0, rotate: 90 }}>
-                      <Plus className="size-5" strokeWidth={3} />
+                      <Plus className="size-3.5 sm:size-5" strokeWidth={3} />
                     </motion.span>
                   )}
                 </AnimatePresence>
@@ -133,7 +133,7 @@ function ProductCard({ p, index }: { p: Product; index: number }) {
 const PAGE_SIZE = 50;
 
 export default function Products() {
-  const { products, categories } = useStore();
+  const { products } = useStore();
   const [filter, setFilter] = useState("all");
   const [q, setQ] = useState("");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -195,38 +195,13 @@ export default function Products() {
           </div>
         </Reveal>
 
-        {/* filters */}
-        <Reveal delay={0.1} className="mt-6">
-          <div className="flex flex-wrap items-center justify-center gap-2.5">
-            {[{ id: "all", name: "كل المنتجات" }, ...categories].map((c) => (
-              <button
-                key={c.id}
-                onClick={() => setFilter(c.id)}
-                className={cn(
-                  "relative rounded-full px-5 py-2.5 text-sm font-bold transition-colors",
-                  filter === c.id ? "text-[var(--onaccent)]" : "border border-[var(--line-3)] text-frost-300 hover:border-volt-500/40 hover:text-volt-300",
-                )}
-              >
-                {filter === c.id && (
-                  <motion.span
-                    layoutId="pill"
-                    className="absolute inset-0 rounded-full bg-gradient-to-l from-volt-400 to-volt-600 shadow-[0_8px_24px_rgba(34,211,238,0.35)]"
-                    transition={{ type: "spring", stiffness: 400, damping: 32 }}
-                  />
-                )}
-                <span className="relative z-10">{c.name}</span>
-              </button>
-            ))}
-          </div>
-        </Reveal>
-
         {/* grid */}
         {list.length === 0 ? (
           <p className="mt-12 rounded-2xl border border-dashed border-[var(--line-3)] py-12 text-center text-sm text-frost-500">
             مفيش منتجات مطابقة للبحث
           </p>
         ) : (
-          <motion.div layout className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <motion.div layout className="mt-12 grid grid-cols-3 gap-2.5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
             <AnimatePresence mode="popLayout">
               {list.map((p, i) => (
                 <ProductCard key={p.id} p={p} index={i} />
