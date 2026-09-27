@@ -1,12 +1,50 @@
-import { DEFAULT_CATEGORIES, DEFAULT_PRODUCTS } from "../src/data/data.js";
+import { initializeApp, getApps } from "firebase/app";
+import { getFirestore, collection, getDocs } from "firebase/firestore/lite";
+import { firebaseConfig } from "../src/lib/firebase.js";
+import { DEFAULT_CATEGORIES, DEFAULT_PRODUCTS, type Category, type Product } from "../src/data/data.js";
 import { policyPages } from "../src/data/policies.js";
 
-// نبني برومبت ثابت مرة واحدة من بيانات الموقع الحقيقية (المنتجات + السياسات)
-function buildSystemPrompt(): string {
-  const catNames: Record<string, string> = {};
-  DEFAULT_CATEGORIES.forEach((c) => (catNames[c.id] = c.name));
+// اتصال خفيف بـ Firestore (نسخة lite، مناسبة لدالة serverless بتقرأ وتخلص من غير realtime listener)
+const app = getApps().length ? getApps()[0]! : initializeApp(firebaseConfig);
+const liteDb = getFirestore(app);
 
-  const productLines = DEFAULT_PRODUCTS.filter((p) => !p.showcaseOnly)
+/** بيانات الموقع لايف من Firestore، مع كاش قصير (45 ثانية) عشان منقراش Firestore في كل رسالة */
+let cache: { prompt: string; expiresAt: number } | null = null;
+const CACHE_TTL_MS = 45_000;
+
+async function fetchLiveProducts(): Promise<Product[]> {
+  try {
+    const snap = await getDocs(collection(liteDb, "products"));
+    if (snap.empty) return DEFAULT_PRODUCTS; // لسه محدش دخل الأدمن يضيف حاجة (أول تشغيل) → استخدم القائمة الافتراضية
+    return snap.docs.map((d) => d.data() as Product);
+  } catch (err) {
+    console.error("فشل قراءة المنتجات من Firestore، هيتم استخدام النسخة الافتراضية:", err);
+    return DEFAULT_PRODUCTS;
+  }
+}
+
+async function fetchLiveCategories(): Promise<Category[]> {
+  try {
+    const snap = await getDocs(collection(liteDb, "categories"));
+    if (snap.empty) return DEFAULT_CATEGORIES;
+    return snap.docs.map((d) => d.data() as Category);
+  } catch (err) {
+    console.error("فشل قراءة الفئات من Firestore، هيتم استخدام النسخة الافتراضية:", err);
+    return DEFAULT_CATEGORIES;
+  }
+}
+
+// نبني برومبت من بيانات الموقع الحية (المنتجات + الفئات من Firestore، والسياسات ثابتة)
+async function buildSystemPrompt(): Promise<string> {
+  if (cache && cache.expiresAt > Date.now()) return cache.prompt;
+
+  const [products, categories] = await Promise.all([fetchLiveProducts(), fetchLiveCategories()]);
+
+  const catNames: Record<string, string> = {};
+  categories.forEach((c) => (catNames[c.id] = c.name));
+
+  const productLines = products
+    .filter((p) => !p.showcaseOnly)
     .map((p) => `- ${p.name} (${catNames[p.cat] ?? p.cat}): ${p.price} جنيه`)
     .join("\n");
 
@@ -19,7 +57,7 @@ function buildSystemPrompt(): string {
     })
     .join("\n\n");
 
-  return `إنت "مساعد إيجي دنت" — شات بوت خدمة عملاء لموقع إيجي دنت، متجر بيع مستلزمات طب الأسنان بالجملة في مصر (3 فروع: مدينة نصر، القصر العيني، 6 أكتوبر).
+  const prompt = `إنت "مساعد إيجي دنت" — شات بوت خدمة عملاء لموقع إيجي دنت، متجر بيع مستلزمات طب الأسنان بالجملة في مصر (3 فروع: مدينة نصر، القصر العيني، 6 أكتوبر).
 
 تعليمات مهمة:
 - رد دايمًا بالعامية المصرية، بشكل ودود ومختصر ومباشر.
@@ -33,9 +71,10 @@ ${productLines}
 
 سياسات المتجر:
 ${policyText}`;
-}
 
-const SYSTEM_PROMPT = buildSystemPrompt();
+  cache = { prompt, expiresAt: Date.now() + CACHE_TTL_MS };
+  return prompt;
+}
 
 export default async function handler(req: { method?: string; body?: unknown }, res: {
   status: (code: number) => { json: (body: unknown) => void };
@@ -62,6 +101,7 @@ export default async function handler(req: { method?: string; body?: unknown }, 
   }
 
   try {
+    const systemPrompt = await buildSystemPrompt();
     const contents = [
       ...(history ?? []).map((h) => ({ role: h.role, parts: [{ text: h.text }] })),
       { role: "user", parts: [{ text: message }] },
@@ -73,7 +113,7 @@ export default async function handler(req: { method?: string; body?: unknown }, 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+          system_instruction: { parts: [{ text: systemPrompt }] },
           contents,
           generationConfig: { temperature: 0.4, maxOutputTokens: 400 },
         }),
