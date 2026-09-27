@@ -17,6 +17,7 @@ import CartDrawer from "@/components/CartDrawer";
 import CheckoutModal from "@/components/CheckoutModal";
 import ProductModal from "@/components/ProductModal";
 import WhatsAppFloat from "@/components/WhatsAppFloat";
+import ChatBot from "@/components/ChatBot";
 import { fmt } from "@/data/data";
 
 const Admin = lazy(() => import("@/pages/Admin"));
@@ -99,6 +100,7 @@ function Store() {
       <CheckoutModal />
       <ProductModal />
       <WhatsAppFloat />
+      <ChatBot />
       <Toast />
     </div>
   );
