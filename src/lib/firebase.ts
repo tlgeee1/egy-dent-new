@@ -4,7 +4,7 @@ import { getAuth, type Auth } from "firebase/auth";
 import { getStorage, type FirebaseStorage } from "firebase/storage";
 
 /** ⚙️ إعدادات Firebase — مشروع egy-dent-store */
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey: "AIzaSyAIa2DzWIpc1CRXLjiYjVnYv-P0EskDXcg",
   authDomain: "egy-dent-store.firebaseapp.com",
   databaseURL: "https://egy-dent-store-default-rtdb.europe-west1.firebasedatabase.app",
