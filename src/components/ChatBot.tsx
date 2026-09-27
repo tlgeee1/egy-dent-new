@@ -2,7 +2,6 @@ import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { MessageCircle, X, ChevronRight, Send } from "lucide-react";
 import { useStore } from "@/context/StoreContext";
-import { cn } from "@/utils/cn";
 
 /**
  * ⚠️ عدّل الأسئلة والإجابات دي بما يناسب سياستكم الفعلية
