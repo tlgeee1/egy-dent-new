@@ -52,7 +52,7 @@ export default function ChatBot() {
       <button
         onClick={toggle}
         aria-label={open ? "إغلاق الشات" : "افتح الشات"}
-        className="fixed bottom-24 left-5 z-[150] grid size-14 place-items-center rounded-2xl bg-gradient-to-br from-volt-400 to-volt-600 text-[var(--onaccent)] shadow-[0_12px_32px_rgba(34,211,238,0.4)] transition-transform hover:scale-105 active:scale-95 sm:bottom-6 sm:left-24"
+        className="fixed bottom-24 left-5 z-[150] grid size-14 place-items-center rounded-2xl bg-gradient-to-br from-volt-400 to-volt-600 text-white shadow-[0_12px_32px_rgba(34,211,238,0.4)] transition-transform hover:scale-105 active:scale-95 sm:bottom-6 sm:left-24"
       >
         <AnimatePresence mode="wait" initial={false}>
           {open ? (
@@ -80,7 +80,7 @@ export default function ChatBot() {
             {/* header */}
             <div className="flex items-center gap-3 border-b border-[var(--line-2)] bg-gradient-to-l from-volt-500/10 to-transparent p-4">
               <span className="grid size-10 place-items-center rounded-xl bg-gradient-to-br from-volt-400 to-volt-700">
-                <MessageCircle className="size-5 text-[var(--onaccent)]" />
+                <MessageCircle className="size-5 text-white" />
               </span>
               <div>
                 <p className="font-display text-sm font-black">مساعد إيجي دنت</p>
