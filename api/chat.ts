@@ -1,5 +1,5 @@
-import { DEFAULT_CATEGORIES, DEFAULT_PRODUCTS } from "../src/data/data";
-import { policyPages } from "../src/data/policies";
+import { DEFAULT_CATEGORIES, DEFAULT_PRODUCTS } from "../src/data/data.js";
+import { policyPages } from "../src/data/policies.js";
 
 // نبني برومبت ثابت مرة واحدة من بيانات الموقع الحقيقية (المنتجات + السياسات)
 function buildSystemPrompt(): string {
