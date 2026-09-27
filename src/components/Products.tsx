@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, Eye, ImageOff, Plus, Search, Star } from "lucide-react";
+import { Check, Eye, ImageOff, ShoppingCart, Search, Star } from "lucide-react";
 import { fmt, type Product } from "@/data/data";
 import { useCart } from "@/context/CartContext";
 import { useStore } from "@/context/StoreContext";
@@ -107,7 +107,7 @@ function ProductCard({ p, index }: { p: Product; index: number }) {
                   "relative grid size-8 shrink-0 place-items-center overflow-hidden rounded-xl transition-all duration-300 active:scale-90 sm:size-12 sm:rounded-2xl",
                   added
                     ? "bg-emerald-400 text-white shadow-[0_10px_28px_rgba(52,211,153,0.4)]"
-                    : "bg-gradient-to-br from-volt-400 to-volt-600 text-[var(--onvolt)] shadow-[0_10px_28px_rgba(34,211,238,0.3)] hover:scale-105",
+                    : "bg-gradient-to-br from-gold-400 to-gold-500 text-[var(--onaccent)] shadow-[0_10px_28px_rgba(251,191,36,0.4)] hover:scale-105",
                 )}
               >
                 <AnimatePresence mode="wait" initial={false}>
@@ -117,7 +117,7 @@ function ProductCard({ p, index }: { p: Product; index: number }) {
                     </motion.span>
                   ) : (
                     <motion.span key="p" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0, rotate: 90 }}>
-                      <Plus className="size-3.5 sm:size-5" strokeWidth={3} />
+                      <ShoppingCart className="size-3.5 sm:size-5" strokeWidth={2.5} />
                     </motion.span>
                   )}
                 </AnimatePresence>
