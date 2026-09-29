@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Banknote, CheckCircle2, CreditCard, Loader2, MapPin, Smartphone, StickyNote, User, Wallet, X, Zap } from "lucide-react";
+import { Banknote, CheckCircle2, CreditCard, Loader2, MapPin, Smartphone, StickyNote, User, Wallet, X, Zap, AlertCircle } from "lucide-react";
 import { useCart, MAX_ORDER_ITEMS } from "@/context/CartContext";
 import { useStore, type Order } from "@/context/StoreContext";
 import { fmt, paymentMethods } from "@/data/data";
@@ -102,19 +102,22 @@ export default function CheckoutModal() {
     const url = `https://wa.me/${settings.whatsapp}?text=${encodeURIComponent(msg)}`;
 
     try {
-      await addOrder(order); // بترمي خطأ لو الحفظ فشل
+      await addOrder(order);
+      setWaUrl(url);
+      setOrderId(id);
+      clear();
+      setStage("success");
+      
+      // ✅ فتح واتساب بعد تأخير بسيط عشان المستخدم يشوف رسالة النجاح
+      setTimeout(() => {
+        window.open(url, "_blank");
+      }, 500);
+      
     } catch (err) {
       console.error("addOrder failed:", err);
-      setSubmitError("حصلت مشكلة وطلبك ماتحفظش. حاول تاني، ولو المشكلة مستمرة كلمنا على واتساب.");
+      setSubmitError("حصلت مشكلة وطلبك ماتحفظش. حاول تاني، ولو المشكلة مستمرة كلمنا على واتساب مباشرة.");
       setStage("form");
-      return; // مفيش واتساب ولا success ولا مسح للسلة
     }
-
-    setWaUrl(url);
-    setOrderId(id);
-    clear();
-    setStage("success");
-    window.open(url, "_blank");
   };
 
   const inputCls = (hasErr: boolean) =>
@@ -197,7 +200,10 @@ export default function CheckoutModal() {
                       <input
                         value={form.name}
                         maxLength={100}
-                        onChange={(e) => setForm({ ...form, name: e.target.value })}
+                        onChange={(e) => {
+                          setForm({ ...form, name: e.target.value });
+                          setErrors({ ...errors, name: "" });
+                        }}
                         placeholder="د. محمد أحمد"
                         className={inputCls(!!errors.name)}
                       />
@@ -211,7 +217,10 @@ export default function CheckoutModal() {
                       <input
                         value={form.clinic}
                         maxLength={300}
-                        onChange={(e) => setForm({ ...form, clinic: e.target.value })}
+                        onChange={(e) => {
+                          setForm({ ...form, clinic: e.target.value });
+                          setErrors({ ...errors, clinic: "" });
+                        }}
                         placeholder="المنطقة، الشارع، رقم العقار، الدور"
                         className={inputCls(!!errors.clinic)}
                       />
@@ -224,7 +233,10 @@ export default function CheckoutModal() {
                       </label>
                       <input
                         value={form.phone}
-                        onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                        onChange={(e) => {
+                          setForm({ ...form, phone: e.target.value });
+                          setErrors({ ...errors, phone: "" });
+                        }}
                         placeholder="01001234567"
                         inputMode="tel"
                         dir="ltr"
@@ -259,7 +271,10 @@ export default function CheckoutModal() {
                             <button
                               type="button"
                               key={m.id}
-                              onClick={() => setPayment(m.id)}
+                              onClick={() => {
+                                setPayment(m.id);
+                                setErrors({ ...errors, payment: "" });
+                              }}
                               className={cn(
                                 "rounded-2xl border p-3 text-right transition-all",
                                 active
@@ -309,18 +324,23 @@ export default function CheckoutModal() {
                   </div>
 
                   {items.length > MAX_ORDER_ITEMS && (
-                    <p className="mt-4 rounded-xl bg-amber-400/10 p-3 text-xs text-amber-300">
-                      الطلب فيه {items.length} صنف. الحد الأقصى {MAX_ORDER_ITEMS} أصناف مختلفة في الطلب الواحد.
-                    </p>
+                    <div className="mt-4 flex items-start gap-2 rounded-xl bg-amber-400/10 p-3 text-xs text-amber-300">
+                      <AlertCircle className="size-4 shrink-0 mt-0.5" />
+                      <p>الطلب فيه {items.length} صنف. الحد الأقصى {MAX_ORDER_ITEMS} أصناف مختلفة في الطلب الواحد.</p>
+                    </div>
                   )}
+                  
                   {submitError && (
-                    <p className="mt-4 rounded-xl bg-red-400/10 p-3 text-xs text-red-300">{submitError}</p>
+                    <div className="mt-4 flex items-start gap-2 rounded-xl bg-red-400/10 p-3 text-xs text-red-300">
+                      <AlertCircle className="size-4 shrink-0 mt-0.5" />
+                      <p>{submitError}</p>
+                    </div>
                   )}
 
                   <button
                     type="submit"
-                    disabled={stage === "sending" || items.length > MAX_ORDER_ITEMS}
-                    className="mt-6 flex w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-l from-volt-400 to-volt-600 py-4 font-display text-lg font-black text-[var(--onaccent)] shadow-[0_14px_36px_rgba(34,211,238,0.35)] transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-70"
+                    disabled={stage === "sending" || items.length > MAX_ORDER_ITEMS || items.length === 0}
+                    className="mt-6 flex w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-l from-volt-400 to-volt-600 py-4 font-display text-lg font-black text-[var(--onaccent)] shadow-[0_14px_36px_rgba(34,211,238,0.35)] transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
                   >
                     {stage === "sending" ? (
                       <>
