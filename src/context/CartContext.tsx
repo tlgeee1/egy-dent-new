@@ -4,7 +4,32 @@ import { useStore } from "./StoreContext";
 
 const CART_STORAGE_KEY = "egy-dent-cart";
 
+/** أقصى عدد أصناف مختلفة في الطلب الواحد (حد Firestore Rules) */
+export const MAX_ORDER_ITEMS = 10;
+/** أقصى كمية للصنف الواحد (نفس حد الرولز) */
+export const MAX_ITEM_QTY = 1000;
+
 function loadStoredLines(): CartLine[] {
+  try {
+    const raw = localStorage.getItem(CART_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+
+    const seen = new Set<number>();
+    const clean: CartLine[] = [];
+    for (const l of parsed) {
+      if (!l || typeof l.id !== "number" || typeof l.qty !== "number") continue;
+      const qty = Math.min(Math.floor(l.qty), MAX_ITEM_QTY);
+      if (!(qty >= 1) || seen.has(l.id)) continue;
+      seen.add(l.id);
+      clean.push({ id: l.id, qty });
+    }
+    return clean.slice(0, MAX_ORDER_ITEMS);
+  } catch {
+    return [];
+  }
+}(): CartLine[] {
   try {
     const raw = localStorage.getItem(CART_STORAGE_KEY);
     if (!raw) return [];
