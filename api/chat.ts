@@ -123,7 +123,7 @@ export default async function handler(req: { method?: string; body?: unknown }, 
     if (!geminiRes.ok) {
       const errText = await geminiRes.text();
       console.error("Gemini API error:", errText);
-res.status(502).json({ error: "Gemini: " + errText });      return;
+res.status(502).json({ error: "حصلت مشكلة في التواصل مع الذكاء الاصطناعي" });     return;
     }
 
     const data = await geminiRes.json();
