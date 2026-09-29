@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Banknote, CheckCircle2, CreditCard, Loader2, MapPin, Smartphone, StickyNote, User, Wallet, X, Zap } from "lucide-react";
-import { useCart } from "@/context/CartContext";
+import { useCart, MAX_ORDER_ITEMS } from "@/context/CartContext";
 import { useStore, type Order } from "@/context/StoreContext";
 import { fmt, paymentMethods } from "@/data/data";
 import { cn } from "@/utils/cn";
@@ -34,9 +34,11 @@ export default function CheckoutModal() {
   const [stage, setStage] = useState<"form" | "sending" | "success">("form");
   const [waUrl, setWaUrl] = useState("");
   const [orderId, setOrderId] = useState("");
+  const [submitError, setSubmitError] = useState("");
 
   const close = () => {
     setCheckoutOpen(false);
+    setSubmitError("");
     if (stage === "success") {
       setForm({ name: "", clinic: "", phone: "", notes: "" });
       setPayment("");
@@ -45,7 +47,7 @@ export default function CheckoutModal() {
     }
   };
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const errs: Record<string, string> = {};
     if (form.name.trim().length < 3) errs.name = "اكتب الاسم بالكامل";
@@ -55,11 +57,24 @@ export default function CheckoutModal() {
     setErrors(errs);
     if (Object.keys(errs).length > 0 || items.length === 0) return;
 
+    if (items.length > MAX_ORDER_ITEMS) {
+      setSubmitError(`الحد الأقصى ${MAX_ORDER_ITEMS} أصناف مختلفة في الطلب الواحد. احذف صنف أو قسّم الطلب على طلبين.`);
+      return;
+    }
+
+    setSubmitError("");
     setStage("sending");
-   const id = `EG-${Date.now().toString(36).toUpperCase()}`;
+
+    const id = `EG-${Date.now().toString(36).toUpperCase()}`;
+    const phone = form.phone.replace(/\s/g, "");
     const order: Order = {
       id,
-      customer: { ...form },
+      customer: {
+        name: form.name.trim(),
+        clinic: form.clinic.trim(),
+        phone,
+        notes: form.notes.trim(),
+      },
       payment: paymentMethods.find((m) => m.id === payment)?.name ?? payment,
       items: items.map((x) => ({ id: x.p.id, name: x.p.name, price: x.p.price, qty: x.qty })),
       total,
@@ -71,28 +86,35 @@ export default function CheckoutModal() {
       `طلب جديد من موقع إيجي دنت`,
       `رقم الطلب: ${id}`,
       `━━━━━━━━━━`,
-      `الاسم: ${form.name}`,
-      `العيادة: ${form.clinic}`,
-      `التليفون: ${form.phone}`,
-      form.notes ? `ملاحظات: ${form.notes}` : "",
+      `الاسم: ${order.customer.name}`,
+      `العيادة: ${order.customer.clinic}`,
+      `التليفون: ${phone}`,
+      order.customer.notes ? `ملاحظات: ${order.customer.notes}` : "",
       `━━━━━━━━━━`,
       ...order.items.map((i) => `• ${i.name} × ${i.qty} = ${fmt(i.price * i.qty)} جنيه`),
       `━━━━━━━━━━`,
-      `الإجمالي: ${fmt(total)} جنيه`,      `طريقة الدفع: ${order.payment}`,
+      `الإجمالي: ${fmt(total)} جنيه`,
+      `طريقة الدفع: ${order.payment}`,
     ]
       .filter(Boolean)
       .join("\n");
 
     const url = `https://wa.me/${settings.whatsapp}?text=${encodeURIComponent(msg)}`;
+
+    try {
+      await addOrder(order); // بترمي خطأ لو الحفظ فشل
+    } catch (err) {
+      console.error("addOrder failed:", err);
+      setSubmitError("حصلت مشكلة وطلبك ماتحفظش. حاول تاني، ولو المشكلة مستمرة كلمنا على واتساب.");
+      setStage("form");
+      return; // مفيش واتساب ولا success ولا مسح للسلة
+    }
+
     setWaUrl(url);
     setOrderId(id);
-
-    setTimeout(() => {
-      addOrder(order);
-      clear();
-      setStage("success");
-      window.open(url, "_blank");
-    }, 1100);
+    clear();
+    setStage("success");
+    window.open(url, "_blank");
   };
 
   const inputCls = (hasErr: boolean) =>
@@ -174,6 +196,7 @@ export default function CheckoutModal() {
                       </label>
                       <input
                         value={form.name}
+                        maxLength={100}
                         onChange={(e) => setForm({ ...form, name: e.target.value })}
                         placeholder="د. محمد أحمد"
                         className={inputCls(!!errors.name)}
@@ -187,6 +210,7 @@ export default function CheckoutModal() {
                       </label>
                       <input
                         value={form.clinic}
+                        maxLength={300}
                         onChange={(e) => setForm({ ...form, clinic: e.target.value })}
                         placeholder="المنطقة، الشارع، رقم العقار، الدور"
                         className={inputCls(!!errors.clinic)}
@@ -215,6 +239,7 @@ export default function CheckoutModal() {
                       </label>
                       <textarea
                         value={form.notes}
+                        maxLength={500}
                         onChange={(e) => setForm({ ...form, notes: e.target.value })}
                         placeholder="أي تفاصيل عن التوصيل أو الطلب..."
                         rows={2}
@@ -273,7 +298,7 @@ export default function CheckoutModal() {
                   </div>
 
                   <div className="mt-5 space-y-2 border-t border-[var(--line-2)] pt-4 text-sm">
-                                       <div className="flex justify-between text-frost-400">
+                    <div className="flex justify-between text-frost-400">
                       <span>الشحن</span>
                       <span>يُحدد عند التأكيد</span>
                     </div>
@@ -283,9 +308,18 @@ export default function CheckoutModal() {
                     </div>
                   </div>
 
+                  {items.length > MAX_ORDER_ITEMS && (
+                    <p className="mt-4 rounded-xl bg-amber-400/10 p-3 text-xs text-amber-300">
+                      الطلب فيه {items.length} صنف. الحد الأقصى {MAX_ORDER_ITEMS} أصناف مختلفة في الطلب الواحد.
+                    </p>
+                  )}
+                  {submitError && (
+                    <p className="mt-4 rounded-xl bg-red-400/10 p-3 text-xs text-red-300">{submitError}</p>
+                  )}
+
                   <button
                     type="submit"
-                    disabled={stage === "sending"}
+                    disabled={stage === "sending" || items.length > MAX_ORDER_ITEMS}
                     className="mt-6 flex w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-l from-volt-400 to-volt-600 py-4 font-display text-lg font-black text-[var(--onaccent)] shadow-[0_14px_36px_rgba(34,211,238,0.35)] transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-70"
                   >
                     {stage === "sending" ? (
