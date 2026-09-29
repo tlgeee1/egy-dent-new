@@ -1,13 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { MessageCircle, X, ChevronRight, Send, Loader2 } from "lucide-react";
+import { MessageCircle, X, ChevronRight, Send, Loader2, AlertCircle } from "lucide-react";
 import { useStore } from "@/context/StoreContext";
 
-/**
- * ⚠️ عدّل الأسئلة والإجابات دي بما يناسب سياستكم الفعلية
- * (مدة الشحن، سياسة الاستبدال، طرق الدفع المتاحة فعليًا...)
- * دول بس اختصارات سريعة — البوت نفسه بيرد بذكاء على أي سؤال حر من تحت.
- */
 const FAQS: { q: string; a: string }[] = [
   {
     q: "التوصيل بياخد قد إيه؟",
@@ -34,13 +29,102 @@ const FAQS: { q: string; a: string }[] = [
 type ChatMsg = { role: "user" | "model"; text: string };
 type View = { screen: "menu" } | { screen: "answer"; index: number } | { screen: "ai" };
 
+// ✅ Fallback Bot - بيرد لما الـ API يفشل
+function getSimpleBotReply(message: string, products: any[]): string {
+  const msg = message.trim().toLowerCase();
+  
+  if (msg.includes("السلام") || msg.includes("مرحبا") || msg.includes("هاي") || msg.includes("هلو")) {
+    return "أهلاً وسهلاً! أنا مساعد إيجي دنت 🦷\nإزاي أقدر أساعدك النهاردة؟\n\nممكن تسأل عن:\n• أسعار المنتجات\n• التوصيل والشحن\n• طرق الدفع\n• الإرجاع والاستبدال";
+  }
+  
+  if (msg.includes("سعر") || msg.includes("بكام") || msg.includes("ثمن") || msg.includes("تمن")) {
+    // جوانتي
+    if (msg.includes("جوانت") || msg.includes("قفاز") || msg.includes("نترايل") || msg.includes("لاتكس")) {
+      const gloves = products.filter(p => 
+        !p.showcaseOnly && (
+          p.name.toLowerCase().includes("جوانت") || 
+          p.name.toLowerCase().includes("نترايل") ||
+          p.name.toLowerCase().includes("لاتكس")
+        )
+      );
+      
+      if (gloves.length > 0) {
+        const list = gloves.slice(0, 6).map(g => 
+          `• ${g.name}: ${g.price} جنيه`
+        ).join("\n");
+        return `الجوانتيات المتوفرة:\n\n${list}\n\n${gloves.length > 6 ? `وفيه ${gloves.length - 6} نوع تاني\n\n` : ""}عشان تطلب، اختار المنتج من الكتالوج!`;
+      }
+    }
+    
+    // أسود
+    if (msg.includes("أسود") || msg.includes("اسود") || msg.includes("black")) {
+      const black = products.filter(p => 
+        !p.showcaseOnly && p.name.toLowerCase().includes("أسود")
+      );
+      
+      if (black.length > 0) {
+        const list = black.slice(0, 4).map(g => 
+          `• ${g.name}: ${g.price} جنيه`
+        ).join("\n");
+        return `المنتجات السودا المتوفرة:\n\n${list}\n\nعايز تطلب؟ اختار من الكتالوج!`;
+      }
+    }
+    
+    // بحث عام في اسم المنتج
+    const words = msg.split(" ").filter(w => w.length > 2);
+    const found = products.find(p => {
+      if (p.showcaseOnly) return false;
+      const pName = p.name.toLowerCase();
+      return words.some(w => pName.includes(w));
+    });
+    
+    if (found) {
+      return `${found.name}\n💰 السعر: ${found.price} جنيه\n\n${found.desc ? found.desc + "\n\n" : ""}اضغط على المنتج من الكتالوج عشان تطلب!`;
+    }
+    
+    return "ممكن توضح أكتر إيه المنتج اللي بتدور عليه؟\nأو شوف الكتالوج كامل من القائمة الرئيسية.\n\nلو محتاج مساعدة، كلمنا واتساب: 01151605515";
+  }
+  
+  if (msg.includes("طلب") || msg.includes("اشتري") || msg.includes("عايز") || msg.includes("محتاج")) {
+    return "تقدر تطلب من الموقع مباشرة:\n\n1️⃣ اختار المنتج من الكتالوج\n2️⃣ اضغط \"أضف للسلة\"\n3️⃣ أكمل بيانات الطلب\n4️⃣ هنكلمك للتأكيد\n\nأو كلمنا واتساب مباشرة:\n📱 01151605515";
+  }
+  
+  if (msg.includes("توصيل") || msg.includes("شحن") || msg.includes("ديليفري") || msg.includes("delivery")) {
+    return "🚚 التوصيل متاح لكل محافظات مصر\n\n📦 الشحن مجاني للطلبات أكثر من 2000 جنيه\n⏱️ التوصيل خلال 2-5 أيام عمل\n🏃 توصيل سريع للقاهرة والجيزة\n\nعايز تعرف سعر الشحن لمنطقتك؟ كلمنا واتساب!";
+  }
+  
+  if (msg.includes("فروع") || msg.includes("عنوان") || msg.includes("مكان") || msg.includes("فين")) {
+    return "📍 فروعنا في مصر:\n\n🏢 مدينة نصر\n🏢 القصر العيني\n🏢 6 أكتوبر\n\nللعناوين التفصيلية والمواعيد:\n📱 واتساب: 01151605515";
+  }
+  
+  if (msg.includes("ارجاع") || msg.includes("استبدال") || msg.includes("استرجاع") || msg.includes("return")) {
+    return "✅ سياسة الإرجاع والاستبدال:\n\n⏰ خلال 14 يوم من الاستلام\n📋 شروط:\n• المنتج لم يُستخدم\n• العبوة سليمة ومغلقة\n• فاتورة الشراء موجودة\n\n💡 تفاصيل أكتر في صفحة سياسة الإرجاع بالموقع";
+  }
+  
+  if (msg.includes("دفع") || msg.includes("payment") || msg.includes("كاش")) {
+    return "💳 طرق الدفع المتاحة:\n\n✅ الدفع عند الاستلام (Cash)\n✅ فودافون كاش\n✅ انستا باي\n✅ تحويل بنكي\n✅ بطاقات الائتمان\n\nاختار الأنسب ليك عند إتمام الطلب!";
+  }
+  
+  if (msg.includes("واتساب") || msg.includes("whatsapp") || msg.includes("رقم") || msg.includes("تليفون")) {
+    return "📱 تواصل معانا على واتساب:\n\n01151605515\n\nأو اضغط على زرار \"تكلم مع فريق المبيعات\" تحت 👇";
+  }
+  
+  if (msg.includes("شكرا") || msg.includes("متشكر") || msg.includes("thanks")) {
+    return "العفو! 😊\nأي خدمة تاني أنا هنا.\n\nلو محتاج مساعدة، كلمنا واتساب:\n01151605515";
+  }
+  
+  // رد افتراضي
+  return "أنا مساعد إيجي دنت الآلي 🤖\n\nممكن أساعدك في:\n• معرفة الأسعار 💰\n• معلومات عن التوصيل 🚚\n• طرق الدفع 💳\n• سياسة الإرجاع ↩️\n• عناوين الفروع 📍\n\nاكتب سؤالك، أو كلم فريقنا واتساب:\n📱 01151605515";
+}
+
 export default function ChatBot() {
-  const { settings } = useStore();
+  const { settings, products } = useStore();
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<View>({ screen: "menu" });
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [apiError, setApiError] = useState(false); // ✅ لتتبع فشل الـ API
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const waLink = settings.whatsapp
@@ -49,7 +133,10 @@ export default function ChatBot() {
 
   const toggle = () => {
     setOpen((v) => !v);
-    if (open) setView({ screen: "menu" });
+    if (open) {
+      setView({ screen: "menu" });
+      setApiError(false);
+    }
   };
 
   useEffect(() => {
@@ -60,24 +147,56 @@ export default function ChatBot() {
     const trimmed = text.trim();
     if (!trimmed || loading) return;
 
-    setMessages((prev) => [...prev, { role: "user", text: trimmed }]);
+    const userMsg: ChatMsg = { role: "user", text: trimmed };
+    setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setLoading(true);
+    setApiError(false);
 
     try {
+      console.log("📤 Sending to API:", trimmed);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 ثانية timeout
+
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: trimmed, history: messages }),
+        body: JSON.stringify({ 
+          message: trimmed, 
+          history: messages.slice(-6) // آخر 6 رسائل فقط
+        }),
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
+
+      console.log("📥 API Response:", res.status, res.statusText);
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
       const data = await res.json();
-      const reply = res.ok ? data.reply : "معلش، حصلت مشكلة مؤقتة. جرب تاني أو كلّم فريقنا على واتساب.";
+      console.log("✅ Response data:", data);
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      const reply = data.reply || "معلش، مفيش رد متاح دلوقتي.";
       setMessages((prev) => [...prev, { role: "model", text: reply }]);
-    } catch {
-      setMessages((prev) => [
-        ...prev,
-        { role: "model", text: "معلش، مش قادر أوصل للسيرفر دلوقتي. جرب تاني أو كلّم فريقنا على واتساب." },
-      ]);
+      
+    } catch (error: any) {
+      console.error("❌ Chat error:", error);
+      setApiError(true);
+      
+      // ✅ استخدام Fallback Bot
+      const fallbackReply = getSimpleBotReply(trimmed, products);
+      setMessages((prev) => [...prev, { 
+        role: "model", 
+        text: fallbackReply
+      }]);
     } finally {
       setLoading(false);
     }
@@ -85,7 +204,7 @@ export default function ChatBot() {
 
   return (
     <>
-      {/* الزرار العائم — لو متعارض مع زرار الواتساب الموجود، غيّر bottom/left هنا */}
+      {/* الزرار العائم */}
       <button
         onClick={toggle}
         aria-label={open ? "إغلاق الشات" : "افتح الشات"}
@@ -119,9 +238,11 @@ export default function ChatBot() {
               <span className="grid size-10 place-items-center rounded-xl bg-gradient-to-br from-volt-400 to-volt-700">
                 <MessageCircle className="size-5 text-white" />
               </span>
-              <div>
+              <div className="flex-1">
                 <p className="font-display text-sm font-black">مساعد إيجي دنت</p>
-                <p className="text-[11px] text-frost-500">هنرد عليك فورًا</p>
+                <p className="text-[11px] text-frost-500">
+                  {apiError ? "⚠️ وضع محلي - ردود محدودة" : "🤖 هنرد عليك فورًا"}
+                </p>
               </div>
             </div>
 
@@ -175,7 +296,15 @@ export default function ChatBot() {
                   </button>
 
                   {messages.length === 0 && (
-                    <p className="mb-2 text-xs text-frost-400">اكتب سؤالك عن أي منتج أو سعر أو سياسة، وهرد عليك فورًا 👇</p>
+                    <div className="mb-3 space-y-2">
+                      <p className="text-xs text-frost-400">اكتب سؤالك عن أي منتج أو سعر أو سياسة 👇</p>
+                      {apiError && (
+                        <div className="flex items-start gap-2 rounded-xl bg-amber-400/10 p-2 text-[11px] text-amber-300">
+                          <AlertCircle className="size-3.5 mt-0.5 shrink-0" />
+                          <p>الذكاء الاصطناعي مش متاح حالياً. بنستخدم ردود محفوظة بس.</p>
+                        </div>
+                      )}
+                    </div>
                   )}
 
                   <div className="flex-1 space-y-3">
@@ -184,8 +313,8 @@ export default function ChatBot() {
                         <span
                           className={
                             m.role === "user"
-                              ? "inline-block max-w-[85%] rounded-2xl rounded-bl-sm bg-volt-500/15 px-3 py-2 text-sm text-frost-100"
-                              : "inline-block max-w-[85%] rounded-2xl rounded-br-sm bg-ink-950/70 px-3 py-2 text-sm text-frost-200"
+                              ? "inline-block max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-bl-sm bg-volt-500/15 px-3 py-2 text-sm text-frost-100"
+                              : "inline-block max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-ink-950/70 px-3 py-2 text-sm leading-relaxed text-frost-200"
                           }
                         >
                           {m.text}
@@ -206,7 +335,7 @@ export default function ChatBot() {
               )}
             </div>
 
-            {/* input — يظهر بس في وضع الأسئلة الحرة */}
+            {/* input */}
             {view.screen === "ai" && (
               <form
                 onSubmit={(e) => {
@@ -219,20 +348,22 @@ export default function ChatBot() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder="اكتب سؤالك هنا..."
-                  className="flex-1 rounded-xl border border-[var(--line-3)] bg-ink-950/60 px-3 py-2 text-sm text-frost-100 outline-none focus:border-volt-500/50"
+                  maxLength={500}
+                  disabled={loading}
+                  className="flex-1 rounded-xl border border-[var(--line-3)] bg-ink-950/60 px-3 py-2 text-sm text-frost-100 outline-none focus:border-volt-500/50 disabled:opacity-50"
                 />
                 <button
                   type="submit"
                   disabled={loading || !input.trim()}
                   aria-label="إرسال"
-                  className="grid size-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-volt-400 to-volt-600 text-white disabled:opacity-40"
+                  className="grid size-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-volt-400 to-volt-600 text-white transition-opacity disabled:opacity-40"
                 >
-                  <Send className="size-4" />
+                  {loading ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
                 </button>
               </form>
             )}
 
-            {/* footer — CTA لواتساب دايمًا ظاهر */}
+            {/* footer */}
             {waLink && (
               <div className="border-t border-[var(--line-2)] p-3">
                 <a
