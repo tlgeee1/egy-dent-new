@@ -1,24 +1,22 @@
 import { initializeApp, getApps } from "firebase/app";
-import { getFirestore, collection, getDocs } from "firebase/firestore/lite";
+import { getFirestore, collection, getDocs } from "firestore/lite";
 import { firebaseConfig } from "../src/lib/firebase.js";
 import { DEFAULT_CATEGORIES, DEFAULT_PRODUCTS, type Category, type Product } from "../src/data/data.js";
 import { policyPages } from "../src/data/policies.js";
 
-// اتصال خفيف بـ Firestore (نسخة lite، مناسبة لدالة serverless بتقرأ وتخلص من غير realtime listener)
 const app = getApps().length ? getApps()[0]! : initializeApp(firebaseConfig);
 const liteDb = getFirestore(app);
 
-/** بيانات الموقع لايف من Firestore، مع كاش قصير (45 ثانية) عشان منقراش Firestore في كل رسالة */
 let cache: { prompt: string; expiresAt: number } | null = null;
 const CACHE_TTL_MS = 45_000;
 
 async function fetchLiveProducts(): Promise<Product[]> {
   try {
     const snap = await getDocs(collection(liteDb, "products"));
-    if (snap.empty) return DEFAULT_PRODUCTS; // لسه محدش دخل الأدمن يضيف حاجة (أول تشغيل) → استخدم القائمة الافتراضية
+    if (snap.empty) return DEFAULT_PRODUCTS;
     return snap.docs.map((d) => d.data() as Product);
   } catch (err) {
-    console.error("فشل قراءة المنتجات من Firestore، هيتم استخدام النسخة الافتراضية:", err);
+    console.error("فشل قراءة المنتجات من Firestore:", err);
     return DEFAULT_PRODUCTS;
   }
 }
@@ -29,12 +27,11 @@ async function fetchLiveCategories(): Promise<Category[]> {
     if (snap.empty) return DEFAULT_CATEGORIES;
     return snap.docs.map((d) => d.data() as Category);
   } catch (err) {
-    console.error("فشل قراءة الفئات من Firestore، هيتم استخدام النسخة الافتراضية:", err);
+    console.error("فشل قراءة الفئات من Firestore:", err);
     return DEFAULT_CATEGORIES;
   }
 }
 
-// نبني برومبت من بيانات الموقع الحية (المنتجات + الفئات من Firestore، والسياسات ثابتة)
 async function buildSystemPrompt(): Promise<string> {
   if (cache && cache.expiresAt > Date.now()) return cache.prompt;
 
@@ -76,11 +73,44 @@ ${policyText}`;
   return prompt;
 }
 
-export default async function handler(req: { method?: string; body?: unknown }, res: {
+// ✅ Rate Limiting بسيط
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT = 10; // 10 رسائل
+const RATE_WINDOW = 60000; // في الدقيقة
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const record = rateLimitMap.get(ip);
+
+  if (!record || now > record.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_WINDOW });
+    return true;
+  }
+
+  if (record.count >= RATE_LIMIT) {
+    return false;
+  }
+
+  record.count++;
+  return true;
+}
+
+export default async function handler(req: { 
+  method?: string; 
+  body?: unknown;
+  headers?: Record<string, string>;
+}, res: {
   status: (code: number) => { json: (body: unknown) => void };
 }) {
   if (req.method !== "POST") {
     res.status(405).json({ error: "Method not allowed" });
+    return;
+  }
+
+  // ✅ فحص Rate Limit
+  const ip = req.headers?.["x-forwarded-for"] || req.headers?.["x-real-ip"] || "unknown";
+  if (!checkRateLimit(ip)) {
+    res.status(429).json({ error: "كتير من الرسائل! استنى شوية وحاول تاني." });
     return;
   }
 
@@ -100,40 +130,70 @@ export default async function handler(req: { method?: string; body?: unknown }, 
     return;
   }
 
+  // ✅ حد أقصى لطول الرسالة
+  if (message.length > 1000) {
+    res.status(400).json({ error: "الرسالة طويلة جداً (الحد الأقصى 1000 حرف)" });
+    return;
+  }
+
   try {
     const systemPrompt = await buildSystemPrompt();
     const contents = [
-      ...(history ?? []).map((h) => ({ role: h.role, parts: [{ text: h.text }] })),
+      ...(history ?? []).slice(-10).map((h) => ({ role: h.role, parts: [{ text: h.text }] })), // آخر 10 رسائل فقط
       { role: "user", parts: [{ text: message }] },
     ];
 
-    const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: systemPrompt }] },
-          contents,
-          generationConfig: { temperature: 0.4, maxOutputTokens: 400 },
-        }),
-      },
-    );
+    // ✅ Timeout للطلب
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 ثانية
 
-    if (!geminiRes.ok) {
-      const errText = await geminiRes.text();
-      console.error("Gemini API error:", errText);
-res.status(502).json({ error: "حصلت مشكلة في التواصل مع الذكاء الاصطناعي" });     return;
+    try {
+      const geminiRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-lite:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            system_instruction: { parts: [{ text: systemPrompt }] },
+            contents,
+            generationConfig: { 
+              temperature: 0.4, 
+              maxOutputTokens: 400,
+              topP: 0.8,
+              topK: 40
+            },
+          }),
+          signal: controller.signal,
+        },
+      );
+
+      clearTimeout(timeoutId);
+
+      if (!geminiRes.ok) {
+        const errText = await geminiRes.text();
+        console.error("Gemini API error:", errText);
+        res.status(502).json({ error: "حصلت مشكلة في التواصل مع الذكاء الاصطناعي. حاول تاني." });
+        return;
+      }
+
+      const data = await geminiRes.json();
+      const reply: string =
+        data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? "").join("") ??
+        "معلش، مقدرتش أفهم سؤالك. ممكن تجرب تاني أو تكلم فريقنا على واتساب؟";
+
+      res.status(200).json({ reply: reply.trim() });
+      
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      if (fetchError.name === "AbortError") {
+        res.status(504).json({ error: "الطلب أخد وقت طويل. حاول تاني." });
+      } else {
+        throw fetchError;
+      }
     }
 
-    const data = await geminiRes.json();
-    const reply: string =
-      data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? "").join("") ??
-      "معلش، مقدرتش أفهم سؤالك. ممكن تجرب تاني أو تكلم فريقنا على واتساب؟";
-
-    res.status(200).json({ reply });
   } catch (err) {
     console.error("Chat handler error:", err);
-    res.status(500).json({ error: "حصل خطأ غير متوقع" });
+    res.status(500).json({ error: "حصل خطأ غير متوقع. حاول تاني بعد شوية." });
   }
 }
