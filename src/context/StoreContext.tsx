@@ -425,11 +425,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   /* ---------------- Orders ---------------- */
 
-  const addOrder = async (order: Order) => {
-    const database = db;
-    if (!database) return;
-    try {
-      await setDoc(doc(database, ORDERS_COLLECTION, order.id), order);
+ const addOrder = async (order: Order) => {
+  const database = db;
+  if (!database) {
+    throw new Error("قاعدة البيانات مش متصلة");
+  }
+  // مفيش try/catch: أي رفض من الرولز لازم يوصل لـ CheckoutModal
+  await setDoc(doc(database, ORDERS_COLLECTION, order.id), order);
+};
     } catch (err) {
       reportError("فشل حفظ الطلب:", err);
     }
