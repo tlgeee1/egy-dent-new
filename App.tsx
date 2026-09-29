@@ -129,7 +129,6 @@ const DEFAULT_CATALOG: { name: string; category: string; price: number }[] = [
   { name: "نيدل هولدر", category: "انسترومنت بكستاني", price: 120 }
 ];
 
-// ✅ Tawk.to Chat Component
 function TawkChat() {
   useEffect(() => {
     if (document.getElementById('tawk-script')) return;
@@ -715,7 +714,6 @@ function App() {
         </div>
       )}
 
-      {/* ✅ Tawk.to Chat Widget */}
       <TawkChat />
     </div>
   );
