@@ -1,12 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { MessageCircle, X, Send, Loader2 } from "lucide-react";
-import { useStore } from "@/context/StoreContext";
 
 type ChatMsg = { role: "user" | "model"; text: string };
 
+// ✅ إضافة تعريف Tawk_API لـ TypeScript
+declare global {
+  interface Window {
+    Tawk_API?: {
+      maximize?: () => void;
+      minimize?: () => void;
+      hideWidget?: () => void;
+      showWidget?: () => void;
+    };
+  }
+}
+
 export default function ChatBot() {
-  const { products } = useStore();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
@@ -49,20 +59,23 @@ export default function ChatBot() {
     }
   };
 
-  // تحميل Tawk.to في الخلفية (للتواصل مع موظف)
+  // ✅ تحميل Tawk.to في الخلفية
   useEffect(() => {
     if (document.getElementById("tawk-script")) return;
+    
     const script = document.createElement("script");
     script.id = "tawk-script";
     script.async = true;
     script.src = "https://embed.tawk.to/6abc160a926103343dfe96f3/1k3nbc6vi";
     script.charset = "UTF-8";
     script.setAttribute("crossorigin", "*");
+    
     const firstScript = document.getElementsByTagName("script")[0];
     if (firstScript?.parentNode) {
       firstScript.parentNode.insertBefore(script, firstScript);
     }
-    // إخفاء widget Tawk الافتراضي (هنستخدم زرارنا)
+    
+    // إخفاء widget Tawk الافتراضي
     const style = document.createElement("style");
     style.textContent = "#tawk-bubble-container { display: none !important; }";
     document.head.appendChild(style);
