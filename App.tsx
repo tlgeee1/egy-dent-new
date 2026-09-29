@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { initializeApp } from "firebase/app";
 import { getDatabase, ref, onValue, set, push, remove } from "firebase/database";
 
-// إعدادات Firebase - بيانات مشروعك الحقيقية
 const firebaseConfig = {
   apiKey: "AIzaSyAIa2DzWIpc1CRXLjiYjVnYv-P0EskDXcg",
   authDomain: "egy-dent-store.firebaseapp.com",
@@ -34,7 +33,6 @@ interface PaymentSettings {
   whatsapp: string;
 }
 
-// ترتيب الفئات كما هي في قائمة الأسعار
 const CATEGORY_ORDER = [
   "أنواع الجوانتي",
   "رابر بيز عادي",
@@ -46,9 +44,7 @@ const CATEGORY_ORDER = [
 
 const UNCATEGORIZED = "أخرى";
 
-// كتالوج الأصناف والأسعار الجاهز (من قائمة المستخدم) لاستيراده بزرار واحد
 const DEFAULT_CATALOG: { name: string; category: string; price: number }[] = [
-  // أنواع الجوانتي
   { name: "لاتكس ابيض ماليزي", category: "أنواع الجوانتي", price: 165 },
   { name: "نتيرايل ازرق فيت برو", category: "أنواع الجوانتي", price: 160 },
   { name: "نترايل ازرق سوبر كير", category: "أنواع الجوانتي", price: 160 },
@@ -57,7 +53,6 @@ const DEFAULT_CATALOG: { name: string; category: string; price: number }[] = [
   { name: "ماسك صيني", category: "أنواع الجوانتي", price: 65 },
   { name: "ماسك صيني ابيك ازرق", category: "أنواع الجوانتي", price: 120 },
   { name: "ماسك صيني ابيك اسود", category: "أنواع الجوانتي", price: 140 },
-  // رابر بيز عادي
   { name: "زيتا بلس كبير", category: "رابر بيز عادي", price: 1980 },
   { name: "سيلكسيل كبير", category: "رابر بيز عادي", price: 1900 },
   { name: "زيتا بلس صغير", category: "رابر بيز عادي", price: 800 },
@@ -65,14 +60,12 @@ const DEFAULT_CATALOG: { name: string; category: string; price: number }[] = [
   { name: "كتاليست زرماخ", category: "رابر بيز عادي", price: 520 },
   { name: "لايت سيلكسيل", category: "رابر بيز عادي", price: 520 },
   { name: "كتاليست", category: "رابر بيز عادي", price: 490 },
-  // رابر بيز ادشن سيليكون
   { name: "كيت elite HD", category: "رابر بيز ادشن سيليكون", price: 2980 },
   { name: "كيت كروموبان", category: "رابر بيز ادشن سيليكون", price: 2800 },
   { name: "كيت هندي", category: "رابر بيز ادشن سيليكون", price: 2500 },
   { name: "كيت هان", category: "رابر بيز ادشن سيليكون", price: 1650 },
   { name: "لايت ادشن زرماخ", category: "رابر بيز ادشن سيليكون", price: 650 },
   { name: "كيت ادشن صغير كروموبان", category: "رابر بيز ادشن سيليكون", price: 1400 },
-  // كمبوزيت
   { name: "روبي", category: "كمبوزيت", price: 180 },
   { name: "برايم", category: "كمبوزيت", price: 200 },
   { name: "ميتا", category: "كمبوزيت", price: 280 },
@@ -99,7 +92,6 @@ const DEFAULT_CATALOG: { name: string; category: string; price: number }[] = [
   { name: "بولو فيل فوكو", category: "كمبوزيت", price: 980 },
   { name: "اكسترا فيل", category: "كمبوزيت", price: 1750 },
   { name: "جراندو فوكو", category: "كمبوزيت", price: 2050 },
-  // الجينيت
   { name: "صيني", category: "الجينيت", price: 170 },
   { name: "كروموبان", category: "الجينيت", price: 250 },
   { name: "IQ", category: "الجينيت", price: 260 },
@@ -107,7 +99,6 @@ const DEFAULT_CATALOG: { name: string; category: string; price: number }[] = [
   { name: "تروبيكال جين", category: "الجينيت", price: 425 },
   { name: "كيفيكس", category: "الجينيت", price: 460 },
   { name: "هيدروجم فايف", category: "الجينيت", price: 485 },
-  // انسترومنت بكستاني
   { name: "بروب", category: "انسترومنت بكستاني", price: 30 },
   { name: "برودنتال بروب", category: "انسترومنت بكستاني", price: 30 },
   { name: "تويزر عادي", category: "انسترومنت بكستاني", price: 50 },
@@ -138,6 +129,32 @@ const DEFAULT_CATALOG: { name: string; category: string; price: number }[] = [
   { name: "نيدل هولدر", category: "انسترومنت بكستاني", price: 120 }
 ];
 
+// ✅ Tawk.to Chat Component
+function TawkChat() {
+  useEffect(() => {
+    if (document.getElementById('tawk-script')) return;
+
+    const script = document.createElement('script');
+    script.id = 'tawk-script';
+    script.async = true;
+    script.src = 'https://embed.tawk.to/6abc160a926103343dfe96f3/1k3nbc6vi';
+    script.charset = 'UTF-8';
+    script.setAttribute('crossorigin', '*');
+
+    const firstScript = document.getElementsByTagName('script')[0];
+    if (firstScript && firstScript.parentNode) {
+      firstScript.parentNode.insertBefore(script, firstScript);
+    }
+
+    return () => {
+      const existing = document.getElementById('tawk-script');
+      if (existing) existing.remove();
+    };
+  }, []);
+
+  return null;
+}
+
 function App() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -159,7 +176,6 @@ function App() {
   const [newProduct, setNewProduct] = useState({ name: "", imageUrl: "", price: "", category: "" });
 
   useEffect(() => {
-    // تحميل المنتجات من Firebase
     const productsRef = ref(db, "products");
     const unsubscribe = onValue(
       productsRef,
@@ -177,13 +193,11 @@ function App() {
         setLoading(false);
       },
       (error) => {
-        // لو فيه خطأ في الاتصال أو صلاحيات فايربيز هيظهر هنا في الكونسول
         console.error("خطأ في تحميل المنتجات:", error);
         setLoading(false);
       }
     );
 
-    // تحميل إعدادات الدفع
     const settingsRef = ref(db, "settings/payment");
     onValue(settingsRef, (snapshot) => {
       if (snapshot.exists()) {
@@ -194,7 +208,6 @@ function App() {
     return () => unsubscribe();
   }, []);
 
-  // إضافة منتج
   const addProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newProduct.name) return;
@@ -215,7 +228,6 @@ function App() {
     }
   };
 
-  // حذف منتج
   const deleteProduct = async (id: string) => {
     if (!confirm("هل أنت متأكد من حذف هذا المنتج؟")) return;
     try {
@@ -228,7 +240,6 @@ function App() {
     }
   };
 
-  // استيراد كل أصناف قائمة الأسعار الجاهزة دفعة واحدة (بيتجاهل أي صنف موجود بنفس الاسم بالفعل)
   const bulkImportCatalog = async () => {
     const existingNames = new Set(products.map((p) => p.name.trim()));
     const toAdd = DEFAULT_CATALOG.filter((item) => !existingNames.has(item.name.trim()));
@@ -245,7 +256,6 @@ function App() {
     let successCount = 0;
     const failedItems: string[] = [];
 
-    // كل صنف بيتضاف على حدة، فلو صنف فشل الباقي مكملين عادي (مش بيقف الاستيراد كله)
     for (const item of toAdd) {
       try {
         await push(productsRef, {
@@ -267,14 +277,11 @@ function App() {
       alert(`تم استيراد ${successCount} صنف بنجاح!`);
     } else {
       alert(
-        `تم استيراد ${successCount} صنف بنجاح.\nفشل استيراد ${failedItems.length} صنف:\n${failedItems.join(
-          "، "
-        )}\n\nراجع الكونسول (F12) لمعرفة سبب الفشل (غالبًا صلاحيات فايربيز).`
+        `تم استيراد ${successCount} صنف بنجاح.\nفشل استيراد ${failedItems.length} صنف:\n${failedItems.join("، ")}`
       );
     }
   };
 
-  // حفظ إعدادات الدفع
   const savePaymentSettings = async () => {
     try {
       const settingsRef = ref(db, "settings/payment");
@@ -287,7 +294,6 @@ function App() {
     }
   };
 
-  // فتح نافذة الدفع
   const openPaymentModal = (product: Product) => {
     setSelectedProduct(product);
     setShowPaymentModal(true);
@@ -297,7 +303,6 @@ function App() {
     p.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // تجميع المنتجات حسب الفئة، مع الحفاظ على ترتيب الفئات المعروف ثم أي فئات إضافية
   const groupedProducts = (() => {
     const groups = new Map<string, Product[]>();
     for (const p of filteredProducts) {
@@ -316,7 +321,6 @@ function App() {
 
   return (
     <div className="min-h-screen bg-ink-950 text-white">
-      {/* Header */}
       <header className="sticky top-0 z-50 border-b border-line-1 bg-ink-950/80 backdrop-blur-xl">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between">
@@ -340,7 +344,6 @@ function App() {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
         {loading ? (
           <div className="flex justify-center items-center h-64">
@@ -348,7 +351,6 @@ function App() {
           </div>
         ) : (
           <>
-            {/* Search Bar */}
             <div className="mb-8">
               <input
                 type="text"
@@ -359,7 +361,6 @@ function App() {
               />
             </div>
 
-            {/* Products Grid grouped by category */}
             {filteredProducts.length === 0 ? (
               <div className="text-center py-20">
                 <p className="text-frost-400 text-lg">لا توجد منتجات حالياً</p>
@@ -431,12 +432,10 @@ function App() {
               </div>
             )}
 
-            {/* Admin Panel */}
             {showAdmin && (
               <div className="mt-12 border-t border-line-2 pt-8">
                 <h2 className="text-2xl font-bold text-white mb-6">لوحة التحكم</h2>
 
-                {/* Admin Actions */}
                 <div className="flex flex-wrap gap-3 mb-6">
                   <button
                     onClick={() => setShowAddModal(true)}
@@ -459,7 +458,6 @@ function App() {
                   </button>
                 </div>
 
-                {/* Products List */}
                 <div className="space-y-3">
                   {products.map((product) => (
                     <div
@@ -497,7 +495,6 @@ function App() {
         )}
       </main>
 
-      {/* Add Product Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
           <div className="w-full max-w-md rounded-2xl bg-ink-900 p-6 border border-line-2">
@@ -564,7 +561,6 @@ function App() {
         </div>
       )}
 
-      {/* Payment Settings Modal */}
       {showPaymentSettings && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
           <div className="w-full max-w-lg rounded-2xl bg-ink-900 p-6 border border-line-2">
@@ -640,7 +636,6 @@ function App() {
         </div>
       )}
 
-      {/* Payment Modal */}
       {showPaymentModal && selectedProduct && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
           <div className="w-full max-w-md rounded-2xl bg-ink-900 p-6 border border-line-2">
@@ -719,32 +714,11 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* ✅ Tawk.to Chat Widget */}
+      <TawkChat />
     </div>
   );
 }
-// ✅ إضافة Tawk.to Chat
-function TawkChat() {
-  useEffect(() => {
-    if (document.getElementById('tawk-script')) return;
 
-    const script = document.createElement('script');
-    script.id = 'tawk-script';
-    script.async = true;
-    script.src = 'https://embed.tawk.to/6abc160a926103343dfe96f3/1k3nbc6vi';
-    script.charset = 'UTF-8';
-    script.setAttribute('crossorigin', '*');
-
-    const firstScript = document.getElementsByTagName('script')[0];
-    if (firstScript && firstScript.parentNode) {
-      firstScript.parentNode.insertBefore(script, firstScript);
-    }
-
-    return () => {
-      const existing = document.getElementById('tawk-script');
-      if (existing) existing.remove();
-    };
-  }, []);
-
-  return null;
-}
 export default App;
