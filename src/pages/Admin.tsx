@@ -364,7 +364,6 @@ export default function Admin() {
     ];
   }, [store.orders, store.products.length]);
 
-  const revenue = useMemo(() => store.orders.reduce((s, o) => s + o.total, 0), [store.orders]);
 
   const duplicateIds = useMemo(() => {
     const seen = new Set<string>();
