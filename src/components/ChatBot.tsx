@@ -1,9 +1,5 @@
 import { useEffect } from "react";
 
-/**
- * شات Tawk.to — بيحل محل البوت القديم.
- * الاسم فضل "ChatBot" عشان أي مكان في المشروع بيستدعي <ChatBot /> يشتغل من غير تعديل.
- */
 export default function ChatBot() {
   useEffect(() => {
     if (document.getElementById("tawk-script")) return;
