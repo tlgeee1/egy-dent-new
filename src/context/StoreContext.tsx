@@ -425,17 +425,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   /* ---------------- Orders ---------------- */
 
- const addOrder = async (order: Order) => {
-  const database = db;
-  if (!database) {
-    throw new Error("قاعدة البيانات مش متصلة");
-  }
-  // مفيش try/catch: أي رفض من الرولز لازم يوصل لـ CheckoutModal
-  await setDoc(doc(database, ORDERS_COLLECTION, order.id), order);
-};
-    } catch (err) {
-      reportError("فشل حفظ الطلب:", err);
+  /**
+   * مهم: مفيش try/catch هنا. لو الحفظ فشل (رفض من الرولز أو النت واقع)
+   * لازم الخطأ يوصل لـ CheckoutModal عشان ميفتحش واتساب ويقول "تم" غلط.
+   */
+  const addOrder = async (order: Order) => {
+    const database = db;
+    if (!database) {
+      throw new Error("قاعدة البيانات مش متصلة");
     }
+    await setDoc(doc(database, ORDERS_COLLECTION, order.id), order);
   };
 
   const setOrderStatus = async (id: string, status: OrderStatus) => {
