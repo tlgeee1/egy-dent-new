@@ -9,6 +9,9 @@ export const MAX_ORDER_ITEMS = 10;
 /** أقصى كمية للصنف الواحد (نفس حد الرولز) */
 export const MAX_ITEM_QTY = 1000;
 
+export type CartLine = { id: number; qty: number };
+export type Toast = { id: number; product: Product };
+
 function loadStoredLines(): CartLine[] {
   try {
     const raw = localStorage.getItem(CART_STORAGE_KEY);
@@ -16,6 +19,7 @@ function loadStoredLines(): CartLine[] {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
 
+    // تنظيف السلة القديمة: كميات صحيحة فقط، بدون تكرار، وبحد أقصى 10 أصناف
     const seen = new Set<number>();
     const clean: CartLine[] = [];
     for (const l of parsed) {
@@ -29,23 +33,7 @@ function loadStoredLines(): CartLine[] {
   } catch {
     return [];
   }
-}(): CartLine[] {
-  try {
-    const raw = localStorage.getItem(CART_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (l): l is CartLine =>
-        l && typeof l.id === "number" && typeof l.qty === "number" && l.qty > 0,
-    );
-  } catch {
-    return [];
-  }
 }
-
-export type CartLine = { id: number; qty: number };
-export type Toast = { id: number; product: Product };
 
 type CartCtx = {
   lines: CartLine[];
@@ -86,15 +74,29 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const add = useCallback(
     (id: number, qty = 1) => {
+      const amount = Math.max(1, Math.floor(qty));
+      const exists = lines.some((l) => l.id === id);
+
+      // صنف جديد بعد ما السلة وصلت للحد الأقصى = ممنوع مع رسالة واضحة
+      if (!exists && lines.length >= MAX_ORDER_ITEMS) {
+        alert(
+          `الحد الأقصى ${MAX_ORDER_ITEMS} أصناف مختلفة في الطلب الواحد.\nكمّل الطلب الحالي الأول، وبعدين اعمل طلب جديد بباقي الأصناف.`,
+        );
+        return;
+      }
+
       setLines((prev) => {
         const found = prev.find((l) => l.id === id);
-        if (found) return prev.map((l) => (l.id === id ? { ...l, qty: l.qty + qty } : l));
-        return [...prev, { id, qty }];
+        if (found) {
+          return prev.map((l) => (l.id === id ? { ...l, qty: Math.min(l.qty + amount, MAX_ITEM_QTY) } : l));
+        }
+        return [...prev, { id, qty: Math.min(amount, MAX_ITEM_QTY) }];
       });
+
       const product = products.find((p) => p.id === id);
       if (product) setToast({ id: Date.now(), product });
     },
-    [products],
+    [products, lines],
   );
 
   const remove = useCallback((id: number) => {
@@ -102,8 +104,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setQty = useCallback((id: number, qty: number) => {
+    const q = Math.floor(qty);
+    if (!Number.isFinite(q)) return;
     setLines((prev) =>
-      qty <= 0 ? prev.filter((l) => l.id !== id) : prev.map((l) => (l.id === id ? { ...l, qty } : l)),
+      q <= 0
+        ? prev.filter((l) => l.id !== id)
+        : prev.map((l) => (l.id === id ? { ...l, qty: Math.min(q, MAX_ITEM_QTY) } : l)),
     );
   }, []);
 
