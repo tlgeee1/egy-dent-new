@@ -56,14 +56,14 @@ async function buildSystemPrompt(): Promise<string> {
 
   const prompt = `إنت "مساعد إيجي دنت" — شات بوت خدمة عملاء لموقع إيجي دنت، متجر بيع مستلزمات طب الأسنان بالجملة في مصر.
 
-تعليمات مهمة:
-- رد دايمًا بالعامية المصرية، بشكل ودود ومختصر ومباشر.
-- استخدم فقط المعلومات الموجودة تحت. لو السؤال عن حاجة مش موجودة، وجّه العميل لواتساب 01151605515.
-- متخترعش أسعار أو منتجات مش موجودة.
-- لو العميل عايز يقارن بين منتجين، اشرحله الفرق في السعر والنوع.
-- خلي ردودك قصيرة (2-4 جمل).
+تعليمات:
+- رد بالعامية المصرية بشكل ودود ومختصر.
+- استخدم المعلومات الموجودة فقط. لو مش متأكد، وجّه العميل لواتساب 01151605515.
+- متخترعش أسعار.
+- لو طلب مقارنة، قارن بين المنتجات بالتفصيل (السعر، النوع، المميزات).
+- خلي ردودك 2-4 جمل.
 
-قائمة المنتجات والأسعار:
+المنتجات والأسعار:
 ${productLines}
 
 سياسات المتجر:
@@ -80,8 +80,10 @@ export default async function handler(req: any, res: any) {
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
+  
   if (!apiKey) {
-    res.status(500).json({ error: "GEMINI_API_KEY غير موجود" });
+    console.error("❌ GEMINI_API_KEY مش موجود");
+    res.status(500).json({ error: "GEMINI_API_KEY غير موجود في البيئة" });
     return;
   }
 
@@ -96,7 +98,7 @@ export default async function handler(req: any, res: any) {
     const systemPrompt = await buildSystemPrompt();
     
     const cleanHistory = Array.isArray(history)
-      ? history.slice(-8).map((h: any) => ({
+      ? history.slice(-6).map((h: any) => ({
           role: h.role === "user" ? "user" : "model",
           parts: [{ text: h.text }]
         }))
@@ -107,8 +109,11 @@ export default async function handler(req: any, res: any) {
       { role: "user", parts: [{ text: message }] }
     ];
 
+    console.log("📤 Calling Gemini API...");
+
     const geminiRes = await fetch(
-`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`      {
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -124,18 +129,20 @@ export default async function handler(req: any, res: any) {
 
     if (!geminiRes.ok) {
       const errText = await geminiRes.text();
-      console.error("Gemini error:", errText);
+      console.error("❌ Gemini error:", geminiRes.status, errText);
       res.status(502).json({ error: "مشكلة في التواصل مع الذكاء الاصطناعي" });
       return;
     }
 
     const data = await geminiRes.json();
+    console.log("✅ Gemini response received");
+
     const reply = data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("").trim()
-      || "معلش، مقدرتش أفهم سؤالك. جرب تاني أو كلمنا واتساب.";
+      || "معلش، مقدرتش أفهم سؤالك. جرب تاني.";
 
     res.status(200).json({ reply });
-  } catch (err) {
-    console.error("Chat error:", err);
+  } catch (err: any) {
+    console.error("💥 Chat error:", err.message);
     res.status(500).json({ error: "حصل خطأ غير متوقع" });
   }
 }
