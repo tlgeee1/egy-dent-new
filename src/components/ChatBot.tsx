@@ -5,93 +5,82 @@ import { useStore } from "@/context/StoreContext";
 
 type ChatMsg = { role: "user" | "model"; text: string };
 
-// ✅ ردود ذكية محلية (بدون API)
 function getSmartReply(message: string, products: any[]): string {
   const msg = message.trim().toLowerCase();
   
-  // ترحيب
-  if (msg.includes("السلام") || msg.includes("مرحبا") || msg.includes("هاي") || msg.includes("هلو")) {
-    return "أهلاً وسهلاً في إيجي دنت! 🦷\nإزاي أقدر أساعدك؟\n\n• اسأل عن الأسعار\n• قارن بين المنتجات\n• اعرف معلومات التوصيل";
+  if (msg.includes("السلام") || msg.includes("مرحبا") || msg.includes("هاي")) {
+    return "أهلاً بيك في إيجي دنت! 🦷\n\nممكن أساعدك في:\n• معرفة الأسعار\n• المقارنة بين المنتجات\n• معلومات التوصيل\n\nاسألني أي حاجة!";
   }
   
-  // أسعار ومنتجات
   if (msg.includes("سعر") || msg.includes("بكام") || msg.includes("ثمن")) {
-    // نترايل / جوانتي
-    if (msg.includes("نترايل") || msg.includes("جوانت") || msg.includes("قفاز")) {
-      const gloves = products.filter(p => 
-        !p.showcaseOnly && (
-          p.name.toLowerCase().includes("نترايل") ||
-          p.name.toLowerCase().includes("جوانت") ||
-          p.name.toLowerCase().includes("لاتكس")
-        )
-      );
+    if (msg.includes("نترايل") || msg.includes("جوانت")) {
+      const results = products.filter(p => 
+        p.name && p.name.includes("نترايل")
+      ).slice(0, 4);
       
-      if (gloves.length > 0) {
-        const list = gloves.slice(0, 5).map(g => `• ${g.name}: ${g.price} جنيه`).join("\n");
-        return `الجوانتيات المتوفرة:\n\n${list}\n\n${gloves.length > 5 ? `وفيه ${gloves.length - 5} نوع تاني` : ""}`;
+      if (results.length > 0) {
+        const list = results.map(p => `• ${p.name}: ${p.price} جنيه`).join("\n");
+        return `أنواع النترايل المتوفرة:\n\n${list}\n\nعايز تفاصيل أكتر عن نوع معين؟`;
       }
     }
     
-    // أسود
     if (msg.includes("أسود") || msg.includes("اسود")) {
-      const black = products.filter(p => !p.showcaseOnly && p.name.toLowerCase().includes("أسود"));
-      if (black.length > 0) {
-        const list = black.slice(0, 3).map(g => `• ${g.name}: ${g.price} جنيه`).join("\n");
+      const results = products.filter(p => 
+        p.name && p.name.includes("أسود")
+      ).slice(0, 3);
+      
+      if (results.length > 0) {
+        const list = results.map(p => `• ${p.name}: ${p.price} جنيه`).join("\n");
         return `المنتجات السودا:\n\n${list}`;
       }
     }
     
-    // كمبوزيت
-    if (msg.includes("كمبوزيت")) {
-      const comp = products.filter(p => !p.showcaseOnly && p.cat === "composites");
-      if (comp.length > 0) {
-        const list = comp.slice(0, 5).map(g => `• ${g.name}: ${g.price} جنيه`).join("\n");
-        return `أنواع الكمبوزيت:\n\n${list}`;
+    const words = msg.replace(/سعر|بكام|ثمن/g, '').trim().split(' ').filter(w => w.length > 2);
+    
+    for (const word of words) {
+      const found = products.find(p => 
+        p.name && p.name.toLowerCase().includes(word)
+      );
+      
+      if (found) {
+        return `${found.name}\n💰 السعر: ${found.price} جنيه${found.oldPrice ? `\n🏷️ السعر قبل الخصم: ${found.oldPrice} جنيه` : ''}${found.desc ? `\n\n${found.desc}` : ''}`;
       }
     }
     
-    // بحث عام
-    const words = msg.split(" ").filter(w => w.length > 2);
-    const found = products.find(p => {
-      if (p.showcaseOnly) return false;
-      const pName = p.name.toLowerCase();
-      return words.some(w => pName.includes(w));
-    });
-    
-    if (found) {
-      return `${found.name}\n💰 السعر: ${found.price} جنيه\n\n${found.desc || ""}`;
-    }
-    
-    return "ممكن توضح أكتر إيه المنتج اللي محتاجه؟\nأو شوف الكتالوج من الموقع.";
+    return "ممكن تكتب اسم المنتج بالظبط؟\nمثلاً: بكام النترايل الأسود؟";
   }
   
-  // مقارنة
-  if (msg.includes("فرق") || msg.includes("قارن") || msg.includes("مقارنة")) {
-    return "عشان أقارنلك، قولي أسماء المنتجين.\nمثال: إيه الفرق بين الروبي والشوفو؟";
+  if (msg.includes("فرق") || msg.includes("قارن")) {
+    return "عشان أقارنلك بين منتجين، قولي أسمائهم.\nمثال: إيه الفرق بين الروبي والبرايم؟";
   }
   
-  // توصيل
-  if (msg.includes("توصيل") || msg.includes("شحن") || msg.includes("ديليفري")) {
-    return "🚚 التوصيل لكل مصر خلال 2-5 أيام\n📦 شحن مجاني للطلبات فوق 2000 جنيه\n⚡ توصيل سريع للقاهرة والجيزة";
+  if (msg.includes("توصيل") || msg.includes("شحن")) {
+    return "🚚 التوصيل:\n\n• لكل محافظات مصر\n• المدة: 2-5 أيام عمل\n• شحن مجاني فوق 2000 جنيه\n• توصيل سريع للقاهرة والجيزة";
   }
   
-  // فروع
-  if (msg.includes("فرع") || msg.includes("عنوان") || msg.includes("مكان")) {
-    return "📍 فروعنا:\n\n• مدينة نصر\n• القصر العيني\n• 6 أكتوبر\n\nللتفاصيل: 01151605515";
+  if (msg.includes("فرع") || msg.includes("عنوان")) {
+    return "📍 فروعنا:\n\n• مدينة نصر\n• القصر العيني\n• 6 أكتوبر\n\nللعناوين التفصيلية كلمنا واتساب 👇";
   }
   
-  // دفع
-  if (msg.includes("دفع") || msg.includes("كاش")) {
-    return "💳 طرق الدفع:\n\n✅ الدفع عند الاستلام\n✅ فودافون كاش\n✅ انستاباي\n✅ تحويل بنكي";
+  if (msg.includes("دفع") || msg.includes("فودافون") || msg.includes("كاش")) {
+    return "💳 طرق الدفع:\n\n✅ الدفع عند الاستلام\n✅ فودافون كاش\n✅ انستاباي\n✅ تحويل بنكي\n✅ بطاقات الفيزا";
   }
   
-  // إرجاع
   if (msg.includes("ارجاع") || msg.includes("استبدال")) {
-    return "↩️ الاستبدال خلال 14 يوم\n\nشروط:\n• المنتج غير مستخدم\n• العبوة سليمة\n• فاتورة الشراء موجودة";
+    return "↩️ سياسة الإرجاع:\n\n• خلال 14 يوم من الاستلام\n• المنتج غير مستخدم\n• العبوة سليمة\n• فاتورة الشراء موجودة";
   }
   
-  // رد افتراضي
-  return "أنا مساعد إيجي دنت 🤖\n\nممكن أساعدك في:\n• الأسعار والمنتجات\n• التوصيل والشحن\n• طرق الدفع\n• الإرجاع والاستبدال\n\nأو كلمنا: 01151605515";
+  const foundProduct = products.find(p => {
+    if (!p.name) return false;
+    const pName = p.name.toLowerCase();
+    return msg.split(' ').some(word => word.length > 2 && pName.includes(word));
+  });
+  
+  if (foundProduct) {
+    return `${foundProduct.name}\n💰 ${foundProduct.price} جنيه\n\nعايز تعرف أكتر أو تطلب؟`;
+  }
+  
+  return "أنا مساعد إيجي دنت 🤖\n\nممكن تسأل عن:\n• أسعار المنتجات\n• التوصيل والشحن\n• طرق الدفع\n• سياسة الإرجاع\n\nأو كلمنا مباشرة 👇";
 }
 
 export default function ChatBot() {
@@ -114,20 +103,20 @@ export default function ChatBot() {
     setInput("");
     setLoading(true);
 
-    // رد فوري
     setTimeout(() => {
       const reply = getSmartReply(trimmed, products);
       setMessages((prev) => [...prev, { role: "model", text: reply }]);
       setLoading(false);
-    }, 800);
+    }, 600);
   };
 
   return (
     <>
+      {/* ✅ موضع جديد: يمين وأعلى من الواتساب */}
       <button
         onClick={() => setOpen(!open)}
         aria-label="افتح الشات"
-        className="fixed bottom-6 left-6 z-[150] grid size-14 place-items-center rounded-full bg-gradient-to-br from-volt-400 to-volt-600 text-white shadow-lg transition-transform hover:scale-105"
+        className="fixed bottom-24 right-6 z-[150] grid size-14 place-items-center rounded-full bg-gradient-to-br from-volt-400 to-volt-600 text-white shadow-lg transition-transform hover:scale-105 sm:bottom-6 sm:right-6"
       >
         <AnimatePresence mode="wait">
           {open ? (
@@ -148,7 +137,7 @@ export default function ChatBot() {
             initial={{ opacity: 0, y: 30, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className="fixed bottom-24 left-6 z-[150] flex w-[92vw] max-w-sm flex-col rounded-[1.75rem] border border-[var(--line-3)] bg-ink-900 shadow-2xl overflow-hidden"
+            className="fixed bottom-40 right-6 z-[150] flex w-[92vw] max-w-sm flex-col rounded-[1.75rem] border border-[var(--line-3)] bg-ink-900 shadow-2xl overflow-hidden sm:bottom-24"
           >
             <div className="flex items-center gap-3 border-b border-[var(--line-2)] bg-gradient-to-l from-volt-500/10 to-transparent p-4">
               <span className="grid size-10 place-items-center rounded-xl bg-gradient-to-br from-volt-400 to-volt-700">
@@ -156,14 +145,34 @@ export default function ChatBot() {
               </span>
               <div className="flex-1">
                 <p className="font-display text-sm font-black">مساعد إيجي دنت 🤖</p>
-                <p className="text-[11px] text-frost-500">اسأل عن المنتجات والأسعار</p>
+                <p className="text-[11px] text-frost-500">اسأل عن أي حاجة!</p>
               </div>
             </div>
 
             <div className="max-h-96 min-h-[16rem] overflow-y-auto p-4">
               {messages.length === 0 && (
-                <div className="text-xs text-frost-400">
-                  أهلاً! 👋 اسألني عن أي منتج أو سعر.
+                <div className="space-y-2">
+                  <p className="text-xs text-frost-400">أهلاً! 👋 جرّب تسأل:</p>
+                  <div className="space-y-1 text-xs text-frost-500">
+                    <button 
+                      onClick={() => sendMessage("بكام النترايل الأسود؟")}
+                      className="block w-full text-right hover:text-volt-300 transition-colors"
+                    >
+                      • بكام النترايل الأسود؟
+                    </button>
+                    <button 
+                      onClick={() => sendMessage("فيه توصيل؟")}
+                      className="block w-full text-right hover:text-volt-300 transition-colors"
+                    >
+                      • فيه توصيل؟
+                    </button>
+                    <button 
+                      onClick={() => sendMessage("طرق الدفع إيه؟")}
+                      className="block w-full text-right hover:text-volt-300 transition-colors"
+                    >
+                      • طرق الدفع إيه؟
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -203,7 +212,7 @@ export default function ChatBot() {
               <input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="اكتب سؤالك..."
+                placeholder="اسأل عن أي حاجة..."
                 maxLength={300}
                 disabled={loading}
                 className="flex-1 rounded-xl border border-[var(--line-3)] bg-ink-950/60 px-3 py-2 text-sm outline-none focus:border-volt-500/50 disabled:opacity-50"
