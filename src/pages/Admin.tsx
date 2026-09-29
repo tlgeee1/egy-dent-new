@@ -62,7 +62,6 @@ function Login() {
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
-    // كيبورد الموبايل ساعات بيزوّد مسافة في آخر الباسورد (من الاقتراحات)، فلو الدخول فشل نجرّب من غيرها
     let error = await login(email.trim().toLowerCase(), pass);
     if (error && pass !== pass.trim()) error = await login(email.trim().toLowerCase(), pass.trim());
     setBusy(false);
@@ -181,7 +180,6 @@ function ProductForm({
   onSave: (d: Draft) => void;
 }) {
   const { categories } = useStore();
-  // لو فئة المنتج مش موجودة (مثلاً منتج جديد) نبدأ بأول فئة فعلية بدل فئة وهمية
   const [d, setD] = useState<Draft>(() =>
     categories.some((c) => c.id === initial.cat) || categories.length === 0 ? initial : { ...initial, cat: categories[0].id },
   );
@@ -191,7 +189,7 @@ function ProductForm({
 
   const handleImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    e.target.value = ""; // يسمح برفع نفس الملف تاني لو احتاج
+    e.target.value = "";
     if (!file) return;
     setUploading(true);
     setErr("");
@@ -300,30 +298,6 @@ function ProductForm({
                 <p className="text-[11px] text-frost-500">JPG أو PNG أو WEBP — بيتصغّر تلقائياً لأقل من 1 ميجا</p>
               </div>
             </div>
-
-            <details className="mt-3 hidden">
-              <summary className="cursor-pointer text-xs font-bold text-frost-400 hover:text-volt-300">أو اختار صورة جاهزة بدل الرفع</summary>
-              <div className="mt-2 grid grid-cols-5 gap-2 sm:grid-cols-9">
-                {[].map((img: string) => (
-                  <button
-                    key={img}
-                    type="button"
-                    onClick={() => setD({ ...d, img })}
-                    className={cn(
-                      "relative aspect-square overflow-hidden rounded-xl border-2 transition-all",
-                      d.img === img ? "border-volt-400 ring-2 ring-volt-400/30" : "border-[var(--line-3)] opacity-60 hover:opacity-100",
-                    )}
-                  >
-                    <img src={img} alt="" className="h-full w-full object-cover" />
-                    {d.img === img && (
-                      <span className="absolute inset-0 grid place-items-center bg-ink-950/40">
-                        <BadgeCheck className="size-5 text-volt-300" />
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </details>
           </div>
         </div>
 
@@ -347,8 +321,6 @@ function ProductForm({
 export default function Admin() {
   const store = useStore();
 
-  // لما اللوحة تتفتح: الاختصار اللي المستخدم بيضيفه للموبايل يفتح على اللوحة نفسها
-  // (manifest خاص + عنوان صفحة مناسب)، وبيرجع لوضعه الطبيعي أول ما نخرج منها.
   useEffect(() => {
     const link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
     const prevHref = link?.getAttribute("href") ?? null;
@@ -360,6 +332,7 @@ export default function Admin() {
       document.title = prevTitle;
     };
   }, []);
+  
   const [tab, setTab] = useState<Tab>("overview");
   const [editing, setEditing] = useState<Draft | "new" | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -367,22 +340,32 @@ export default function Admin() {
   const [wa, setWa] = useState(store.settings.whatsapp);
   const [ship, setShip] = useState(String(store.settings.freeShipping));
 
-  // الإعدادات بتوصل من Firestore بشكل غير متزامن (live sync)، فلو المستخدم فتح
-  // صفحة الإعدادات قبل ما البيانات توصل، الخانة كانت بتفضل عالقة على القيمة
-  // الافتراضية القديمة حتى لو الحفظ نجح فعلياً. نتابع القيمة الحقيقية أول ما توصل.
   useEffect(() => {
     setWa(store.settings.whatsapp);
     setShip(String(store.settings.freeShipping));
   }, [store.settings.whatsapp, store.settings.freeShipping]);
+  
   const [search, setSearch] = useState("");
   const [importing, setImporting] = useState(false);
   const [showBulk, setShowBulk] = useState(false);
   const [importMsg, setImportMsg] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // ✅ إحصائيات محسّنة - بتتحسب مرة واحدة بس لما الطلبات تتغير
+  const stats = useMemo(() => {
+    const totalRevenue = store.orders.reduce((sum, o) => sum + o.total, 0);
+    const newOrders = store.orders.filter(o => o.status === "جديد").length;
+    
+    return [
+      { label: "عدد المنتجات", value: String(store.products.length), icon: Package, tone: "text-volt-300 bg-volt-500/10" },
+      { label: "إجمالي الطلبات", value: String(store.orders.length), icon: ShoppingBag, tone: "text-gold-300 bg-gold-500/10" },
+      { label: "قيمة الطلبات", value: `${fmt(totalRevenue)} ج`, icon: Wallet, tone: "text-emerald-300 bg-emerald-400/10" },
+      { label: "طلبات جديدة", value: String(newOrders), icon: Loader2, tone: "text-indigo-300 bg-indigo-400/10" },
+    ];
+  }, [store.orders, store.products.length]);
+
   const revenue = useMemo(() => store.orders.reduce((s, o) => s + o.total, 0), [store.orders]);
 
-  // منتجات مكررة (نفس الاسم ونفس الفئة): بنسيب الأقدم (أقل id) وبنعتبر الباقي نسخ زيادة
   const duplicateIds = useMemo(() => {
     const seen = new Set<string>();
     const extra: number[] = [];
@@ -439,7 +422,6 @@ export default function Admin() {
         if (normalized.length === 0) {
           setImportMsg("الملف ده مفيهوش منتجات صالحة للاستيراد");
         } else {
-          // نتخطى أي منتج موجود بنفس الاسم والفئة (وده بيحمي من استيراد نفس الملف مرتين)
           const seen = new Set(store.products.map((p) => `${p.cat}|${normName(p.name)}`));
           const fresh = normalized.filter((p) => {
             const k = `${p.cat}|${normName(p.name)}`;
@@ -479,18 +461,6 @@ export default function Admin() {
   }
 
   if (!store.isAdmin) return <Login />;
-
-  const stats = [
-    { label: "عدد المنتجات", value: String(store.products.length), icon: Package, tone: "text-volt-300 bg-volt-500/10" },
-    { label: "إجمالي الطلبات", value: String(store.orders.length), icon: ShoppingBag, tone: "text-gold-300 bg-gold-500/10" },
-    { label: "قيمة الطلبات", value: `${fmt(revenue)} ج`, icon: Wallet, tone: "text-emerald-300 bg-emerald-400/10" },
-    {
-      label: "طلبات جديدة",
-      value: String(store.orders.filter((o) => o.status === "جديد").length),
-      icon: Loader2,
-      tone: "text-indigo-300 bg-indigo-400/10",
-    },
-  ];
 
   return (
     <div className="noise min-h-screen bg-ink-950 font-sans text-[var(--text-primary)]">
