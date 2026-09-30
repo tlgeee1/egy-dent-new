@@ -8,7 +8,7 @@ const app = getApps().length ? getApps()[0]! : initializeApp(firebaseConfig);
 const liteDb = getFirestore(app);
 
 let cache: { prompt: string; expiresAt: number } | null = null;
-const CACHE_TTL_MS = 60_000; // كاش لمدة دقيقة
+const CACHE_TTL_MS = 60_000;
 
 async function fetchLiveProducts(): Promise<Product[]> {
   try {
@@ -80,8 +80,10 @@ export default async function handler(req: any, res: any) {
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    return res.status(500).json({ error: "مفتاح الذكاء الاصطناعي غير متوفر في الإعدادات" });
+  if (!apiKey || apiKey.trim() === "" || apiKey.startsWith("YOUR_")) {
+    return res.status(400).json({ 
+      error: "⚠️ خطأ فني: مفتاح GEMINI_API_KEY غير موجود في إعدادات Vercel أو لم يتم عمل Redeploy للموقع بعد إضافته." 
+    });
   }
 
   const { message, history } = req.body || {};
@@ -118,7 +120,9 @@ export default async function handler(req: any, res: any) {
     if (!response.ok) {
       const errBody = await response.text();
       console.error("Gemini Error:", errBody);
-      return res.status(502).json({ error: "تعذر الرد من الذكاء الاصطناعي" });
+      return res.status(502).json({ 
+        error: `❌ خطأ من جوجل: تفاصيل رفض جوجل للطلب هي: ${errBody.substring(0, 150)}` 
+      });
     }
 
     const data = await response.json();
@@ -129,6 +133,6 @@ export default async function handler(req: any, res: any) {
     return res.status(200).json({ reply });
   } catch (err: any) {
     console.error("Handler Error:", err);
-    return res.status(500).json({ error: "حدث خطأ غير متوقع" });
+    return res.status(500).json({ error: `💥 خطأ داخلي في الخادم: ${err.message}` });
   }
 }
