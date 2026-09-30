@@ -224,8 +224,7 @@ function getSmartReply(message: string, products: any[]): string {
   }
 
   // 7) الألجينات
-  if (msg.includes("الجينيت") || msg.includes("الserverجين") || msg.includes("الجينات") || msg.includes("كروموبان") || msg.includes("هيدروجم")) {
-    return (
+  if (msg.includes("الجنيت") || msg.includes("جنيت") || msg.includes("جينات") || msg.includes("الجينات") || msg.includes("الجينيت") || msg.includes("كروموبان") || msg.includes("هيدروجم") || msg.includes("الserverجين")) {    return (
       "أسعار الألجينات المتوفرة:\n\n" +
       "• صيني: 170 ج\n" +
       "• كروموبان: 250 ج\n" +
