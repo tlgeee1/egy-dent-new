@@ -41,7 +41,7 @@ type ChatMsg = {
 type View = { screen: "menu" } | { screen: "answer"; index: number } | { screen: "ai" };
 
 export default function ChatBot() {
-  const { settings, orders } = useStore();
+  const { settings, orders = [] } = useStore();
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<View>({ screen: "menu" });
   const [messages, setMessages] = useState<ChatMsg[]>([]);
@@ -49,7 +49,7 @@ export default function ChatBot() {
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const waLink = settings.whatsapp
+  const waLink = settings?.whatsapp
     ? `https://wa.me/${settings.whatsapp}?text=${encodeURIComponent("أهلاً، بتواصل معاكم بخصوص استفسار من المتجر")}`
     : undefined;
 
@@ -66,19 +66,22 @@ export default function ChatBot() {
     const queryText = (textToSend || input).trim();
     if (!queryText || loading) return;
 
-    setMessages((prev) => [...prev, { role: "user", text: queryText }]);
+    // تحديث الشات برسالة المستخدم فوراً
+    const newMessages: ChatMsg[] = [...messages, { role: "user", text: queryText }];
+    setMessages(newMessages);
     if (!textToSend) setInput("");
     setLoading(true);
 
+    // التحقق من تتبع الطلبات (EG-XXXX)
     const qLower = queryText.toLowerCase();
     if (qLower.includes("eg-")) {
-      const foundOrder = orders.find((o) => o.id.toLowerCase() === qLower || qLower.includes(o.id.toLowerCase()));
+      const foundOrder = orders?.find((o) => o?.id?.toLowerCase() === qLower || qLower.includes(o?.id?.toLowerCase()));
       if (foundOrder) {
         setMessages((prev) => [
           ...prev,
           {
             role: "model",
-            text: `📦 بيانات طلبك رقم (${foundOrder.id}):\n• العميل: ${foundOrder.customer.name}\n• العيادة: ${foundOrder.customer.clinic}\n• الإجمالي: ${foundOrder.total} ج\n• الحالة: [ ${foundOrder.status} ]`,
+            text: `📦 بيانات طلبك رقم (${foundOrder.id}):\n• العميل: ${foundOrder.customer?.name || "عميلنا العزيز"}\n• الإجمالي: ${foundOrder.total} ج\n• الحالة: [ ${foundOrder.status} ]`,
           },
         ]);
         setLoading(false);
@@ -86,29 +89,33 @@ export default function ChatBot() {
       }
     }
 
+    // إرسال الطلب لـ Gemini API
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: queryText,
-          history: messages.slice(-6),
+          history: newMessages.slice(-6), // إرسال أحدث 6 رسائل متضمنة الرسالة الحالية
         }),
       });
 
       const data = await res.json();
+      
       if (res.ok && data.reply) {
         setMessages((prev) => [...prev, { role: "model", text: data.reply }]);
       } else {
-        setMessages((prev) => [
-          ...prev,
-          { role: "model", text: data.error || "تعذر الرد حالياً، يرجى المحاولة مرة أخرى." },
-        ]);
+        // معالجة الأخطاء وضغط الخوادم (مثل 503) بشكل ودي
+        let errorMsg = "تعذر الرد حالياً، يرجى المحاولة بعد لحظات.";
+        if (res.status === 503 || (data.error && data.error.includes("high demand"))) {
+          errorMsg = "عذراً يا دكتور، خوادم الذكاء الاصطناعي عليها ضغط حالياً. ثواني وحاول مرة ثانية 🦷";
+        }
+        setMessages((prev) => [...prev, { role: "model", text: errorMsg }]);
       }
     } catch {
       setMessages((prev) => [
         ...prev,
-        { role: "model", text: "حدث خطأ في الاتصال، يرجى المحاولة مجدداً." },
+        { role: "model", text: "حدث خطأ في الاتصال، يرجى التأكد من اتصالك بالإنترنت والمحاولة مجدداً." },
       ]);
     } finally {
       setLoading(false);
@@ -136,7 +143,7 @@ export default function ChatBot() {
         </AnimatePresence>
       </button>
 
-      {/* نافذة الشات المتوافقة 100% مع الوضع الفاتح والداكن */}
+      {/* نافذة الشات */}
       <AnimatePresence>
         {open && (
           <motion.div
@@ -226,7 +233,7 @@ export default function ChatBot() {
                       <ChevronRight className="size-3.5" />
                       رجوع للقائمة
                     </button>
-                    <span className="text-[10px] text-[var(--text-secondary,#64748b)]">Gemini AI Active</span>
+                    <span className="text-[10px] text-[var(--text-secondary,#64748b)]">AI Active</span>
                   </div>
 
                   {messages.length === 0 && (
