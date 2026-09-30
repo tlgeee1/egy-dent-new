@@ -97,24 +97,18 @@ export default function ChatBot() {
       });
 
       const data = await res.json();
-      
-      // ✅ تم تعديل هذا الجزء ليعرض رسالة الخطأ القادمة من السيرفر مباشرة
       if (res.ok && data.reply) {
         setMessages((prev) => [...prev, { role: "model", text: data.reply }]);
       } else {
-        const serverError = data.error || "خطأ غير معروف في السيرفر";
         setMessages((prev) => [
           ...prev,
-          { 
-            role: "model", 
-            text: `⚠️ عذراً، حدثت مشكلة:\n\n${serverError}` 
-          },
+          { role: "model", text: data.error || "تعذر الرد حالياً، يرجى المحاولة مرة أخرى." },
         ]);
       }
     } catch (err: any) {
       setMessages((prev) => [
         ...prev,
-        { role: "model", text: `⚠️ عذراً، فشل الاتصال بالخادم الرئيسي:\n\n${err.message}` },
+        { role: "model", text: "حدث خطأ في الاتصال بالشبكة، يرجى المحاولة مجدداً." },
       ]);
     } finally {
       setLoading(false);
@@ -123,7 +117,6 @@ export default function ChatBot() {
 
   return (
     <>
-      {/* زرار الشات العائم */}
       <button
         onClick={toggle}
         aria-label={open ? "إغلاق الشات" : "افتح المساعد الذكي"}
@@ -142,7 +135,6 @@ export default function ChatBot() {
         </AnimatePresence>
       </button>
 
-      {/* نافذة الشات الذكية التفاعلية */}
       <AnimatePresence>
         {open && (
           <motion.div
@@ -152,7 +144,6 @@ export default function ChatBot() {
             transition={{ type: "spring", stiffness: 350, damping: 30 }}
             className="fixed bottom-40 right-5 z-[150] flex w-[92vw] max-w-sm flex-col overflow-hidden rounded-[1.75rem] border border-[var(--line-3)] bg-ink-900 shadow-2xl sm:bottom-24 sm:right-6"
           >
-            {/* Header */}
             <div className="flex items-center justify-between border-b border-[var(--line-2)] bg-gradient-to-l from-volt-500/15 via-ink-900 to-ink-900 p-4">
               <div className="flex items-center gap-3">
                 <span className="grid size-10 place-items-center rounded-xl bg-gradient-to-br from-volt-400 to-volt-700 shadow-[0_4px_16px_rgba(34,211,238,0.3)]">
@@ -168,7 +159,6 @@ export default function ChatBot() {
               </div>
             </div>
 
-            {/* Body */}
             <div className="max-h-[22rem] min-h-[17rem] overflow-y-auto p-4">
               {view.screen === "menu" && (
                 <div className="space-y-3">
@@ -271,7 +261,6 @@ export default function ChatBot() {
               )}
             </div>
 
-            {/* أزرار اختصارات سريعة */}
             {view.screen === "ai" && (
               <div className="flex gap-1.5 overflow-x-auto px-3 pb-2 pt-1 no-scrollbar border-t border-[var(--line-2)]/40 bg-ink-950/40">
                 {[
@@ -291,7 +280,6 @@ export default function ChatBot() {
               </div>
             )}
 
-            {/* خانة الإدخال */}
             {view.screen === "ai" && (
               <form
                 onSubmit={(e) => {
@@ -318,14 +306,13 @@ export default function ChatBot() {
               </form>
             )}
 
-            {/* زر الواتساب المباشر */}
             {waLink && (
               <div className="border-t border-[var(--line-2)] p-2.5 bg-ink-950/80">
                 <a
                   href={waLink}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-emerald-500 to-emerald-600 py-2.5 text-xs font-black text-white shadow-[0_4px_16px_rgba(16,185,129,0.25)] transition-transform hover:scale-[1.01]"
+                  className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-l from-emerald-500 to-emerald-600 py-2.5 text-xs font-black text-white shadow-[0_4px_16px_rgba(16,185,129,0.25)] transition-transform hover:scale-[1.01]"
                 >
                   <MessageCircle className="size-3.5" />
                   تحدث مع الصيدلي / المبيعات واتساب
