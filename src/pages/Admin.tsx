@@ -265,7 +265,7 @@ function ProductForm({
               />
               <span>
                 <span className="block font-bold text-frost-200">عرض فقط (بدون سعر أو طلب)</span>
-                <span className="block text-xs text-frost-500">فعّلها للمنتجات اللي صورتها موجودة للعرض بس ومش متاحة فعلياً للبيع — هتظهر بصورتها ووصفها بس من غير سعر أو زرار شراء.</span>
+                <span className="block text-xs text-frost-500">فعّلها للمنتجات اللي صورتها موجودة للعرض بس ومش متاحة فعلياً للبيع.</span>
               </span>
             </label>
           </div>
@@ -332,7 +332,7 @@ export default function Admin() {
       document.title = prevTitle;
     };
   }, []);
-  
+
   const [tab, setTab] = useState<Tab>("overview");
   const [editing, setEditing] = useState<Draft | "new" | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -344,20 +344,17 @@ export default function Admin() {
     setWa(store.settings.whatsapp);
     setShip(String(store.settings.freeShipping));
   }, [store.settings.whatsapp, store.settings.freeShipping]);
-  
+
   const [search, setSearch] = useState("");
   const [importing, setImporting] = useState(false);
   const [showBulk, setShowBulk] = useState(false);
   const [importMsg, setImportMsg] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // ✅ إحصائيات محسّنة - بتتحسب مرة واحدة بس لما الطلبات تتغير
   const stats = useMemo(() => {
-      const stats = useMemo(() => {
-    const validOrders = store.orders.filter((o: any) => o.status !== "ملغي");
-    const totalRevenue = validOrders.reduce((sum: number, o: any) => sum + (o.total || 0), 0);
-    const newOrders = store.orders.filter((o: any) => o.status === "جديد").length;
-    
+    const totalRevenue = store.orders.reduce((sum, o) => sum + o.total, 0);
+    const newOrders = store.orders.filter((o) => o.status === "جديد").length;
+
     return [
       { label: "عدد المنتجات", value: String(store.products.length), icon: Package, tone: "text-volt-300 bg-volt-500/10" },
       { label: "إجمالي الطلبات", value: String(store.orders.length), icon: ShoppingBag, tone: "text-gold-300 bg-gold-500/10" },
@@ -365,7 +362,6 @@ export default function Admin() {
       { label: "طلبات جديدة", value: String(newOrders), icon: Loader2, tone: "text-indigo-300 bg-indigo-400/10" },
     ];
   }, [store.orders, store.products.length]);
-
 
   const duplicateIds = useMemo(() => {
     const seen = new Set<string>();
@@ -725,7 +721,7 @@ export default function Admin() {
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
             {store.orders.length === 0 ? (
               <p className="rounded-2xl border border-dashed border-[var(--line-3)] p-12 text-center text-sm text-frost-500">
-                مفيش طلبات لسه — جرّب اطلب حاجة من المتجر وهتلاقيها هنا
+                مفيش طلبات لسه — أول ما عميل يطلب من المتجر هيظهر هنا فوراً
               </p>
             ) : (
               <div className="space-y-4">
