@@ -74,67 +74,162 @@ export default function ChatBot() {
     setTimeout(() => setAddedId(null), 1500);
   };
 
+  // محرك الإجابة والبحث التفاعلي والذكي مع ميزات طبية وفنية للأسنان
   const processQuery = (rawText: string): ChatMsg => {
     const q = rawText.trim().toLowerCase();
 
-    // 1) الاستفسار عن البوند (Bonding)
-    if (q.includes("بوند") || q.includes("بند") || q.includes("bond") || q.includes("أدهيسيف") || q.includes("ادهيسيف")) {
+    // =============== [ القسم الأول: طرق الاستخدام الطبية ] ===============
+
+    // 1.1) طريقة استخدام البوند (Bonding Protocol)
+    if ((q.includes("طريقة") || q.includes("كيف") || q.includes("ازاي") || q.includes("خطوات")) && 
+        (q.includes("بوند") || q.includes("بند") || q.includes("bond") || q.includes("ادهيسيف"))) {
       return {
         role: "model",
-        text: "بخصوص البوند (Adhesive Systems) واختيار الأنسب لحالتك 🦷:\n\n🔹 الجيل الخامس (5th Gen - Total Etch):\n• بيحتاج حمض تخريش منفصل (Etch 37%).\n• قوة ربط ممتازة جداً بس حساس للرطوبة.\n\n🔹 الجيل الثامن والـ Universal (8th Gen / Self-Etch):\n• مريح وسريع، بيقلل حساسية ما بعد الحشو (Post-op Sensitivity).\n• متوافق مع كل أنواع الكور والكمبوزيت والزركونيا.\n\n💡 نصيحة: لحالات الفينير والحشوات الأمامية التجميلية اختار بوند بريميوم ياباني أو أمريكي.",
+        text: "📝 بروتوكول الخطوات الطبية الصحيحة لتطبيق البوند 🦷:\n\n" +
+              "🔹 بوند الجيل الخامس (5th Gen - Total Etch):\n" +
+              "1️⃣ اعمل Acid Etch (37% Phosphoric acid) لمدة 15 ثانية على الـ Enamel و 10 ثواني على الـ Dentin.\n" +
+              "2️⃣ اغسل بالماء جيداً (Wash) لمدة 20 ثانية لتنظيف الحمض تماماً.\n" +
+              "3️⃣ جفف بلطف (Dry) باستخدام الـ Air syringe، لكن حافظ على الـ Dentin رطب قليلاً (Moist) ولا تجففه لدرجة الجفاف التام (White chalky enamel only).\n" +
+              "4️⃣ ضع طبقتين من البوند (2 Coats) مع فرك الـ cavity بلطف (Agitate) لمدة 15 ثانية.\n" +
+              "5️⃣ اعمل تجفيف هواء خفيف (Air thinning) لتوزيع البوند وإزالة المذيب.\n" +
+              "6️⃣ اعمل Light cure لمدة 20 ثانية.\n\n" +
+              "🔸 بوند الجيل الثامن / الـ Universal (Self-Etch):\n" +
+              "• ميزته إنه مش بيحتاج Etch منفصل على الـ Dentin. بتفرك البوند مباشرة على الـ cavity لمدة 20 ثانية، ثم Air thinning خفيف، ثم Light cure لمدة 20 ثانية.\n" +
+              "• (يفضل عمل Selective Etch للمينا فقط للحصول على أعلى ثبات).",
       };
     }
 
-    // 2) الاستفسار الفني عن استخدامات الكمبوزيت (Anterior vs Posterior)
-    if (q.includes("استخدام") || q.includes("استعمال") || q.includes("anterior") || q.includes("posterior") || q.includes("خلفي") || q.includes("امامي") || q.includes("أمامي")) {
-      if (q.includes("كمبوزيت") || q.includes("حشو")) {
-        const aestheticComps = products.filter((p) => p.name.includes("شوفو") || p.name.includes("تكوياما") || p.name.includes("جي سي")).slice(0, 3);
-        return {
-          role: "model",
-          text: "تقسيم الكمبوزيت حسب مكان الحشو 🦷:\n\n🎨 للأسنان الأمامية (Anterior - تجميلي):\n• جزيئات نانو فائقة النعومة وتأثير كاميليون ليتماشى مع لون السن الطبيعي.\n• الترشيحات: شوفو ياباني (Shofu)، تكوياما أومنيكروما، وجي سي.\n\n🔨 للأسنان الخلفية (Posterior - قوة تحمل):\n• مقاومة عالية للتآكل والمضغ (High Wear Resistance).\n• الترشيحات: اكسترا فيل وجراندو فوكو.\n\n👇 دي أبرز الخيارات التجميلية المتاحة للطلب الفوري:",
-          items: aestheticComps,
-        };
-      }
+    // 1.2) طريقة استخدام وتجهيز الرابر بيز (Putty & Light Body)
+    if ((q.includes("طريقة") || q.includes("كيف") || q.includes("ازاي") || q.includes("خطوات") || q.includes("خلط")) && 
+        (q.includes("رابر") || q.includes("بيز") || q.includes("طبعة") || q.includes("طبعه") || q.includes("سيليكون"))) {
+      return {
+        role: "model",
+        text: "📝 طريقة خلط وتجهيز الرابر بيز (طبعة السيليكون) خطوة بخطوة 🦷:\n\n" +
+              "1️⃣ خلط مادة الـ Putty (الخامة الثقيلة):\n" +
+              "• خذ مقداراً متساوياً بالملعقة (Scoop) من العلبة الأساسية (Base) وعلبة المصلد (Catalyst).\n" +
+              "• اخلطهم بأطراف أصابعك جيداً وبسرعة حتى يتوحد اللون تماماً (بدون خطوط بيضاء).\n" +
+              "• ⚠️ تحذير طبي هام: لا تستخدم جوانتيات لاتكس (Latex gloves) أثناء الخلط، لأن الكبريت اللي في اللاتكس بيمنع جفاف وتصلد السيليكون! استخدم جوانتيات نترايل أو اخلط بيد نظيفة تماماً.\n\n" +
+              "2️⃣ تطبيق الـ Light Body (الخامة الخفيفة):\n" +
+              "• بعد أخذ مقاس الـ Putty، يتم حقن الـ Light body باستخدام المسدس (Dispensing Gun) والتيب (Mixing Tip) مباشرة حول التحضير (Prep) في فم المريض لضمان تسجيل أدق التفاصيل تحت اللثة، ثم يوضع المقاس فوقه حتى يتصلب بالكامل.",
+      };
     }
 
-    // 3) فحص تتبع الطلب
+    // 1.3) طريقة استخدام وخلط الألجينات (Alginate Mixing)
+    if ((q.includes("طريقة") || q.includes("كيف") || q.includes("ازاي") || q.includes("خلط") || q.includes("تجهيز")) && 
+        (q.includes("الجينيت") || q.includes("الجنيت") || q.includes("جينات") || q.includes("ألجينات"))) {
+      return {
+        role: "model",
+        text: "📝 الطريقة المثالية لخلط الألجينات بدون فقاعات هواء (Bubble-free Alginate) 🦷:\n\n" +
+              "1️⃣ اضبط النسب بدقة باستخدام معيار البودرة ومعيار الماء المرفقين مع العبوة.\n" +
+              "2️⃣ ضع البودرة أولاً في وعاء الخلط المطاطي (Rubber bowl) ثم أضف الماء (يفضل ماء بارد لإعطاء وقت عمل أطول).\n" +
+              "3️⃣ ابدأ الخلط بلطف في البداية لتجميع البودرة بالماء.\n" +
+              "4️⃣ اضغط المعجون بقوة باستخدام الاسباتولا (Spatula) ضد جدار الوعاء المطاطي بحركة دائرية سريعة (على شكل حرف 8).\n" +
+              "• الطريقة دي بتطرد كل فقاعات الهواء وتديلك معجون ناعم ومتجانس (Creamy mix).\n" +
+              "5️⃣ انقل المعجون بسرعة للـ Tray وضعه في فم المريض قبل بداية التصلد (Setting time).",
+      };
+    }
+
+    // 1.4) طريقة استخدام وتطبيق الكمبوزيت (Composite Layering)
+    if ((q.includes("طريقة") || q.includes("كيف") || q.includes("ازاي") || q.includes("خطوات") || q.includes("حشو")) && 
+        (q.includes("كمبوزيت") || q.includes("كومبوزيت"))) {
+      return {
+        role: "model",
+        text: "📝 الخطوات الطبية الاحترافية لتطبيق حشو الكمبوزيت (Composite Layering Protocol) 🦷:\n\n" +
+              "1️⃣ بعد تنظيف الـ cavity تماماً، ضع الـ Etch ثم اغسله وجففه بلطف، ثم طبق الـ Bond واعمل Light cure لمدة 20 ثانية.\n" +
+              "2️⃣ تطبيق الكمبوزيت بنظام الطبقات (Incremental Placement):\n" +
+              "• ضع الكمبوزيت على طبقات لا تتعدى سماكتها 2 مم (Max 2mm layers).\n" +
+              "• ⚠️ السبب العلمي: لتجنب انكماش البلمرة (Polymerization Shrinkage) ولضمان وصول الضوء لعمق الحشو وتصلبه بالكامل.\n" +
+              "3️⃣ اعمل Light cure لكل طبقة بشكل منفصل لمدة 20 إلى 40 ثانية (حسب قوة جهاز الكيورينج ولون الحشو).\n" +
+              "4️⃣ التفنيش والتشطيب (Finishing & Polishing):\n" +
+              "• استخدم برات التفنيش (Finishing Burs) لضبط الـ Occlusion (العضة)، ثم استخدم سنابل وأقراص التلميع (Polishing Discs / Rubber cups) للحصول على لمعان طبيعي يمنع تراكم الجير والتصبغات.",
+      };
+    }
+
+
+    // =============== [ القسم الثاني: المقارنات الطبية والفنية ] ===============
+
+    // 2.1) بوند الجيل الخامس vs الجيل الثامن (الـ Universal)
+    if (q.includes("بوند") && (q.includes("خامس") || q.includes("ثامن") || q.includes("يونيفرسال") || q.includes("universal") || q.includes("الفرق"))) {
+      return {
+        role: "model",
+        text: "المقارنة الطبية الفنية بين بوند الجيل الخامس والجيل الثامن (الـ Universal) 🧪:\n\n" +
+              "🔹 بوند الجيل الخامس (Total-Etch):\n" +
+              "• بيحتاج خطوة تخريش منفصلة بالحمض (Acid Etch) للمينا والعاج.\n" +
+              "• قوته عالية جداً وموثوق، لكن لو العاج جف زيادة عن اللزوم بيسبب حساسية بعد الحشو (Post-operative sensitivity).\n\n" +
+              "🔸 بوند الجيل الثامن / Universal (Self-Etch):\n" +
+              "• بوند ذكي بيحتوي على حمض مخفف جواه، فمش بيحتاج خطوة Etch منفصلة على العاج، وبالتالي بيقضي تماماً على حساسية ما بعد الحشو.\n" +
+              "• تقدر تستخدمه بـ 3 طرق: (Self-etch) أو (Total-etch) أو (Selective etch للمينا فقط وهو الخيار الأفضل علمياً).\n" +
+              "• بيمسك بامتياز في الزركونيا والبدلات المعدنية بدون الحاجة لبريمر إضافي.",
+      };
+    }
+
+    // 2.2) رابر بيز عادي vs ادشن سيليكون
+    if ((q.includes("رابر") || q.includes("بيز")) && (q.includes("ادشن") || q.includes("سيليكون") || q.includes("عادي") || q.includes("الفرق"))) {
+      const rubberProds = products.filter((p) => p.cat.includes("rubber") || p.name.includes("زيتا") || p.name.includes("elite")).slice(0, 3);
+      return {
+        role: "model",
+        text: "الفرق الطبي والتجاري بين الرابر بيز العادي والادشن سيليكون 🦷:\n\n" +
+              "🔹 الرابر بيز العادي (C-Silicone زي زيتا بلس وسيلكسيل):\n" +
+              "• السعر: اقتصادي ومناسب للشغل اليومي والروتين.\n" +
+              "• التفاعل الكيميائي بيطرد كحول، وده بيسبب انكماش الطبعة تدريجياً، وعشان كدة لازم تتصب في المعمل سريعاً خلال ساعات قليلة.\n\n" +
+              "🔸 الادشن سيليكون (A-Silicone زي Elite HD وكروموبان):\n" +
+              "• فئة احترافية، دقة متناهية ميكرونية واستقرار أبعاد يمتد لأيام دون أي انكماش أو تغير.\n" +
+              "• التفاعل مش بيطرد أي نواتج جانبية، فتقدر تبعت الطبعة للمعمل وتتصب بعد أيام وتطلع بنفس الدقة.\n" +
+              "• مثالي للتيجان والجسور والزرعات والتركيبات التجميلية.\n\n" +
+              "👇 أشهر خامات الطبعات المتاحة للإضافة الفورية:",
+        items: rubberProds,
+      };
+    }
+
+    // 2.3) كمبوزيت روبي vs شوفو تجميلي
+    if ((q.includes("روبي") || q.includes("ruby")) && (q.includes("شوفو") || q.includes("shofu") || q.includes("الفرق"))) {
+      const compProds = products.filter((p) => p.name.includes("روبي") || p.name.includes("شوفو")).slice(0, 2);
+      return {
+        role: "model",
+        text: "المقارنة بين روبي وشوفو كمبوزيت 💎:\n\n" +
+              "• كمبوزيت روبي (180ج):\n" +
+              "خيار اقتصادي جداً وممتاز للحشوات الخلفية العادية وتكلفة تشغيل بسيطة للعيادات.\n\n" +
+              "• كمبوزيت شوفو الياباني Shofu (يبدأ من 950ج لـ 1500ج):\n" +
+              "خامة ياباني بريميوم تجميلية بتقنية Giomer الذكية (بتطلق وتستقبل الفلورايد لحماية السن)، لمعان طبيعي فائق وثبات لون ممتاز ومقاومة للكسر ومثالي للأسنان الأمامية والشغل الجمالي.\n\n" +
+              "👇 يمكنك إضافة أيهم للسلة مباشرة:",
+        items: compProds,
+      };
+    }
+
+    // 2.4) كمبوزيت برايم vs ميتا كوري
+    if ((q.includes("برايم") || q.includes("prime")) && (q.includes("ميتا") || q.includes("meta") || q.includes("الفرق"))) {
+      const compProds = products.filter((p) => p.name.includes("برايم") || p.name.includes("ميتا")).slice(0, 2);
+      return {
+        role: "model",
+        text: "المقارنة بين كمبوزيت برايم وميتا الكوري:\n\n" +
+              "• برايم (200 ج): اقتصادي وموفر للحالات العادية والعيادات المتوسطة.\n" +
+              "• ميتا Meta (280 ج): خامة كوري ممتازة، بوليش ولمعان أحسن بكثير، وسهولة في التشكيل (Handling) ومش بيلزق في الأدوات.\n\n" +
+              "💡 الميتا يعتبر أفضل كقيمة مقابل سعر بفارق بسيط جداً في الميزانية.\n\n" +
+              "👇 الأصناف المتاحة حالياً للطلب:",
+        items: compProds,
+      };
+    }
+
+
+    // =============== [ القسم الثالث: تتبع الطلبات والمشتريات ] ===============
+
+    // 3.1) فحص وتتبع حالة الطلب الحية
     if (q.includes("eg-") || q.includes("طلب") || q.includes("اوردر") || q.includes("أوردر") || q.includes("تتبع")) {
       const foundOrder = orders.find((o) => o.id.toLowerCase() === q || q.includes(o.id.toLowerCase()));
       if (foundOrder) {
         return {
           role: "model",
-          text: `📦 بيانات طلبك رقم (${foundOrder.id}):\n\n• العميل: ${foundOrder.customer.name}\n• العيادة: ${foundOrder.customer.clinic}\n• الإجمالي: ${fmt(foundOrder.total)} جنيه\n• حالة الطلب: 🟢 [ ${foundOrder.status} ]\n\nلو محتاج استعجال كلمنا واتساب فوراً!`,
+          text: `📦 بيانات طلبك الحية رقم (${foundOrder.id}):\n\n• دكتور: ${foundOrder.customer.name}\n• العيادة: ${foundOrder.customer.clinic}\n• الإجمالي: ${fmt(foundOrder.total)} جنيه\n• حالة الطلب: 🟢 [ ${foundOrder.status} ]\n\nلو محتاج استعجال أو تعديل كلمنا واتساب فوراً!`,
         };
       } else if (q.includes("eg-")) {
         return {
           role: "model",
-          text: "لم نتمكن من العثور على طلب بهذا الكود. يرجى التأكد من الكود أو التواصل معنا عبر الواتساب.",
+          text: "لم نتمكن من العثور على طلب بهذا الكود. يرجى التأكد من الكود المكتوب أو التواصل معنا عبر الواتساب للمساعدة.",
         };
       }
     }
 
-    // 4) المقارنات
-    if (q.includes("فرق") || q.includes("قارن") || q.includes("مقارنة") || q.includes("احسن") || q.includes("أحسن") || q.includes("افضل")) {
-      if ((q.includes("رابر") || q.includes("بيز")) && (q.includes("ادشن") || q.includes("سيليكون") || q.includes("عادي"))) {
-        const rubberProds = products.filter((p) => p.cat.includes("rubber") || p.name.includes("زيتا") || p.name.includes("elite")).slice(0, 3);
-        return {
-          role: "model",
-          text: "الفرق بين الرابر بيز العادي والادشن سيليكون 🦷:\n\n🔹 الرابر بيز العادي (C-Silicone زي زيتا بلس وسيلكسيل):\n• اقتصادي وممتاز للمقاسات الأولية، لازم يتصب في المعمل سريعاً.\n\n🔸 الادشن سيليكون (A-Silicone زي Elite HD وكروموبان):\n• دقة متناهية ميكرونية وثبات أبعاد يمتد لأيام دون أي انكماش، مثالي للتيجان والجسور والفينير.\n\n👇 أشهر خامات الطبعات المتاحة للإضافة الفورية:",
-          items: rubberProds,
-        };
-      }
-
-      if ((q.includes("روبي") || q.includes("ruby")) && (q.includes("شوفو") || q.includes("shofu"))) {
-        const compProds = products.filter((p) => p.name.includes("روبي") || p.name.includes("شوفو")).slice(0, 2);
-        return {
-          role: "model",
-          text: "المقارنة بين روبي وشوفو كمبوزيت 💎:\n\n• روبي (180ج): اقتصادي جداً وممتاز للحشوات الخلفية العادية.\n• شوفو الياباني (950ج): بريميوم تجميلي بتقنية Giomer، لمعان وثبات فائق للأسنان الأمامية.\n\n👇 يمكنك إضافة أيهم للسلة مباشرة:",
-          items: compProds,
-        };
-      }
-    }
-
-    // 5) البحث عن الكمبوزيت
+    // 3.2) البحث العام وتصفية الكتالوج
     if (q.includes("كمبوزيت") || q.includes("كومبوزيت") || q.includes("حشو")) {
       const comps = products.filter((p) => p.cat.includes("composite") || p.name.includes("فيل") || p.name.includes("شوفو")).slice(0, 4);
       return {
@@ -144,27 +239,24 @@ export default function ChatBot() {
       };
     }
 
-    // 6) الجوانتيات والماسكات
     if (q.includes("جوانت") || q.includes("نترايل") || q.includes("لاتكس") || q.includes("قفاز") || q.includes("ماسك")) {
       const gloves = products.filter((p) => p.name.includes("نترايل") || p.name.includes("لاتكس") || p.name.includes("ماسك")).slice(0, 4);
       return {
         role: "model",
-        text: "متوفر جوانتيات طبية مستوردة وماسكات معتمدة بأعلى درجات الحماية والسماكة:",
+        text: "متوفر جوانتيات طبية مستوردة وماسكات معتمدة بأعلى درجات الحماية والسماكة للعيادات والمعامل:",
         items: gloves,
       };
     }
 
-    // 7) الرابر بيز
     if (q.includes("رابر") || q.includes("بيز") || q.includes("طبعة") || q.includes("سيليكون") || q.includes("زيتا")) {
       const impressions = products.filter((p) => p.cat.includes("rubber") || p.name.includes("زيتا") || p.name.includes("سيلكسيل") || p.name.includes("elite")).slice(0, 4);
       return {
         role: "model",
-        text: "خامات الطبعات وسيليكون الأسنان (عادي وادشن سيليكون):",
+        text: "خامات الطبعات وسيليكون الأسنان عالي الدقة (عادي وادشن سيليكون):",
         items: impressions,
       };
     }
 
-    // 8) الألجينات
     if (q.includes("الجينيت") || q.includes("الجنيت") || q.includes("جينات") || q.includes("كروموبان") || q.includes("هيدروجم")) {
       const alginates = products.filter((p) => p.cat.includes("alginate") || p.name.includes("كروموبان") || p.name.includes("زيتالجين") || p.name.includes("هيدروجم")).slice(0, 4);
       return {
@@ -174,44 +266,45 @@ export default function ChatBot() {
       };
     }
 
-    // 9) البحث بالاسم المباشر
+    // البحث بالاسم المباشر لأي منتج في قاعدة البيانات
     const searchTerms = q.replace(/سعر|بكام|ثمن|عندكم|عايز|محتاج/g, "").trim().split(" ").filter((w) => w.length > 1);
     for (const term of searchTerms) {
       const matches = products.filter((p) => p.name.toLowerCase().includes(term));
       if (matches.length > 0) {
         return {
           role: "model",
-          text: "وجدت لك المنتجات التالية المطابقة لبحثك:",
+          text: "وجدت لك المنتجات التالية في الكتالوج المطابقة لبحثك:",
           items: matches.slice(0, 4),
         };
       }
     }
 
-    // 10) استفسارات عامة
-    if (q.includes("شحن") || q.includes("توصيل") || q.includes("ديليفري")) {
+    // 3.3) الاستفسارات العامة (الشحن، الفروع، الدفع)
+    if (q.includes("شحن") || q.includes("توصيل") || q.includes("ديليفري") || q.includes("بيوصل")) {
       return {
         role: "model",
-        text: "🚚 الشحن والتوصيل:\n\n• متاح الشحن لجميع محافظات مصر.\n• مدة التوصيل: خلال 24-48 ساعة للقاهرة والجيزة، و 2-4 أيام لباقي المحافظات.\n• شحن مجاني للطلبات الكبيرة المؤهلة.",
+        text: "🚚 الشحن والتوصيل:\n\n• متاح الشحن لجميع محافظات مصر.\n• مدة التوصيل: خلال 24-48 ساعة للقاهرة والجيزة، و 2-4 أيام لباقي المحافظات.\n• شحن مجاني للطلب الكبير المؤهل.",
       };
     }
 
-    if (q.includes("فرع") || q.includes("عنوان") || q.includes("مكان")) {
+    if (q.includes("فرع") || q.includes("عنوان") || q.includes("مكان") || q.includes("مقر")) {
       return {
         role: "model",
-        text: "📍 فروع إيجي دنت:\n\n🏢 فرع مدينة نصر\n🏢 فرع القصر العيني\n🏢 فرع 6 أكتوبر\n\n📱 تواصل معنا: 01151605515",
+        text: "📍 فروع إيجي دنت:\n\n🏢 فرع مدينة نصر\n🏢 فرع القصر العيني\n🏢 فرع 6 أكتوبر\n\n📱 تواصل معنا أو اطلب هاتفياً: 01151605515",
       };
     }
 
     if (q.includes("دفع") || q.includes("كاش") || q.includes("فودافون") || q.includes("انستاباي")) {
       return {
         role: "model",
-        text: "💳 طرق الدفع:\n\n✅ الدفع عند الاستلام كاش\n✅ فودافون كاش والمحافظ الإلكترونية\n✅ انستاباي InstaPay\n✅ تحويل بنكي",
+        text: "💳 طرق الدفع:\n\n✅ الدفع عند الاستلام كاش في العيادة\n✅ فودافون كاش والمحافظ الإلكترونية\n✅ انستاباي InstaPay الفوري\n✅ تحويل بنكي مباشر",
       };
     }
 
+    // الرد الافتراضي الترحيبي والذكي
     return {
       role: "model",
-      text: "أهلاً يا دكتور! 🦷 أنا مساعدك الذكي في متجر إيجي دنت.\n\nتقدر تسألني عن أي خامة أو تكتب اسم المنتج وتضيفه للسلة مباشرة من هنا، أو تتبع طلبك بكتابة رقم الأوردر!",
+      text: "أهلاً يا دكتور! 🦷 أنا مساعدك الذكي في متجر إيجي دنت.\n\nتقدر تسألني عن أي خامة برمجياً وطبياً أو تكتب اسم المنتج وتضيفه للسلة مباشرة من هنا، أو تتبع طلبك بكتابة رقم الأوردر!",
     };
   };
 
