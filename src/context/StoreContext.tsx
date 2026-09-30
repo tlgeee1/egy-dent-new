@@ -429,7 +429,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
    * مهم: مفيش try/catch هنا. لو الحفظ فشل (رفض من الرولز أو النت واقع)
    * لازم الخطأ يوصل لـ CheckoutModal عشان ميفتحش واتساب ويقول "تم" غلط.
    */
-  const addOrder = async (order: Order) => {
+   const addOrder = async (order: any, retries = 3) => {
+    for (let i = 0; i < retries; i++) {
+      try {
+        // الكود الأصلي لحفظ الطلب
+        const ordersRef = ref(db, "orders");
+        await push(ordersRef, order);
+        return; // نجح!
+      } catch (error) {
+        console.error(`محاولة ${i + 1} فشلت:`, error);
+        if (i === retries - 1) throw error; // آخر محاولة - ارمي الخطأ
+        await new Promise((r) => setTimeout(r, 1000)); // استنى ثانية وحاول تاني
+      }
+    }
+  }; => {
     const database = db;
     if (!database) {
       throw new Error("قاعدة البيانات مش متصلة");
