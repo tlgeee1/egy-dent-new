@@ -72,6 +72,14 @@ ${policyText}
   return prompt;
 }
 
+// قائمة الموديلات الرسمية المدعومة
+const MODELS_TO_TRY = [
+  "gemini-1.5-flash-latest",
+  "gemini-2.0-flash",
+  "gemini-1.5-pro-latest",
+  "gemini-1.5-flash-8b",
+];
+
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -80,7 +88,7 @@ export default async function handler(req: any, res: any) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey.trim() === "") {
     return res.status(200).json({ 
-      reply: "⚠️ تنبيه: مفتاح GEMINI_API_KEY غير موجود في إعدادات Vercel Environment Variables. يرجى إضافته وعمل Redeploy." 
+      reply: "⚠️ تنبيه: مفتاح GEMINI_API_KEY غير موجود في إعدادات Vercel. يرجى إضافته وعمل Redeploy." 
     });
   }
 
@@ -113,43 +121,46 @@ export default async function handler(req: any, res: any) {
 
     contents.push({ role: "user", parts: [{ text: message.trim() }] });
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey.trim()}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: systemPrompt }] },
-          contents,
-          generationConfig: {
-            temperature: 0.6,
-            maxOutputTokens: 600,
-          },
-        }),
-      }
-    );
+    let lastError = "";
 
-    // لو جوجل رفض، نعرض سبب الرفض بالضبط في الشات
-    if (!response.ok) {
-      const errText = await response.text();
-      let detailedMsg = errText;
+    // تجربة الموديلات الرسمية بالتتابع حتى ينجح
+    for (const modelName of MODELS_TO_TRY) {
       try {
-        const parsed = JSON.parse(errText);
-        detailedMsg = parsed?.error?.message || errText;
-      } catch {}
-      
-      console.error("Gemini Error:", detailedMsg);
-      return res.status(200).json({ 
-        reply: `⚠️ جوجل رفض الإجابة بسبب الخطأ التالي:\n\n"${detailedMsg}"` 
-      });
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey.trim()}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              system_instruction: { parts: [{ text: systemPrompt }] },
+              contents,
+              generationConfig: {
+                temperature: 0.6,
+                maxOutputTokens: 600,
+              },
+            }),
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          const reply =
+            data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("").trim() ||
+            "أهلاً بك يا دكتور! كيف يمكنني مساعدتك؟";
+
+          return res.status(200).json({ reply });
+        } else {
+          const errText = await response.text();
+          lastError = errText;
+        }
+      } catch (err: any) {
+        lastError = err.message;
+      }
     }
 
-    const data = await response.json();
-    const reply =
-      data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("").trim() ||
-      "أهلاً بك يا دكتور! كيف يمكنني مساعدتك؟";
-
-    return res.status(200).json({ reply });
+    return res.status(200).json({ 
+      reply: `⚠️ تعذر الاتصال بموديلات الذكاء الاصطناعي:\n${lastError.substring(0, 150)}` 
+    });
   } catch (err: any) {
     return res.status(200).json({ 
       reply: `💥 خطأ داخلي في الخادم:\n${err.message}` 
