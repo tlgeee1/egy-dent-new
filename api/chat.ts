@@ -52,23 +52,21 @@ async function buildSystemPrompt(): Promise<string> {
     })
     .join("\n\n");
 
-  const prompt = `أنت "مساعد إيجي دنت الذكي" — خبير مستلزمات وطب أسنان وصيدلي لمتجر "إيجي دنت" (EgyDent) في مصر.
+  const prompt = `أنت "مساعد إيجي دنت الذكي" — خبير مستلزمات طب الأسنان وصيدلي لمتجر إيجي دنت (EgyDent) في مصر.
 
-معلومات وقواعد مهمة جداً:
-1. أنت تفهم كل المصطلحات الطبية الخاصة بطب الأسنان (Bonding, Composites, C-Silicone, A-Silicone, Alginate, Etching, Anterior vs Posterior, etc.).
-2. لو العميل سأل عن طريقة استخدام أي خامة، اشرح له الخطوات الطبية السليمة بالترتيب بأسلوب طبي احترافي وودود بالعامية المصرية الراقية.
-3. لو العميل سأل عن مقارنة أو فرق، قارن له علمياً وعملياً ومادياً، ورشح له المنتج المناسب من المنتجات المتاحة في المتجر بأسعارها.
-4. استخدم فقط الأسعار والمنتجات المذكورة أدناه، ولا تخترع منتجات غير موجودة.
-5. خليك دايمًا ودود، ردودك منظمة وواضحة، ومختصرة بدون رغي مفرط.
-6. لو العميل طلب التواصل مع المبيعات أو تأكيد أوردر، وجهه للتواصل عبر الواتساب على: 01151605515.
+تعليمات الإجابة:
+1. أنت طبيب وخبير في كل مواد الأسنان (Composites, Bonding 5th & 8th gen, C-Silicone, A-Silicone, Alginate, etc.).
+2. لو سألك الدكتور عن طريقة استخدام أي خامة، اشرح الخطوات الطبية السليمة بالترتيب وبشكل واضح ومختصر بالعامية المصرية الراقية.
+3. لو سألك عن مقارنة أو ترشيح، قارن علمياً وعملياً ومادياً، ورشح الأصناف المتاحة في المتجر بأسعارها المذكورة تحت.
+4. التزم فقط بالمنتجات والأسعار المذكورة أدناه.
+5. للتواصل المباشر مع المبيعات: واتساب 01151605515.
 
-قائمة المنتجات والأسعار الحالية في المتجر:
+قائمة المنتجات والأسعار المتاحة:
 ${productLines}
 
 سياسات المتجر وفروعه:
 ${policyText}
-فروعنا: مدينة نصر، القصر العيني، 6 أكتوبر.
-الشحن متاح لجميع محافظات مصر والدفع عند الاستلام أو انستاباي/فودافون كاش.`;
+فروعنا: مدينة نصر، القصر العيني، 6 أكتوبر. الشحن متاح لكل مصر.`;
 
   cache = { prompt, expiresAt: Date.now() + CACHE_TTL_MS };
   return prompt;
@@ -80,10 +78,8 @@ export default async function handler(req: any, res: any) {
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey || apiKey.trim() === "" || apiKey.startsWith("YOUR_")) {
-    return res.status(400).json({ 
-      error: "⚠️ خطأ فني: مفتاح GEMINI_API_KEY غير موجود في إعدادات Vercel أو لم يتم عمل Redeploy للموقع بعد إضافته." 
-    });
+  if (!apiKey || apiKey.trim() === "") {
+    return res.status(400).json({ error: "مفتاح GEMINI_API_KEY غير موجود في إعدادات Vercel." });
   }
 
   const { message, history } = req.body || {};
@@ -93,16 +89,31 @@ export default async function handler(req: any, res: any) {
 
   try {
     const systemPrompt = await buildSystemPrompt();
-    const contents = [
-      ...(Array.isArray(history) ? history.slice(-6) : []).map((h: any) => ({
-        role: h.role === "user" ? "user" : "model",
-        parts: [{ text: h.text }],
-      })),
-      { role: "user", parts: [{ text: message }] },
-    ];
+
+    // تنسيق المحادثة بنظام التتابع الصارم لجوجل جيميني لمنع أي خطأ 400
+    const contents: { role: "user" | "model"; parts: [{ text: string }] }[] = [];
+    let expectedRole: "user" | "model" = "user";
+
+    if (Array.isArray(history)) {
+      for (const h of history.slice(-6)) {
+        if (h && typeof h.text === "string" && h.text.trim()) {
+          const role = h.role === "user" ? "user" : "model";
+          if (role === expectedRole) {
+            contents.push({ role, parts: [{ text: h.text.trim() }] });
+            expectedRole = expectedRole === "user" ? "model" : "user";
+          }
+        }
+      }
+    }
+
+    if (contents.length > 0 && contents[contents.length - 1].role === "user") {
+      contents.pop();
+    }
+
+    contents.push({ role: "user", parts: [{ text: message.trim() }] });
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey.trim()}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -118,21 +129,19 @@ export default async function handler(req: any, res: any) {
     );
 
     if (!response.ok) {
-      const errBody = await response.text();
-      console.error("Gemini Error:", errBody);
-      return res.status(502).json({ 
-        error: `❌ خطأ من جوجل: تفاصيل رفض جوجل للطلب هي: ${errBody.substring(0, 150)}` 
-      });
+      const errText = await response.text();
+      console.error("Gemini Error:", errText);
+      return res.status(502).json({ error: "تعذر الحصول على رد من الذكاء الاصطناعي حالياً." });
     }
 
     const data = await response.json();
     const reply =
       data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("").trim() ||
-      "أهلاً بك! كيف يمكنني مساعدتك اليوم؟";
+      "أهلاً بك يا دكتور! كيف يمكنني مساعدتك؟";
 
     return res.status(200).json({ reply });
   } catch (err: any) {
-    console.error("Handler Error:", err);
-    return res.status(500).json({ error: `💥 خطأ داخلي في الخادم: ${err.message}` });
+    console.error("Server Error:", err);
+    return res.status(500).json({ error: "حدث خطأ غير متوقع في الخادم." });
   }
 }
