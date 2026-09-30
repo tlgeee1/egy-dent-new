@@ -353,8 +353,10 @@ export default function Admin() {
 
   // ✅ إحصائيات محسّنة - بتتحسب مرة واحدة بس لما الطلبات تتغير
   const stats = useMemo(() => {
-    const totalRevenue = store.orders.reduce((sum, o) => sum + o.total, 0);
-    const newOrders = store.orders.filter(o => o.status === "جديد").length;
+      const stats = useMemo(() => {
+    const validOrders = store.orders.filter((o: any) => o.status !== "ملغي");
+    const totalRevenue = validOrders.reduce((sum: number, o: any) => sum + (o.total || 0), 0);
+    const newOrders = store.orders.filter((o: any) => o.status === "جديد").length;
     
     return [
       { label: "عدد المنتجات", value: String(store.products.length), icon: Package, tone: "text-volt-300 bg-volt-500/10" },
