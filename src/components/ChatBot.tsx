@@ -70,7 +70,6 @@ export default function ChatBot() {
     if (!textToSend) setInput("");
     setLoading(true);
 
-    // لو السؤال تتبع طلب محلي
     const qLower = queryText.toLowerCase();
     if (qLower.includes("eg-")) {
       const foundOrder = orders.find((o) => o.id.toLowerCase() === qLower || qLower.includes(o.id.toLowerCase()));
@@ -98,18 +97,24 @@ export default function ChatBot() {
       });
 
       const data = await res.json();
+      
+      // ✅ تم تعديل هذا الجزء ليعرض رسالة الخطأ القادمة من السيرفر مباشرة
       if (res.ok && data.reply) {
         setMessages((prev) => [...prev, { role: "model", text: data.reply }]);
       } else {
+        const serverError = data.error || "خطأ غير معروف في السيرفر";
         setMessages((prev) => [
           ...prev,
-          { role: "model", text: "أهلاً بك يا دكتور! تقدر تتواصل معنا مباشرة عبر الواتساب للإجابة على كل التفاصيل فوراً." },
+          { 
+            role: "model", 
+            text: `⚠️ عذراً، حدثت مشكلة:\n\n${serverError}` 
+          },
         ]);
       }
-    } catch {
+    } catch (err: any) {
       setMessages((prev) => [
         ...prev,
-        { role: "model", text: "حدث ضغط على السيرفر، يرجى إعادة المحاولة أو التواصل معنا عبر الواتساب." },
+        { role: "model", text: `⚠️ عذراً، فشل الاتصال بالخادم الرئيسي:\n\n${err.message}` },
       ]);
     } finally {
       setLoading(false);
@@ -118,6 +123,7 @@ export default function ChatBot() {
 
   return (
     <>
+      {/* زرار الشات العائم */}
       <button
         onClick={toggle}
         aria-label={open ? "إغلاق الشات" : "افتح المساعد الذكي"}
@@ -136,6 +142,7 @@ export default function ChatBot() {
         </AnimatePresence>
       </button>
 
+      {/* نافذة الشات الذكية التفاعلية */}
       <AnimatePresence>
         {open && (
           <motion.div
@@ -318,7 +325,7 @@ export default function ChatBot() {
                   href={waLink}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-l from-emerald-500 to-emerald-600 py-2.5 text-xs font-black text-white shadow-[0_4px_16px_rgba(16,185,129,0.25)] transition-transform hover:scale-[1.01]"
+                  className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-emerald-500 to-emerald-600 py-2.5 text-xs font-black text-white shadow-[0_4px_16px_rgba(16,185,129,0.25)] transition-transform hover:scale-[1.01]"
                 >
                   <MessageCircle className="size-3.5" />
                   تحدث مع الصيدلي / المبيعات واتساب
