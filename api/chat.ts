@@ -54,14 +54,14 @@ async function buildSystemPrompt(): Promise<string> {
     })
     .join("\n\n");
 
-  const prompt = `أنت "مساعد إيجي دنت الذكي" — خبير مستلزمات طب الأسنان وصيدلي لمتجر إيجي دنت (EgyDent) في مصر.
+  const prompt = `أنت "مساعد إيجي دنت الذكي" — خبير ومستشار مستلزمات طب الأسنان لمتجر "إيجي دنت" (EgyDent) في مصر.
 
 تعليمات الإجابة:
-1. أنت طبيب وخبير في كل مواد الأسنان (Composites, Bonding 5th & 8th gen, C-Silicone, A-Silicone, Alginate, etc.).
+1. أنت طبيب وصيدلي خبير في كل خامات ومواد الأسنان (Composites, Bonding 5th & 8th gen, C-Silicone, A-Silicone, Alginate, Etching, etc.).
 2. لو سألك الدكتور عن طريقة استخدام أي خامة، اشرح الخطوات الطبية السليمة بالترتيب وبشكل واضح ومختصر بالعامية المصرية الراقية.
 3. لو سألك عن مقارنة أو ترشيح، قارن علمياً وعملياً ومادياً، ورشح الأصناف المتاحة في المتجر بأسعارها المذكورة تحت.
 4. التزم فقط بالمنتجات والأسعار المذكورة أدناه.
-5. للتواصل المباشر مع المبيعات: واتساب 01151605515.
+5. للتواصل المباشر مع المبيعات أو حجز طلبات: واتساب 01151605515.
 
 قائمة المنتجات والأسعار المتاحة:
 ${productLines}
@@ -74,33 +74,44 @@ ${policyText}
   return prompt;
 }
 
-// دالة فحص الموديل المتاح في حساب جوجل تلقائياً
-async function getBestAvailableModel(apiKey: string): Promise<string> {
-  if (discoveredModel) return discoveredModel;
+// دالة جلب وترتيب الموديلات الشغالة في الحساب
+async function getAvailableModels(apiKey: string): Promise<string[]> {
+  const fallbackList = [
+    "models/gemini-2.0-flash",
+    "models/gemini-1.5-flash",
+    "models/gemini-1.5-flash-latest",
+    "models/gemini-1.5-pro",
+    "models/gemini-pro",
+  ];
 
   try {
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
     if (res.ok) {
       const data = await res.json();
-      const models = (data?.models || []).filter((m: any) =>
-        m.supportedGenerationMethods?.includes("generateContent")
-      );
+      const valid = (data?.models || [])
+        .filter((m: any) => m.supportedGenerationMethods?.includes("generateContent"))
+        .map((m: any) => m.name as string);
 
-      // البحث عن أفضل موديل فلاش متوفر في الحساب
-      const preferred = models.find((m: any) => m.name.includes("flash")) ||
-                        models.find((m: any) => m.name.includes("gemini")) ||
-                        models[0];
-
-      if (preferred) {
-        discoveredModel = preferred.name; // مثل "models/gemini-1.5-flash"
-        return discoveredModel;
+      if (valid.length > 0) {
+        // ترتيب الموديلات: نبدأ بالأحدث والمستقر
+        valid.sort((a, b) => {
+          const score = (name: string) => {
+            if (name.includes("2.0-flash")) return 1;
+            if (name.includes("1.5-flash") && !name.includes("8b")) return 2;
+            if (name.includes("1.5-pro")) return 3;
+            if (name.includes("flash")) return 4;
+            return 5;
+          };
+          return score(a) - score(b);
+        });
+        return valid;
       }
     }
   } catch (e) {
-    console.error("ListModels failed:", e);
+    console.error("ListModels error:", e);
   }
 
-  return "models/gemini-1.5-flash";
+  return fallbackList;
 }
 
 export default async function handler(req: any, res: any) {
@@ -122,9 +133,9 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const [systemPrompt, modelPath] = await Promise.all([
+    const [systemPrompt, modelsList] = await Promise.all([
       buildSystemPrompt(),
-      getBestAvailableModel(cleanKey),
+      discoveredModel ? Promise.resolve([discoveredModel]) : getAvailableModels(cleanKey),
     ]);
 
     const contents: { role: "user" | "model"; parts: [{ text: string }] }[] = [];
@@ -148,40 +159,45 @@ export default async function handler(req: any, res: any) {
 
     contents.push({ role: "user", parts: [{ text: message.trim() }] });
 
-    const targetUrl = `https://generativelanguage.googleapis.com/v1beta/${modelPath}:generateContent?key=${cleanKey}`;
+    let lastError = "";
 
-    const response = await fetch(targetUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: systemPrompt }] },
-        contents,
-        generationConfig: {
-          temperature: 0.6,
-          maxOutputTokens: 600,
-        },
-      }),
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      let errorMsg = errText;
+    // تجربة الموديلات حتى ينجح واحد منها 100%
+    for (const modelPath of modelsList) {
       try {
-        const parsed = JSON.parse(errText);
-        errorMsg = parsed?.error?.message || errText;
-      } catch {}
+        const targetUrl = `https://generativelanguage.googleapis.com/v1beta/${modelPath}:generateContent?key=${cleanKey}`;
+        const response = await fetch(targetUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            system_instruction: { parts: [{ text: systemPrompt }] },
+            contents,
+            generationConfig: {
+              temperature: 0.6,
+              maxOutputTokens: 600,
+            },
+          }),
+        });
 
-      return res.status(200).json({ 
-        reply: `⚠️ جوجل رد بالخطأ التالي (${modelPath}):\n\n${errorMsg}` 
-      });
+        if (response.ok) {
+          const data = await response.json();
+          const reply =
+            data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("").trim() ||
+            "أهلاً بك يا دكتور! كيف يمكنني مساعدتك؟";
+
+          discoveredModel = modelPath; // حفظ الموديل الشغال بنجاح
+          return res.status(200).json({ reply });
+        } else {
+          const errText = await response.text();
+          lastError = errText;
+        }
+      } catch (err: any) {
+        lastError = err.message;
+      }
     }
 
-    const data = await response.json();
-    const reply =
-      data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("").trim() ||
-      "أهلاً بك يا دكتور! كيف يمكنني مساعدتك؟";
-
-    return res.status(200).json({ reply });
+    return res.status(200).json({ 
+      reply: `⚠️ تعذر استجابة الموديلات المتاحة:\n${lastError.substring(0, 150)}` 
+    });
   } catch (err: any) {
     return res.status(200).json({ 
       reply: `💥 خطأ داخلي في الخادم:\n${err.message}` 
