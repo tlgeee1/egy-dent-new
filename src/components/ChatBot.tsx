@@ -82,14 +82,7 @@ export default function ChatBot() {
         (q.includes("بوند") || q.includes("بند") || q.includes("bond") || q.includes("ادهيسيف"))) {
       return {
         role: "model",
-        text: "📝 بروتوكول الخطوات الطبية لتطبيق البوند 🦷:\n\n" +
-              "🔹 بوند الجيل الخامس (Total Etch):\n" +
-              "1️⃣ ضع الـ Acid Etch 37% لمدة 15 ثانية على الـ Enamel و 10 ثواني على الـ Dentin.\n" +
-              "2️⃣ اغسل بالماء 20 ثانية ثم جفف بلطف مع إبقاء الـ Dentin رطب قليلاً (Moist).\n" +
-              "3️⃣ طبق طبقتين بوند مع الفرك الخفيف 15 ثانية.\n" +
-              "4️⃣ تجفيف هواء خفيف (Air thinning) ثم Light cure لمدة 20 ثانية.\n\n" +
-              "🔸 بوند الجيل الثامن / Universal:\n" +
-              "• يفرك مباشرة على الـ cavity لمدة 20 ثانية ثم تجفيف خفيف ثم Light cure 20 ثانية (لا يسبب حساسية).",
+        text: "📝 بروتوكول الخطوات الطبية لتطبيق البوند 🦷:\n\n🔹 بوند الجيل الخامس (Total Etch):\n1️⃣ ضع Acid Etch 37% لمدة 15 ثانية على Enamel و 10 ثواني على Dentin.\n2️⃣ اغسل بالماء 20 ثانية ثم جفف بلطف مع إبقاء Dentin رطب قليلاً (Moist).\n3️⃣ طبق طبقتين بوند مع الفرك الخفيف 15 ثانية.\n4️⃣ تجفيف هواء خفيف (Air thinning) ثم Light cure لمدة 20 ثانية.\n\n🔸 بوند الجيل الثامن / Universal:\n• يفرك مباشرة على الـ cavity لمدة 20 ثانية ثم تجفيف خفيف ثم Light cure 20 ثانية (لا يسبب حساسية).",
       };
     }
 
@@ -97,10 +90,7 @@ export default function ChatBot() {
         (q.includes("رابر") || q.includes("بيز") || q.includes("طبعة") || q.includes("سيليكون"))) {
       return {
         role: "model",
-        text: "📝 طريقة خلط الرابر بيز (السيليكون) 🦷:\n\n" +
-              "1️⃣ الـ Putty: خذ مقدار متساوي من الـ Base والـ Catalyst واخلطهم بأطراف أصابعك حتى يتوحد اللون تماماً.\n" +
-              "⚠️ تنبيه طبي: لا تخلط بجوانتي لاتكس نهائياً لأن الكبريت يمنع تصلب السيليكون، استخدم جوانتيات نترايل.\n" +
-              "2️⃣ الـ Light Body: يحقن بالمسدس والتيب مباشرة حول التحضير لتسجيل أدق التفاصيل.",
+        text: "📝 طريقة خلط الرابر بيز (السيليكون) 🦷:\n\n1️⃣ الـ Putty: خذ مقدار متساوي من Base و Catalyst واخلطهم بأطراف أصابعك حتى يتوحد اللون تماماً.\n⚠️ تنبيه طبي: لا تخلط بجوانتي لاتكس نهائياً لأن الكبريت يمنع تصلب السيليكون، استخدم جوانتيات نترايل.\n2️⃣ الـ Light Body: يحقن بالمسدس والتيب مباشرة حول التحضير لتسجيل أدق التفاصيل.",
       };
     }
 
@@ -108,9 +98,7 @@ export default function ChatBot() {
         (q.includes("الجينيت") || q.includes("الجنيت") || q.includes("جينات"))) {
       return {
         role: "model",
-        text: "📝 طريقة خلط الألجينات بدون فقاعات 🦷:\n\n" +
-              "1️⃣ عاير البودرة والماء بالمكاييل المرفقة وضع البودرة أولاً في الـ Rubber bowl.\n" +
-              "2️⃣ اضغط المعجون بقوة بالاسباتولا ضد جدار الوعاء بحركة دائرية سريعة لطرد فقاعات الهواء والحصول على قوام متجانس ناعم قبل وضعه في الـ Tray.",
+        text: "📝 طريقة خلط الألجينات بدون فقاعات 🦷:\n\n1️⃣ عاير البودرة والماء بالمكاييل وضع البودرة أولاً في Rubber bowl.\n2️⃣ اضغط المعجون بقوة بالاسباتولا ضد جدار الوعاء بحركة دائرية سريعة لطرد فقاعات الهواء والحصول على قوام متجانس ناعم قبل وضعه في الـ Tray.",
       };
     }
 
@@ -118,9 +106,7 @@ export default function ChatBot() {
     if (q.includes("بوند") && (q.includes("خامس") || q.includes("ثامن") || q.includes("يونيفرسال") || q.includes("universal") || q.includes("الفرق"))) {
       return {
         role: "model",
-        text: "الفرق بين بوند الجيل الخامس والثامن (Universal) 🧪:\n\n" +
-              "🔹 الجيل الخامس: يحتاج خطوة تخريش منفصلة بالحمض (Total-Etch)، ربط قوي جداً ولكن حساس للرطوبة.\n" +
-              "🔸 الجيل الثامن (Universal): ذاتي التخريش (Self-Etch)، لا يسبب حساسية بعد الحشو نهائياً ويمسك بكفاءة في الزركونيا والمعادن.",
+        text: "الفرق بين بوند الجيل الخامس والثامن (Universal) 🧪:\n\n🔹 الجيل الخامس: يحتاج خطوة تخريش منفصلة بالحمض (Total-Etch)، ربط قوي جداً ولكن حساس للرطوبة.\n🔸 الجيل الثامن (Universal): ذاتي التخريش (Self-Etch)، لا يسبب حساسية بعد الحشو نهائياً ويمسك بكفاءة في الزركونيا والمعادن.",
       };
     }
 
@@ -128,10 +114,7 @@ export default function ChatBot() {
       const rubberProds = products.filter((p) => p.cat.includes("rubber") || p.name.includes("زيتا") || p.name.includes("elite")).slice(0, 3);
       return {
         role: "model",
-        text: "الفرق بين الرابر بيز العادي والادشن سيليكون 🦷:\n\n" +
-              "🔹 العادي (C-Silicone): اقتصادي وسهل الخلط ومناسب للروتين، لكنه ينكمش بعد ساعات ويجب صبه سريعاً.\n" +
-              "🔸 الادشن سيليكون (A-Silicone): دقة ميكرونية متناهية واستقرار أبعاد يمتد لأيام دون انكماش، مثالي للتيجان والزرعات والفينير.\n\n" +
-              "👇 خامات الطبعات المتاحة للإضافة الفورية:",
+        text: "الفرق بين الرابر بيز العادي والادشن سيليكون 🦷:\n\n🔹 العادي (C-Silicone): اقتصادي وسهل الخلط ومناسب للروتين، لكنه ينكمش بعد ساعات ويجب صبه سريعاً.\n🔸 الادشن سيليكون (A-Silicone): دقة ميكرونية متناهية واستقرار أبعاد يمتد لأيام دون انكماش، مثالي للتيجان والزرعات والفينير.\n\n👇 خامات الطبعات المتاحة للإضافة الفورية:",
         items: rubberProds,
       };
     }
@@ -140,10 +123,7 @@ export default function ChatBot() {
       const compProds = products.filter((p) => p.name.includes("روبي") || p.name.includes("شوفو")).slice(0, 2);
       return {
         role: "model",
-        text: "المقارنة بين روبي وشوفو كمبوزيت 💎:\n\n" +
-              "• روبي (180ج): اقتصادي جداً وممتاز للحشوات الخلفية العادية.\n" +
-              "• شوفو الياباني (950ج): بريميوم تجميلي بتقنية Giomer، لمعان طبيعي وثبات فائق للأسنان الأمامية.\n\n" +
-              "👇 أضف ما يناسبك للسلة مباشرة:",
+        text: "المقارنة بين روبي وشوفو كمبوزيت 💎:\n\n• روبي (180ج): اقتصادي جداً وممتاز للحشوات الخلفية العادية.\n• شوفو الياباني (950ج): بريميوم تجميلي بتقنية Giomer، لمعان طبيعي وثبات فائق للأسنان الأمامية.\n\n👇 أضف ما يناسبك للسلة مباشرة:",
         items: compProds,
       };
     }
@@ -324,7 +304,6 @@ export default function ChatBot() {
                     ))}
                   </div>
 
-                  {/* ✅ تم تعديل الزرار ليكون بلون أبيض ناصع عالي التباين وواضح جداً */}
                   <button
                     onClick={() => setView({ screen: "ai" })}
                     className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-l from-volt-500 to-volt-700 py-3 text-xs font-black text-white shadow-[0_4px_16px_rgba(34,211,238,0.35)] transition-transform hover:scale-[1.02]"
@@ -344,4 +323,164 @@ export default function ChatBot() {
                     <ChevronRight className="size-3.5" />
                     رجوع للأسئلة
                   </button>
-                  <div 
+                  <div className="rounded-2xl border border-[var(--line-3)] bg-ink-950/70 p-4">
+                    <p className="font-display text-sm font-black text-volt-300">{FAQS[view.index].q}</p>
+                    <p className="mt-2 text-xs leading-relaxed text-frost-300">{FAQS[view.index].a}</p>
+                  </div>
+                  <button
+                    onClick={() => setView({ screen: "ai" })}
+                    className="w-full rounded-xl border border-[var(--line-3)] py-2 text-xs font-bold text-frost-300 hover:bg-[var(--fill-4)]"
+                  >
+                    اسأل سؤالاً آخر
+                  </button>
+                </div>
+              )}
+
+              {view.screen === "ai" && (
+                <div className="flex h-full flex-col">
+                  <div className="mb-3 flex items-center justify-between border-b border-[var(--line-2)] pb-2">
+                    <button
+                      onClick={() => setView({ screen: "menu" })}
+                      className="flex items-center gap-1 text-xs font-bold text-frost-400 hover:text-volt-300"
+                    >
+                      <ChevronRight className="size-3.5" />
+                      رجوع للقائمة
+                    </button>
+                    <span className="text-[10px] text-frost-500">مساعد إيجي دنت التفاعلي</span>
+                  </div>
+
+                  {messages.length === 0 && (
+                    <div className="my-auto text-center space-y-2 py-4">
+                      <PackageSearch className="size-8 mx-auto text-volt-400/60 animate-pulse" />
+                      <p className="text-xs font-bold text-frost-300">اكتب اسم الصنف أو طريقة الاستخدام أو المقارنة</p>
+                      <p className="text-[11px] text-frost-500">مثال: "طريقة استخدام البوند" أو "الفرق بين رابر بيز عادي وادشن"</p>
+                    </div>
+                  )}
+
+                  <div className="space-y-3">
+                    {messages.map((m, i) => (
+                      <div key={i} className={m.role === "user" ? "text-left" : "text-right"}>
+                        <div
+                          className={
+                            m.role === "user"
+                              ? "inline-block max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-bl-sm bg-volt-500/15 px-3.5 py-2.5 text-xs text-frost-100"
+                              : "inline-block max-w-[95%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-ink-950/80 p-3 text-xs leading-relaxed text-frost-200 border border-[var(--line-3)]"
+                          }
+                        >
+                          <p>{m.text}</p>
+
+                          {m.items && m.items.length > 0 && (
+                            <div className="mt-3 grid gap-2">
+                              {m.items.map((prod) => (
+                                <div
+                                  key={prod.id}
+                                  className="flex items-center justify-between gap-2 rounded-xl border border-[var(--line-2)] bg-ink-900 p-2 text-right"
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <img
+                                      src={prod.img}
+                                      alt={prod.name}
+                                      className="size-9 shrink-0 rounded-lg object-cover bg-ink-950"
+                                    />
+                                    <div className="min-w-0">
+                                      <p className="truncate text-[11px] font-bold text-frost-200">{prod.name}</p>
+                                      <p className="text-[10px] font-black text-volt-300">{fmt(prod.price)} ج</p>
+                                    </div>
+                                  </div>
+
+                                  <button
+                                    onClick={() => handleAddToCart(prod)}
+                                    className="flex shrink-0 items-center gap-1 rounded-lg bg-volt-500/20 px-2.5 py-1.5 text-[10px] font-black text-volt-300 hover:bg-volt-500 hover:text-[var(--onaccent)] transition-all"
+                                  >
+                                    {addedId === prod.id ? (
+                                      <>
+                                        <Check className="size-3 text-emerald-400" />
+                                        تم!
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Plus className="size-3" />
+                                        أضف
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    <div ref={bottomRef} />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* أزرار اختصارات سريعة */}
+            {view.screen === "ai" && (
+              <div className="flex gap-1.5 overflow-x-auto px-3 pb-2 pt-1 no-scrollbar border-t border-[var(--line-2)]/40 bg-ink-950/40">
+                {[
+                  { label: "🧤 جوانتيات", query: "أنواع الجوانتيات والأسعار" },
+                  { label: "🦷 كمبوزيت", query: "أنواع الكمبوزيت المتوفرة" },
+                  { label: "🧪 رابر بيز", query: "رابر بيز عادي وادشن" },
+                  { label: "🧴 طريقة استخدام البوند", query: "طريقة استخدام البوند" },
+                  { label: "📦 تتبع طلبي", query: "عايز اتابع طلبي" },
+                ].map((chip, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleSend(chip.query)}
+                    className="shrink-0 rounded-full border border-[var(--line-3)] bg-ink-900 px-2.5 py-1 text-[10px] font-bold text-frost-300 hover:border-volt-500/50 hover:text-volt-300 transition-colors"
+                  >
+                    {chip.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* خانة الإدخال */}
+            {view.screen === "ai" && (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSend();
+                }}
+                className="flex items-center gap-2 border-t border-[var(--line-2)] p-3 bg-ink-950/60"
+              >
+                <input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="اكتب سؤالك أو اسم الصنف..."
+                  className="flex-1 rounded-xl border border-[var(--line-3)] bg-ink-900 px-3 py-2 text-xs text-frost-100 outline-none focus:border-volt-500/50 placeholder:text-frost-500"
+                />
+                <button
+                  type="submit"
+                  disabled={!input.trim()}
+                  aria-label="إرسال"
+                  className="grid size-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-volt-400 to-volt-600 text-white disabled:opacity-40 transition-transform active:scale-95"
+                >
+                  <Send className="size-4" />
+                </button>
+              </form>
+            )}
+
+            {/* زر الواتساب المباشر */}
+            {waLink && (
+              <div className="border-t border-[var(--line-2)] p-2.5 bg-ink-950/80">
+                <a
+                  href={waLink}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-l from-emerald-500 to-emerald-600 py-2.5 text-xs font-black text-white shadow-[0_4px_16px_rgba(16,185,129,0.25)] transition-transform hover:scale-[1.01]"
+                >
+                  <MessageCircle className="size-3.5" />
+                  تحدث مع الصيدلي / المبيعات واتساب
+                </a>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+}
