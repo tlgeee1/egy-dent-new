@@ -35,6 +35,7 @@ export default function CheckoutModal() {
   const [waUrl, setWaUrl] = useState("");
   const [orderId, setOrderId] = useState("");
   const [submitError, setSubmitError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const close = () => {
     setCheckoutOpen(false);
@@ -63,6 +64,8 @@ export default function CheckoutModal() {
     }
 
     setSubmitError("");
+       if (isSubmitting) return;
+    setIsSubmitting(true);
     setStage("sending");
 
     const id = `EG-${Date.now().toString(36).toUpperCase()}`;
@@ -106,6 +109,7 @@ export default function CheckoutModal() {
       setWaUrl(url);
       setOrderId(id);
       clear();
+            setIsSubmitting(false);
       setStage("success");
       
       // ✅ فتح واتساب بعد تأخير بسيط عشان المستخدم يشوف رسالة النجاح
@@ -117,6 +121,7 @@ export default function CheckoutModal() {
       console.error("addOrder failed:", err);
       setSubmitError("حصلت مشكلة وطلبك ماتحفظش. حاول تاني، ولو المشكلة مستمرة كلمنا على واتساب مباشرة.");
       setStage("form");
+ setIsSubmitting(false);
     }
   };
 
@@ -339,7 +344,7 @@ export default function CheckoutModal() {
 
                   <button
                     type="submit"
-                    disabled={stage === "sending" || items.length > MAX_ORDER_ITEMS || items.length === 0}
+                    disabled={stage === "sending" || isSubmitting || items.length > MAX_ORDER_ITEMS || items.length === 0}
                     className="mt-6 flex w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-l from-volt-400 to-volt-600 py-4 font-display text-lg font-black text-[var(--onaccent)] shadow-[0_14px_36px_rgba(34,211,238,0.35)] transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
                   >
                     {stage === "sending" ? (
