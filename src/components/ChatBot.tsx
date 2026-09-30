@@ -105,10 +105,10 @@ export default function ChatBot() {
           { role: "model", text: data.error || "تعذر الرد حالياً، يرجى المحاولة مرة أخرى." },
         ]);
       }
-    } catch (err: any) {
+    } catch {
       setMessages((prev) => [
         ...prev,
-        { role: "model", text: "حدث خطأ في الاتصال بالشبكة، يرجى المحاولة مجدداً." },
+        { role: "model", text: "حدث خطأ في الاتصال، يرجى المحاولة مجدداً." },
       ]);
     } finally {
       setLoading(false);
@@ -117,6 +117,7 @@ export default function ChatBot() {
 
   return (
     <>
+      {/* زرار الشات العائم */}
       <button
         onClick={toggle}
         aria-label={open ? "إغلاق الشات" : "افتح المساعد الذكي"}
@@ -135,6 +136,7 @@ export default function ChatBot() {
         </AnimatePresence>
       </button>
 
+      {/* نافذة الشات المتوافقة 100% مع الوضع الفاتح والداكن */}
       <AnimatePresence>
         {open && (
           <motion.div
@@ -142,29 +144,31 @@ export default function ChatBot() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ type: "spring", stiffness: 350, damping: 30 }}
-            className="fixed bottom-40 right-5 z-[150] flex w-[92vw] max-w-sm flex-col overflow-hidden rounded-[1.75rem] border border-[var(--line-3)] bg-ink-900 shadow-2xl sm:bottom-24 sm:right-6"
+            className="fixed bottom-40 right-5 z-[150] flex w-[92vw] max-w-sm flex-col overflow-hidden rounded-[1.75rem] border border-[var(--line-3)] bg-[var(--bg-elevated,#090d16)] shadow-2xl sm:bottom-24 sm:right-6"
           >
-            <div className="flex items-center justify-between border-b border-[var(--line-2)] bg-gradient-to-l from-volt-500/15 via-ink-900 to-ink-900 p-4">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-[var(--line-2)] bg-gradient-to-l from-volt-500/15 via-transparent to-transparent p-4">
               <div className="flex items-center gap-3">
                 <span className="grid size-10 place-items-center rounded-xl bg-gradient-to-br from-volt-400 to-volt-700 shadow-[0_4px_16px_rgba(34,211,238,0.3)]">
                   <Sparkles className="size-5 text-white" />
                 </span>
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <p className="font-display text-sm font-black text-white">مساعد إيجي دنت الذكي</p>
-                    <span className="rounded-full bg-emerald-400/20 px-1.5 py-0.5 text-[9px] font-bold text-emerald-300">AI Live</span>
+                    <p className="font-display text-sm font-black text-[var(--text-primary)]">مساعد إيجي دنت الذكي</p>
+                    <span className="rounded-full bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-bold text-emerald-400">AI Live</span>
                   </div>
-                  <p className="text-[11px] text-frost-500">مدعوم بالذكاء الاصطناعي الطبي</p>
+                  <p className="text-[11px] text-[var(--text-secondary,#94a3b8)]">مدعوم بالذكاء الاصطناعي الطبي</p>
                 </div>
               </div>
             </div>
 
+            {/* Body */}
             <div className="max-h-[22rem] min-h-[17rem] overflow-y-auto p-4">
               {view.screen === "menu" && (
                 <div className="space-y-3">
-                  <div className="rounded-2xl border border-volt-500/30 bg-volt-500/10 p-3 text-xs text-frost-200">
-                    <p className="font-bold text-volt-300">أهلاً بك يا دكتور! 🦷</p>
-                    <p className="mt-1 leading-relaxed text-frost-400">تقدر تسألني أي سؤال طبي أو تجاري عن الخامات والأسعار والاستخدامات:</p>
+                  <div className="rounded-2xl border border-volt-500/30 bg-volt-500/10 p-3 text-xs text-[var(--text-primary)]">
+                    <p className="font-bold text-volt-400">أهلاً بك يا دكتور! 🦷</p>
+                    <p className="mt-1 leading-relaxed text-[var(--text-secondary,#94a3b8)]">تقدر تسألني أي سؤال طبي أو تجاري عن الخامات والأسعار والاستخدامات:</p>
                   </div>
 
                   <div className="space-y-1.5">
@@ -172,10 +176,10 @@ export default function ChatBot() {
                       <button
                         key={i}
                         onClick={() => setView({ screen: "answer", index: i })}
-                        className="flex w-full items-center justify-between rounded-xl border border-[var(--line-3)] bg-ink-950/60 px-3.5 py-2.5 text-right text-xs font-bold text-frost-300 transition-colors hover:border-volt-500/50 hover:text-volt-300"
+                        className="flex w-full items-center justify-between rounded-xl border border-[var(--line-3)] bg-[var(--fill-2,#0f172a)] px-3.5 py-2.5 text-right text-xs font-bold text-[var(--text-primary)] transition-colors hover:border-volt-500/50 hover:text-volt-400"
                       >
                         {f.q}
-                        <ChevronRight className="size-3.5 rotate-180 text-frost-500" />
+                        <ChevronRight className="size-3.5 rotate-180 text-[var(--text-secondary,#64748b)]" />
                       </button>
                     ))}
                   </div>
@@ -194,18 +198,18 @@ export default function ChatBot() {
                 <div className="space-y-3">
                   <button
                     onClick={() => setView({ screen: "menu" })}
-                    className="flex items-center gap-1 text-xs font-bold text-frost-400 hover:text-volt-300"
+                    className="flex items-center gap-1 text-xs font-bold text-[var(--text-secondary,#94a3b8)] hover:text-volt-400"
                   >
                     <ChevronRight className="size-3.5" />
                     رجوع للأسئلة
                   </button>
-                  <div className="rounded-2xl border border-[var(--line-3)] bg-ink-950/70 p-4">
-                    <p className="font-display text-sm font-black text-volt-300">{FAQS[view.index].q}</p>
-                    <p className="mt-2 text-xs leading-relaxed text-frost-300">{FAQS[view.index].a}</p>
+                  <div className="rounded-2xl border border-[var(--line-3)] bg-[var(--fill-2,#0f172a)] p-4">
+                    <p className="font-display text-sm font-black text-volt-400">{FAQS[view.index].q}</p>
+                    <p className="mt-2 text-xs leading-relaxed text-[var(--text-primary)]">{FAQS[view.index].a}</p>
                   </div>
                   <button
                     onClick={() => setView({ screen: "ai" })}
-                    className="w-full rounded-xl border border-[var(--line-3)] py-2 text-xs font-bold text-frost-300 hover:bg-[var(--fill-4)]"
+                    className="w-full rounded-xl border border-[var(--line-3)] py-2 text-xs font-bold text-[var(--text-primary)] hover:bg-[var(--fill-3,#1e293b)]"
                   >
                     اسأل الذكاء الاصطناعي سؤالاً آخر
                   </button>
@@ -217,19 +221,19 @@ export default function ChatBot() {
                   <div className="mb-3 flex items-center justify-between border-b border-[var(--line-2)] pb-2">
                     <button
                       onClick={() => setView({ screen: "menu" })}
-                      className="flex items-center gap-1 text-xs font-bold text-frost-400 hover:text-volt-300"
+                      className="flex items-center gap-1 text-xs font-bold text-[var(--text-secondary,#94a3b8)] hover:text-volt-400"
                     >
                       <ChevronRight className="size-3.5" />
                       رجوع للقائمة
                     </button>
-                    <span className="text-[10px] text-frost-500">Gemini AI Active</span>
+                    <span className="text-[10px] text-[var(--text-secondary,#64748b)]">Gemini AI Active</span>
                   </div>
 
                   {messages.length === 0 && (
                     <div className="my-auto text-center space-y-2 py-4">
-                      <Sparkles className="size-8 mx-auto text-volt-400/70 animate-pulse" />
-                      <p className="text-xs font-bold text-frost-300">اسألني عن أي تفصيلة طبية، خامة، استخدام أو مقارنة</p>
-                      <p className="text-[11px] text-frost-500">مثال: "إزاي أستخدم البوند؟" أو "إيه الفرق بين أنواع السيليكون؟"</p>
+                      <Sparkles className="size-8 mx-auto text-volt-400 animate-pulse" />
+                      <p className="text-xs font-bold text-[var(--text-primary)]">اسألني عن أي تفصيلة طبية، خامة، استخدام أو مقارنة</p>
+                      <p className="text-[11px] text-[var(--text-secondary,#94a3b8)]">مثال: "إزاي أستخدم البوند؟" أو "إيه الفرق بين أنواع السيليكون؟"</p>
                     </div>
                   )}
 
@@ -239,8 +243,8 @@ export default function ChatBot() {
                         <div
                           className={
                             m.role === "user"
-                              ? "inline-block max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-bl-sm bg-volt-500/15 px-3.5 py-2.5 text-xs text-frost-100"
-                              : "inline-block max-w-[95%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-ink-950/80 p-3 text-xs leading-relaxed text-frost-200 border border-[var(--line-3)]"
+                              ? "inline-block max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-bl-sm bg-volt-500/20 border border-volt-500/40 px-3.5 py-2.5 text-xs text-[var(--text-primary)] font-medium"
+                              : "inline-block max-w-[95%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-[var(--fill-2,#0f172a)] p-3 text-xs leading-relaxed text-[var(--text-primary)] border border-[var(--line-3)] shadow-sm"
                           }
                         >
                           <p>{m.text}</p>
@@ -249,7 +253,7 @@ export default function ChatBot() {
                     ))}
                     {loading && (
                       <div className="text-right">
-                        <span className="inline-flex items-center gap-2 rounded-2xl bg-ink-950/70 px-3 py-2 text-xs text-frost-400 border border-[var(--line-3)]">
+                        <span className="inline-flex items-center gap-2 rounded-2xl bg-[var(--fill-2,#0f172a)] px-3 py-2 text-xs text-[var(--text-primary)] border border-[var(--line-3)]">
                           <Loader2 className="size-3.5 animate-spin text-volt-400" />
                           جاري التفكير وصياغة الرد الطبي...
                         </span>
@@ -261,8 +265,9 @@ export default function ChatBot() {
               )}
             </div>
 
+            {/* أزرار اختصارات سريعة */}
             {view.screen === "ai" && (
-              <div className="flex gap-1.5 overflow-x-auto px-3 pb-2 pt-1 no-scrollbar border-t border-[var(--line-2)]/40 bg-ink-950/40">
+              <div className="flex gap-1.5 overflow-x-auto px-3 pb-2 pt-1 no-scrollbar border-t border-[var(--line-2)]/40 bg-[var(--fill-1,transparent)]">
                 {[
                   { label: "🧴 طريقة استخدام البوند", query: "إزاي أستخدم بوند الأسنان بالطريقة الصح؟" },
                   { label: "🧪 الفرق بين السيليكون", query: "إيه الفرق بين رابر بيز عادي وادشن سيليكون؟" },
@@ -272,7 +277,7 @@ export default function ChatBot() {
                   <button
                     key={idx}
                     onClick={() => handleSend(chip.query)}
-                    className="shrink-0 rounded-full border border-[var(--line-3)] bg-ink-900 px-2.5 py-1 text-[10px] font-bold text-frost-300 hover:border-volt-500/50 hover:text-volt-300 transition-colors"
+                    className="shrink-0 rounded-full border border-[var(--line-3)] bg-[var(--fill-2,#0f172a)] px-2.5 py-1 text-[10px] font-bold text-[var(--text-primary)] hover:border-volt-500/50 hover:text-volt-400 transition-colors"
                   >
                     {chip.label}
                   </button>
@@ -280,20 +285,21 @@ export default function ChatBot() {
               </div>
             )}
 
+            {/* خانة الإدخال */}
             {view.screen === "ai" && (
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
                   handleSend();
                 }}
-                className="flex items-center gap-2 border-t border-[var(--line-2)] p-3 bg-ink-950/60"
+                className="flex items-center gap-2 border-t border-[var(--line-2)] p-3 bg-[var(--fill-1,transparent)]"
               >
                 <input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder="اكتب سؤالك الطبي أو اسم الصنف..."
                   disabled={loading}
-                  className="flex-1 rounded-xl border border-[var(--line-3)] bg-ink-900 px-3 py-2 text-xs text-frost-100 outline-none focus:border-volt-500/50 placeholder:text-frost-500 disabled:opacity-50"
+                  className="flex-1 rounded-xl border border-[var(--line-3)] bg-[var(--fill-2,#0f172a)] px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-volt-500/50 placeholder:text-[var(--text-secondary,#64748b)] disabled:opacity-50"
                 />
                 <button
                   type="submit"
@@ -306,8 +312,9 @@ export default function ChatBot() {
               </form>
             )}
 
+            {/* زر الواتساب المباشر */}
             {waLink && (
-              <div className="border-t border-[var(--line-2)] p-2.5 bg-ink-950/80">
+              <div className="border-t border-[var(--line-2)] p-2.5 bg-[var(--fill-1,transparent)]">
                 <a
                   href={waLink}
                   target="_blank"
