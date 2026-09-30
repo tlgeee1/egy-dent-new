@@ -35,6 +35,8 @@ export default function CheckoutModal() {
   const [waUrl, setWaUrl] = useState("");
   const [orderId, setOrderId] = useState("");
   const [submitError, setSubmitError] = useState("");
+  
+  // ✅ متغير حماية لمنع إرسال الطلب مرتين متتاليتين
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const close = () => {
@@ -50,6 +52,10 @@ export default function CheckoutModal() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // ✅ حماية إضافية: لو جاري الإرسال بالفعل، ارفض العملية الجديدة
+    if (isSubmitting) return;
+
     const errs: Record<string, string> = {};
     if (form.name.trim().length < 3) errs.name = "اكتب الاسم بالكامل";
     if (form.clinic.trim().length < 3) errs.clinic = "اكتب عنوان العيادة";
@@ -64,9 +70,8 @@ export default function CheckoutModal() {
     }
 
     setSubmitError("");
-       if (isSubmitting) return;
-    setIsSubmitting(true);
     setStage("sending");
+    setIsSubmitting(true); // ✅ تفعيل وضع الإرسال فوراً لمنع أي نقرات أخرى
 
     const id = `EG-${Date.now().toString(36).toUpperCase()}`;
     const phone = form.phone.replace(/\s/g, "");
@@ -109,10 +114,8 @@ export default function CheckoutModal() {
       setWaUrl(url);
       setOrderId(id);
       clear();
-            setIsSubmitting(false);
       setStage("success");
       
-      // ✅ فتح واتساب بعد تأخير بسيط عشان المستخدم يشوف رسالة النجاح
       setTimeout(() => {
         window.open(url, "_blank");
       }, 500);
@@ -121,7 +124,8 @@ export default function CheckoutModal() {
       console.error("addOrder failed:", err);
       setSubmitError("حصلت مشكلة وطلبك ماتحفظش. حاول تاني، ولو المشكلة مستمرة كلمنا على واتساب مباشرة.");
       setStage("form");
- setIsSubmitting(false);
+    } finally {
+      setIsSubmitting(false); // ✅ إعادة تعيين الحماية بعد انتهاء المحاولة (فشل أو نجاح)
     }
   };
 
@@ -342,12 +346,13 @@ export default function CheckoutModal() {
                     </div>
                   )}
 
+                  {/* ✅ الزرار يتعطل تلقائياً لو جاري الإرسال لمنع التكرار */}
                   <button
                     type="submit"
                     disabled={stage === "sending" || isSubmitting || items.length > MAX_ORDER_ITEMS || items.length === 0}
                     className="mt-6 flex w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-l from-volt-400 to-volt-600 py-4 font-display text-lg font-black text-[var(--onaccent)] shadow-[0_14px_36px_rgba(34,211,238,0.35)] transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
                   >
-                    {stage === "sending" ? (
+                    {stage === "sending" || isSubmitting ? (
                       <>
                         <Loader2 className="size-5 animate-spin" />
                         جاري إرسال الطلب...
