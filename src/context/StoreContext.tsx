@@ -43,7 +43,6 @@ export type Order = {
 export type Settings = {
   whatsapp: string;
   freeShipping: number;
-  /** صور الفئات اللي الأدمن رفعها (id الفئة ← رابط الصورة). فاضي = الصورة الافتراضية */
   categoryImages?: Record<string, string>;
 };
 
@@ -53,7 +52,6 @@ interface StoreContextType {
   catName: (id: string) => string;
   addCategory: (c: { name: string; desc: string; img: string }) => Promise<void>;
   updateCategory: (id: string, c: { name: string; desc: string; img: string }) => Promise<void>;
-  /** يرجّع رسالة خطأ لو الفئة فيها منتجات، أو null لو اتحذفت */
   deleteCategory: (id: string) => Promise<string | null>;
   moveCategory: (id: string, dir: -1 | 1) => Promise<void>;
   orders: Order[];
@@ -76,19 +74,12 @@ interface StoreContextType {
   updateSettings: (settings: Partial<Settings>) => Promise<void>;
 }
 
-/**
- * بنية جديدة: كل منتج وكل طلب مستند مستقل في collection خاص بيه،
- * بدل ما الكل كان محشور في مستند واحد (store/main).
- * ده بيمنع تعارض التعديلات لما أكتر من أدمن يشتغل في نفس الوقت،
- * وبيبعد عن حد الـ 1MB للمستند الواحد لما المنتجات تزيد لـ 400+.
- */
 const PRODUCTS_COLLECTION = "products";
 const ORDERS_COLLECTION = "orders";
 const CATEGORIES_COLLECTION = "categories";
 const SETTINGS_COLLECTION = "settings";
 const SETTINGS_DOC_ID = "main";
 
-// مسار البيانات القديمة (قبل إعادة الهيكلة) — بيتقرا مرة واحدة بس عشان النقل التلقائي
 const LEGACY_COLLECTION = "store";
 const LEGACY_DOC_ID = "main";
 
@@ -113,7 +104,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setAuthChecking(false);
       return;
     }
-    // بيتابع حالة الدخول الحقيقية من Firebase — مش باسورد محفوظ محليًا
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setIsAdmin(!!user);
       setAuthChecking(false);
@@ -155,7 +145,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
         setDbCategories(list);
       },
-      // لو القراءة اترفضت لأي سبب، نفضل على الفئات الافتراضية بدل ما الموقع يفضى
       () => setDbCategories([]),
     );
     return () => unsubscribe();
@@ -181,11 +170,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  /**
-   * نقل تلقائي لمرة واحدة: لو لسه فيه بيانات قديمة في store/main
-   * ومفيش حاجة اتنقلت للبنية الجديدة لسه، انقلها. بيشتغل بس لما الأدمن
-   * يكون مسجل دخول لأن الكتابة محتاجة صلاحية أدمن حسب قواعد الأمان.
-   */
+  /* ---------------- Migration ---------------- */
   useEffect(() => {
     const database = db;
     if (!isAdmin || migrated || !database) return;
@@ -199,7 +184,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
         const existingProducts = await getDocs(collection(database, PRODUCTS_COLLECTION));
         if (!existingProducts.empty) {
-          // البنية الجديدة عندها بيانات أصلاً — متعملش نقل تاني
           setMigrated(true);
           return;
         }
@@ -232,8 +216,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [isAdmin, migrated]);
 
   /* ---------------- Auth actions ---------------- */
-
-  /** يرجّع null لو الدخول نجح، أو رسالة خطأ بالعربي لو فشل */
   const login = async (email: string, password: string): Promise<string | null> => {
     if (!auth) return "الاتصال بقاعدة البيانات مش شغال دلوقتي — حاول تاني بعد شوية";
     try {
@@ -255,7 +237,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
 
   /* ---------------- Products ---------------- */
-
   const reportError = (context: string, err: unknown) => {
     console.error(context, err);
     alert("حصل خطأ أثناء حفظ البيانات على قاعدة البيانات — حاول تاني.");
@@ -298,7 +279,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const database = db;
     if (!database || ids.length === 0) return;
     try {
-      // Firestore بيسمح بـ 500 عملية كحد أقصى في الـ batch الواحدة
       for (let i = 0; i < ids.length; i += 450) {
         const batch = writeBatch(database);
         ids.slice(i, i + 450).forEach((id) => batch.delete(doc(database, PRODUCTS_COLLECTION, String(id))));
@@ -314,7 +294,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!database) return;
     try {
       let nextId = nextProductId();
-      // Firestore بيسمح بـ 500 عملية كحد أقصى في الـ batch الواحدة
       for (let i = 0; i < newProducts.length; i += 450) {
         const chunk = newProducts.slice(i, i + 450);
         const batch = writeBatch(database);
@@ -349,8 +328,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
 
   /* ---------------- Categories ---------------- */
-
-  // لسه مفيش فئات في قاعدة البيانات = الموقع شغال بالفئات الافتراضية (مع صور الأدمن القديمة)
   const categoriesManaged = dbCategories.length > 0;
   const categories = useMemo<Category[]>(
     () =>
@@ -366,10 +343,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const catName = (id: string) => categories.find((c) => c.id === id)?.name ?? id;
 
-  /**
-   * بيكتب الفئات المتغيّرة. أول مرة (قبل ما تتنقل الفئات لقاعدة البيانات)
-   * بيكتب القائمة كلها عشان الفئات الافتراضية متضيعش.
-   */
   const commitCategories = async (next: Category[], changedIds: string[], deletedId?: string): Promise<boolean> => {
     const database = db;
     if (!database) return false;
@@ -425,29 +398,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   /* ---------------- Orders ---------------- */
 
-  /**
-   * مهم: مفيش try/catch هنا. لو الحفظ فشل (رفض من الرولز أو النت واقع)
-   * لازم الخطأ يوصل لـ CheckoutModal عشان ميفتحش واتساب ويقول "تم" غلط.
-   */
-   const addOrder = async (order: any, retries = 3) => {
-    for (let i = 0; i < retries; i++) {
-      try {
-        // الكود الأصلي لحفظ الطلب
-        const ordersRef = ref(db, "orders");
-        await push(ordersRef, order);
-        return; // نجح!
-      } catch (error) {
-        console.error(`محاولة ${i + 1} فشلت:`, error);
-        if (i === retries - 1) throw error; // آخر محاولة - ارمي الخطأ
-        await new Promise((r) => setTimeout(r, 1000)); // استنى ثانية وحاول تاني
-      }
-    }
-  }; => {
+  // ✅ ميزة الـ Retry لحفظ الطلب بنجاح في Firestore
+  const addOrder = async (order: Order, retries = 3) => {
     const database = db;
     if (!database) {
       throw new Error("قاعدة البيانات مش متصلة");
     }
-    await setDoc(doc(database, ORDERS_COLLECTION, order.id), order);
+
+    for (let i = 0; i < retries; i++) {
+      try {
+        await setDoc(doc(database, ORDERS_COLLECTION, order.id), order);
+        return; // نجح الحفظ، اخرج فوراً
+      } catch (error) {
+        console.error(`محاولة حفظ الطلب ${i + 1} فشلت:`, error);
+        if (i === retries - 1) {
+          throw error; // لو آخر محاولة فشلت، ارمي الخطأ للمودال عشان يعالجه
+        }
+        // انتظر ثانية واحدة قبل إعادة المحاولة
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+    }
   };
 
   const setOrderStatus = async (id: string, status: OrderStatus) => {
@@ -473,7 +443,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
 
   /* ---------------- Settings ---------------- */
-
   const updateSettings = async (partial: Partial<Settings>) => {
     const database = db;
     if (!database) return;
