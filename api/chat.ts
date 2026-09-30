@@ -79,7 +79,9 @@ export default async function handler(req: any, res: any) {
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey.trim() === "") {
-    return res.status(400).json({ error: "مفتاح GEMINI_API_KEY غير موجود في إعدادات Vercel." });
+    return res.status(200).json({ 
+      reply: "⚠️ تنبيه: مفتاح GEMINI_API_KEY غير موجود في إعدادات Vercel Environment Variables. يرجى إضافته وعمل Redeploy." 
+    });
   }
 
   const { message, history } = req.body || {};
@@ -90,7 +92,6 @@ export default async function handler(req: any, res: any) {
   try {
     const systemPrompt = await buildSystemPrompt();
 
-    // تنسيق المحادثة بنظام التتابع الصارم لجوجل جيميني لمنع أي خطأ 400
     const contents: { role: "user" | "model"; parts: [{ text: string }] }[] = [];
     let expectedRole: "user" | "model" = "user";
 
@@ -128,10 +129,19 @@ export default async function handler(req: any, res: any) {
       }
     );
 
+    // لو جوجل رفض، نعرض سبب الرفض بالضبط في الشات
     if (!response.ok) {
       const errText = await response.text();
-      console.error("Gemini Error:", errText);
-      return res.status(502).json({ error: "تعذر الحصول على رد من الذكاء الاصطناعي حالياً." });
+      let detailedMsg = errText;
+      try {
+        const parsed = JSON.parse(errText);
+        detailedMsg = parsed?.error?.message || errText;
+      } catch {}
+      
+      console.error("Gemini Error:", detailedMsg);
+      return res.status(200).json({ 
+        reply: `⚠️ جوجل رفض الإجابة بسبب الخطأ التالي:\n\n"${detailedMsg}"` 
+      });
     }
 
     const data = await response.json();
@@ -141,7 +151,8 @@ export default async function handler(req: any, res: any) {
 
     return res.status(200).json({ reply });
   } catch (err: any) {
-    console.error("Server Error:", err);
-    return res.status(500).json({ error: "حدث خطأ غير متوقع في الخادم." });
+    return res.status(200).json({ 
+      reply: `💥 خطأ داخلي في الخادم:\n${err.message}` 
+    });
   }
 }
