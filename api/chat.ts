@@ -10,6 +10,8 @@ const liteDb = getFirestore(app);
 let cache: { prompt: string; expiresAt: number } | null = null;
 const CACHE_TTL_MS = 60_000;
 
+let discoveredModel: string | null = null;
+
 async function fetchLiveProducts(): Promise<Product[]> {
   try {
     const snap = await getDocs(collection(liteDb, "products"));
@@ -72,13 +74,34 @@ ${policyText}
   return prompt;
 }
 
-// قائمة الموديلات الرسمية المدعومة
-const MODELS_TO_TRY = [
-  "gemini-1.5-flash-latest",
-  "gemini-2.0-flash",
-  "gemini-1.5-pro-latest",
-  "gemini-1.5-flash-8b",
-];
+// دالة فحص الموديل المتاح في حساب جوجل تلقائياً
+async function getBestAvailableModel(apiKey: string): Promise<string> {
+  if (discoveredModel) return discoveredModel;
+
+  try {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+    if (res.ok) {
+      const data = await res.json();
+      const models = (data?.models || []).filter((m: any) =>
+        m.supportedGenerationMethods?.includes("generateContent")
+      );
+
+      // البحث عن أفضل موديل فلاش متوفر في الحساب
+      const preferred = models.find((m: any) => m.name.includes("flash")) ||
+                        models.find((m: any) => m.name.includes("gemini")) ||
+                        models[0];
+
+      if (preferred) {
+        discoveredModel = preferred.name; // مثل "models/gemini-1.5-flash"
+        return discoveredModel;
+      }
+    }
+  } catch (e) {
+    console.error("ListModels failed:", e);
+  }
+
+  return "models/gemini-1.5-flash";
+}
 
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") {
@@ -92,13 +115,17 @@ export default async function handler(req: any, res: any) {
     });
   }
 
+  const cleanKey = apiKey.trim();
   const { message, history } = req.body || {};
   if (!message || typeof message !== "string") {
     return res.status(400).json({ error: "الرسالة مطلوبة" });
   }
 
   try {
-    const systemPrompt = await buildSystemPrompt();
+    const [systemPrompt, modelPath] = await Promise.all([
+      buildSystemPrompt(),
+      getBestAvailableModel(cleanKey),
+    ]);
 
     const contents: { role: "user" | "model"; parts: [{ text: string }] }[] = [];
     let expectedRole: "user" | "model" = "user";
@@ -121,46 +148,40 @@ export default async function handler(req: any, res: any) {
 
     contents.push({ role: "user", parts: [{ text: message.trim() }] });
 
-    let lastError = "";
+    const targetUrl = `https://generativelanguage.googleapis.com/v1beta/${modelPath}:generateContent?key=${cleanKey}`;
 
-    // تجربة الموديلات الرسمية بالتتابع حتى ينجح
-    for (const modelName of MODELS_TO_TRY) {
+    const response = await fetch(targetUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: systemPrompt }] },
+        contents,
+        generationConfig: {
+          temperature: 0.6,
+          maxOutputTokens: 600,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      let errorMsg = errText;
       try {
-        const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey.trim()}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              system_instruction: { parts: [{ text: systemPrompt }] },
-              contents,
-              generationConfig: {
-                temperature: 0.6,
-                maxOutputTokens: 600,
-              },
-            }),
-          }
-        );
+        const parsed = JSON.parse(errText);
+        errorMsg = parsed?.error?.message || errText;
+      } catch {}
 
-        if (response.ok) {
-          const data = await response.json();
-          const reply =
-            data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("").trim() ||
-            "أهلاً بك يا دكتور! كيف يمكنني مساعدتك؟";
-
-          return res.status(200).json({ reply });
-        } else {
-          const errText = await response.text();
-          lastError = errText;
-        }
-      } catch (err: any) {
-        lastError = err.message;
-      }
+      return res.status(200).json({ 
+        reply: `⚠️ جوجل رد بالخطأ التالي (${modelPath}):\n\n${errorMsg}` 
+      });
     }
 
-    return res.status(200).json({ 
-      reply: `⚠️ تعذر الاتصال بموديلات الذكاء الاصطناعي:\n${lastError.substring(0, 150)}` 
-    });
+    const data = await response.json();
+    const reply =
+      data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("").trim() ||
+      "أهلاً بك يا دكتور! كيف يمكنني مساعدتك؟";
+
+    return res.status(200).json({ reply });
   } catch (err: any) {
     return res.status(200).json({ 
       reply: `💥 خطأ داخلي في الخادم:\n${err.message}` 
