@@ -5,14 +5,10 @@ import {
   X,
   ChevronRight,
   Send,
-  Plus,
-  Check,
-  PackageSearch,
+  Loader2,
   Sparkles,
 } from "lucide-react";
 import { useStore } from "@/context/StoreContext";
-import { useCart } from "@/context/CartContext";
-import { fmt, type Product } from "@/data/data";
 
 const FAQS: { q: string; a: string }[] = [
   {
@@ -40,19 +36,17 @@ const FAQS: { q: string; a: string }[] = [
 type ChatMsg = {
   role: "user" | "model";
   text: string;
-  items?: Product[];
 };
 
 type View = { screen: "menu" } | { screen: "answer"; index: number } | { screen: "ai" };
 
 export default function ChatBot() {
-  const { settings, products, orders } = useStore();
-  const { add } = useCart();
+  const { settings, orders } = useStore();
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<View>({ screen: "menu" });
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
-  const [addedId, setAddedId] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const waLink = settings.whatsapp
@@ -66,178 +60,64 @@ export default function ChatBot() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, view]);
+  }, [messages, loading, view]);
 
-  const handleAddToCart = (product: Product) => {
-    add(product.id, 1);
-    setAddedId(product.id);
-    setTimeout(() => setAddedId(null), 1500);
-  };
-
-  const processQuery = (rawText: string): ChatMsg => {
-    const q = rawText.trim().toLowerCase();
-
-    // 1) طرق الاستخدام الطبية
-    if ((q.includes("طريقة") || q.includes("كيف") || q.includes("ازاي") || q.includes("خطوات")) && 
-        (q.includes("بوند") || q.includes("بند") || q.includes("bond") || q.includes("ادهيسيف"))) {
-      return {
-        role: "model",
-        text: "📝 بروتوكول الخطوات الطبية لتطبيق البوند 🦷:\n\n🔹 بوند الجيل الخامس (Total Etch):\n1️⃣ ضع Acid Etch 37% لمدة 15 ثانية على Enamel و 10 ثواني على Dentin.\n2️⃣ اغسل بالماء 20 ثانية ثم جفف بلطف مع إبقاء Dentin رطب قليلاً (Moist).\n3️⃣ طبق طبقتين بوند مع الفرك الخفيف 15 ثانية.\n4️⃣ تجفيف هواء خفيف (Air thinning) ثم Light cure لمدة 20 ثانية.\n\n🔸 بوند الجيل الثامن / Universal:\n• يفرك مباشرة على الـ cavity لمدة 20 ثانية ثم تجفيف خفيف ثم Light cure 20 ثانية (لا يسبب حساسية).",
-      };
-    }
-
-    if ((q.includes("طريقة") || q.includes("كيف") || q.includes("ازاي") || q.includes("خلط")) && 
-        (q.includes("رابر") || q.includes("بيز") || q.includes("طبعة") || q.includes("سيليكون"))) {
-      return {
-        role: "model",
-        text: "📝 طريقة خلط الرابر بيز (السيليكون) 🦷:\n\n1️⃣ الـ Putty: خذ مقدار متساوي من Base و Catalyst واخلطهم بأطراف أصابعك حتى يتوحد اللون تماماً.\n⚠️ تنبيه طبي: لا تخلط بجوانتي لاتكس نهائياً لأن الكبريت يمنع تصلب السيليكون، استخدم جوانتيات نترايل.\n2️⃣ الـ Light Body: يحقن بالمسدس والتيب مباشرة حول التحضير لتسجيل أدق التفاصيل.",
-      };
-    }
-
-    if ((q.includes("طريقة") || q.includes("كيف") || q.includes("ازاي") || q.includes("خلط")) && 
-        (q.includes("الجينيت") || q.includes("الجنيت") || q.includes("جينات"))) {
-      return {
-        role: "model",
-        text: "📝 طريقة خلط الألجينات بدون فقاعات 🦷:\n\n1️⃣ عاير البودرة والماء بالمكاييل وضع البودرة أولاً في Rubber bowl.\n2️⃣ اضغط المعجون بقوة بالاسباتولا ضد جدار الوعاء بحركة دائرية سريعة لطرد فقاعات الهواء والحصول على قوام متجانس ناعم قبل وضعه في الـ Tray.",
-      };
-    }
-
-    // 2) المقارنات الطبية
-    if (q.includes("بوند") && (q.includes("خامس") || q.includes("ثامن") || q.includes("يونيفرسال") || q.includes("universal") || q.includes("الفرق"))) {
-      return {
-        role: "model",
-        text: "الفرق بين بوند الجيل الخامس والثامن (Universal) 🧪:\n\n🔹 الجيل الخامس: يحتاج خطوة تخريش منفصلة بالحمض (Total-Etch)، ربط قوي جداً ولكن حساس للرطوبة.\n🔸 الجيل الثامن (Universal): ذاتي التخريش (Self-Etch)، لا يسبب حساسية بعد الحشو نهائياً ويمسك بكفاءة في الزركونيا والمعادن.",
-      };
-    }
-
-    if ((q.includes("رابر") || q.includes("بيز")) && (q.includes("ادشن") || q.includes("سيليكون") || q.includes("عادي") || q.includes("الفرق"))) {
-      const rubberProds = products.filter((p) => p.cat.includes("rubber") || p.name.includes("زيتا") || p.name.includes("elite")).slice(0, 3);
-      return {
-        role: "model",
-        text: "الفرق بين الرابر بيز العادي والادشن سيليكون 🦷:\n\n🔹 العادي (C-Silicone): اقتصادي وسهل الخلط ومناسب للروتين، لكنه ينكمش بعد ساعات ويجب صبه سريعاً.\n🔸 الادشن سيليكون (A-Silicone): دقة ميكرونية متناهية واستقرار أبعاد يمتد لأيام دون انكماش، مثالي للتيجان والزرعات والفينير.\n\n👇 خامات الطبعات المتاحة للإضافة الفورية:",
-        items: rubberProds,
-      };
-    }
-
-    if ((q.includes("روبي") || q.includes("ruby")) && (q.includes("شوفو") || q.includes("shofu") || q.includes("الفرق"))) {
-      const compProds = products.filter((p) => p.name.includes("روبي") || p.name.includes("شوفو")).slice(0, 2);
-      return {
-        role: "model",
-        text: "المقارنة بين روبي وشوفو كمبوزيت 💎:\n\n• روبي (180ج): اقتصادي جداً وممتاز للحشوات الخلفية العادية.\n• شوفو الياباني (950ج): بريميوم تجميلي بتقنية Giomer، لمعان طبيعي وثبات فائق للأسنان الأمامية.\n\n👇 أضف ما يناسبك للسلة مباشرة:",
-        items: compProds,
-      };
-    }
-
-    // 3) تتبع الطلب
-    if (q.includes("eg-") || q.includes("طلب") || q.includes("اوردر") || q.includes("أوردر") || q.includes("تتبع")) {
-      const foundOrder = orders.find((o) => o.id.toLowerCase() === q || q.includes(o.id.toLowerCase()));
-      if (foundOrder) {
-        return {
-          role: "model",
-          text: `📦 بيانات طلبك الحية رقم (${foundOrder.id}):\n\n• العميل: ${foundOrder.customer.name}\n• العيادة: ${foundOrder.customer.clinic}\n• الإجمالي: ${fmt(foundOrder.total)} جنيه\n• حالة الطلب: 🟢 [ ${foundOrder.status} ]`,
-        };
-      } else if (q.includes("eg-")) {
-        return {
-          role: "model",
-          text: "لم نتمكن من العثور على طلب بهذا الكود. يرجى التأكد من الكود المكتوب أو التواصل معنا عبر الواتساب.",
-        };
-      }
-    }
-
-    // 4) البحث عن الفئات
-    if (q.includes("كمبوزيت") || q.includes("كومبوزيت") || q.includes("حشو")) {
-      const comps = products.filter((p) => p.cat.includes("composite") || p.name.includes("فيل") || p.name.includes("شوفو")).slice(0, 4);
-      return {
-        role: "model",
-        text: `متوفر لدينا تشكيلة واسعة من الكمبوزيت (${products.filter(p=>p.cat.includes("composite")).length} صنف). إليك أبرز الخيارات:`,
-        items: comps,
-      };
-    }
-
-    if (q.includes("جوانت") || q.includes("نترايل") || q.includes("لاتكس") || q.includes("قفاز") || q.includes("ماسك")) {
-      const gloves = products.filter((p) => p.name.includes("نترايل") || p.name.includes("لاتكس") || p.name.includes("ماسك")).slice(0, 4);
-      return {
-        role: "model",
-        text: "متوفر جوانتيات طبية مستوردة وماسكات معتمدة بأعلى درجات الحماية:",
-        items: gloves,
-      };
-    }
-
-    if (q.includes("رابر") || q.includes("بيز") || q.includes("طبعة") || q.includes("سيليكون") || q.includes("زيتا")) {
-      const impressions = products.filter((p) => p.cat.includes("rubber") || p.name.includes("زيتا") || p.name.includes("سيلكسيل") || p.name.includes("elite")).slice(0, 4);
-      return {
-        role: "model",
-        text: "خامات الطبعات وسيليكون الأسنان (عادي وادشن سيليكون):",
-        items: impressions,
-      };
-    }
-
-    if (q.includes("الجينيت") || q.includes("الجنيت") || q.includes("جينات") || q.includes("كروموبان") || q.includes("هيدروجم")) {
-      const alginates = products.filter((p) => p.cat.includes("alginate") || p.name.includes("كروموبان") || p.name.includes("زيتالجين") || p.name.includes("هيدروجم")).slice(0, 4);
-      return {
-        role: "model",
-        text: "أفضل أنواع الألجينات الإيطالية والمستوردة سريعة الخلط وعالية الدقة:",
-        items: alginates,
-      };
-    }
-
-    // 5) البحث بالاسم المباشر
-    const searchTerms = q.replace(/سعر|بكام|ثمن|عندكم|عايز|محتاج/g, "").trim().split(" ").filter((w) => w.length > 1);
-    for (const term of searchTerms) {
-      const matches = products.filter((p) => p.name.toLowerCase().includes(term));
-      if (matches.length > 0) {
-        return {
-          role: "model",
-          text: "وجدت لك المنتجات التالية المطابقة لبحثك:",
-          items: matches.slice(0, 4),
-        };
-      }
-    }
-
-    // 6) استفسارات عامة
-    if (q.includes("شحن") || q.includes("توصيل") || q.includes("ديليفري")) {
-      return {
-        role: "model",
-        text: "🚚 الشحن والتوصيل:\n\n• متاح الشحن لجميع محافظات مصر.\n• مدة التوصيل: خلال 24-48 ساعة للقاهرة والجيزة، و 2-4 أيام لباقي المحافظات.\n• شحن مجاني للطلبات الكبيرة المؤهلة.",
-      };
-    }
-
-    if (q.includes("فرع") || q.includes("عنوان") || q.includes("مكان")) {
-      return {
-        role: "model",
-        text: "📍 فروع إيجي دنت:\n\n🏢 فرع مدينة نصر\n🏢 فرع القصر العيني\n🏢 فرع 6 أكتوبر\n\n📱 تواصل معنا: 01151605515",
-      };
-    }
-
-    if (q.includes("دفع") || q.includes("كاش") || q.includes("فودافون") || q.includes("انستاباي")) {
-      return {
-        role: "model",
-        text: "💳 طرق الدفع:\n\n✅ الدفع عند الاستلام كاش\n✅ فودافون كاش والمحافظ الإلكترونية\n✅ انستاباي InstaPay\n✅ تحويل بنكي",
-      };
-    }
-
-    return {
-      role: "model",
-      text: "أهلاً يا دكتور! 🦷 أنا مساعدك الذكي في متجر إيجي دنت.\n\nتقدر تسألني عن أي خامة أو تسأل عن طرق الاستخدام والمقارنات، أو تطلب منتجك مباشرة من الشات!",
-    };
-  };
-
-  const handleSend = (textToSend?: string) => {
+  const handleSend = async (textToSend?: string) => {
     const queryText = (textToSend || input).trim();
-    if (!queryText) return;
+    if (!queryText || loading) return;
 
     setMessages((prev) => [...prev, { role: "user", text: queryText }]);
     if (!textToSend) setInput("");
+    setLoading(true);
 
-    setTimeout(() => {
-      const response = processQuery(queryText);
-      setMessages((prev) => [...prev, response]);
-    }, 250);
+    // لو السؤال تتبع طلب محلي
+    const qLower = queryText.toLowerCase();
+    if (qLower.includes("eg-")) {
+      const foundOrder = orders.find((o) => o.id.toLowerCase() === qLower || qLower.includes(o.id.toLowerCase()));
+      if (foundOrder) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "model",
+            text: `📦 بيانات طلبك رقم (${foundOrder.id}):\n• العميل: ${foundOrder.customer.name}\n• العيادة: ${foundOrder.customer.clinic}\n• الإجمالي: ${foundOrder.total} ج\n• الحالة: [ ${foundOrder.status} ]`,
+          },
+        ]);
+        setLoading(false);
+        return;
+      }
+    }
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: queryText,
+          history: messages.slice(-6),
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.reply) {
+        setMessages((prev) => [...prev, { role: "model", text: data.reply }]);
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          { role: "model", text: "أهلاً بك يا دكتور! تقدر تتواصل معنا مباشرة عبر الواتساب للإجابة على كل التفاصيل فوراً." },
+        ]);
+      }
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        { role: "model", text: "حدث ضغط على السيرفر، يرجى إعادة المحاولة أو التواصل معنا عبر الواتساب." },
+      ]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <>
-      {/* زرار الشات العائم */}
       <button
         onClick={toggle}
         aria-label={open ? "إغلاق الشات" : "افتح المساعد الذكي"}
@@ -256,7 +136,6 @@ export default function ChatBot() {
         </AnimatePresence>
       </button>
 
-      {/* نافذة الشات الذكية التفاعلية */}
       <AnimatePresence>
         {open && (
           <motion.div
@@ -274,10 +153,10 @@ export default function ChatBot() {
                 </span>
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <p className="font-display text-sm font-black text-white">مساعد إيجي دنت</p>
-                    <span className="rounded-full bg-emerald-400/20 px-1.5 py-0.5 text-[9px] font-bold text-emerald-300">متصل الآن</span>
+                    <p className="font-display text-sm font-black text-white">مساعد إيجي دنت الذكي</p>
+                    <span className="rounded-full bg-emerald-400/20 px-1.5 py-0.5 text-[9px] font-bold text-emerald-300">AI Live</span>
                   </div>
-                  <p className="text-[11px] text-frost-500">طلب فوري • استفسارات • تتبع</p>
+                  <p className="text-[11px] text-frost-500">مدعوم بالذكاء الاصطناعي الطبي</p>
                 </div>
               </div>
             </div>
@@ -288,7 +167,7 @@ export default function ChatBot() {
                 <div className="space-y-3">
                   <div className="rounded-2xl border border-volt-500/30 bg-volt-500/10 p-3 text-xs text-frost-200">
                     <p className="font-bold text-volt-300">أهلاً بك يا دكتور! 🦷</p>
-                    <p className="mt-1 leading-relaxed text-frost-400">تقدر تسألني عن أي خامة أو تطلب منتجك مباشرة من الشات، أو اختر من الأسئلة الشائعة:</p>
+                    <p className="mt-1 leading-relaxed text-frost-400">تقدر تسألني أي سؤال طبي أو تجاري عن الخامات والأسعار والاستخدامات:</p>
                   </div>
 
                   <div className="space-y-1.5">
@@ -309,7 +188,7 @@ export default function ChatBot() {
                     className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-l from-volt-500 to-volt-700 py-3 text-xs font-black text-white shadow-[0_4px_16px_rgba(34,211,238,0.35)] transition-transform hover:scale-[1.02]"
                   >
                     <MessageCircle className="size-4 text-white" />
-                    ابدأ المحادثة والبحث الذكي
+                    اسأل الذكاء الاصطناعي الآن
                   </button>
                 </div>
               )}
@@ -331,7 +210,7 @@ export default function ChatBot() {
                     onClick={() => setView({ screen: "ai" })}
                     className="w-full rounded-xl border border-[var(--line-3)] py-2 text-xs font-bold text-frost-300 hover:bg-[var(--fill-4)]"
                   >
-                    اسأل سؤالاً آخر
+                    اسأل الذكاء الاصطناعي سؤالاً آخر
                   </button>
                 </div>
               )}
@@ -346,14 +225,14 @@ export default function ChatBot() {
                       <ChevronRight className="size-3.5" />
                       رجوع للقائمة
                     </button>
-                    <span className="text-[10px] text-frost-500">مساعد إيجي دنت التفاعلي</span>
+                    <span className="text-[10px] text-frost-500">Gemini AI Active</span>
                   </div>
 
                   {messages.length === 0 && (
                     <div className="my-auto text-center space-y-2 py-4">
-                      <PackageSearch className="size-8 mx-auto text-volt-400/60 animate-pulse" />
-                      <p className="text-xs font-bold text-frost-300">اكتب اسم الصنف أو طريقة الاستخدام أو المقارنة</p>
-                      <p className="text-[11px] text-frost-500">مثال: "طريقة استخدام البوند" أو "الفرق بين رابر بيز عادي وادشن"</p>
+                      <Sparkles className="size-8 mx-auto text-volt-400/70 animate-pulse" />
+                      <p className="text-xs font-bold text-frost-300">اسألني عن أي تفصيلة طبية، خامة، استخدام أو مقارنة</p>
+                      <p className="text-[11px] text-frost-500">مثال: "إزاي أستخدم البوند؟" أو "إيه الفرق بين أنواع السيليكون؟"</p>
                     </div>
                   )}
 
@@ -368,49 +247,17 @@ export default function ChatBot() {
                           }
                         >
                           <p>{m.text}</p>
-
-                          {m.items && m.items.length > 0 && (
-                            <div className="mt-3 grid gap-2">
-                              {m.items.map((prod) => (
-                                <div
-                                  key={prod.id}
-                                  className="flex items-center justify-between gap-2 rounded-xl border border-[var(--line-2)] bg-ink-900 p-2 text-right"
-                                >
-                                  <div className="flex items-center gap-2 min-w-0">
-                                    <img
-                                      src={prod.img}
-                                      alt={prod.name}
-                                      className="size-9 shrink-0 rounded-lg object-cover bg-ink-950"
-                                    />
-                                    <div className="min-w-0">
-                                      <p className="truncate text-[11px] font-bold text-frost-200">{prod.name}</p>
-                                      <p className="text-[10px] font-black text-volt-300">{fmt(prod.price)} ج</p>
-                                    </div>
-                                  </div>
-
-                                  <button
-                                    onClick={() => handleAddToCart(prod)}
-                                    className="flex shrink-0 items-center gap-1 rounded-lg bg-volt-500/20 px-2.5 py-1.5 text-[10px] font-black text-volt-300 hover:bg-volt-500 hover:text-[var(--onaccent)] transition-all"
-                                  >
-                                    {addedId === prod.id ? (
-                                      <>
-                                        <Check className="size-3 text-emerald-400" />
-                                        تم!
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Plus className="size-3" />
-                                        أضف
-                                      </>
-                                    )}
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          )}
                         </div>
                       </div>
                     ))}
+                    {loading && (
+                      <div className="text-right">
+                        <span className="inline-flex items-center gap-2 rounded-2xl bg-ink-950/70 px-3 py-2 text-xs text-frost-400 border border-[var(--line-3)]">
+                          <Loader2 className="size-3.5 animate-spin text-volt-400" />
+                          جاري التفكير وصياغة الرد الطبي...
+                        </span>
+                      </div>
+                    )}
                     <div ref={bottomRef} />
                   </div>
                 </div>
@@ -421,11 +268,10 @@ export default function ChatBot() {
             {view.screen === "ai" && (
               <div className="flex gap-1.5 overflow-x-auto px-3 pb-2 pt-1 no-scrollbar border-t border-[var(--line-2)]/40 bg-ink-950/40">
                 {[
-                  { label: "🧤 جوانتيات", query: "أنواع الجوانتيات والأسعار" },
-                  { label: "🦷 كمبوزيت", query: "أنواع الكمبوزيت المتوفرة" },
-                  { label: "🧪 رابر بيز", query: "رابر بيز عادي وادشن" },
-                  { label: "🧴 طريقة استخدام البوند", query: "طريقة استخدام البوند" },
-                  { label: "📦 تتبع طلبي", query: "عايز اتابع طلبي" },
+                  { label: "🧴 طريقة استخدام البوند", query: "إزاي أستخدم بوند الأسنان بالطريقة الصح؟" },
+                  { label: "🧪 الفرق بين السيليكون", query: "إيه الفرق بين رابر بيز عادي وادشن سيليكون؟" },
+                  { label: "🦷 أفضل كمبوزيت أمامي", query: "إيه أفضل كمبوزيت للأسنان الأمامية عندكم؟" },
+                  { label: "🧤 أسعار الجوانتيات", query: "عندكم جوانتيات إيه وبكام؟" },
                 ].map((chip, idx) => (
                   <button
                     key={idx}
@@ -450,12 +296,13 @@ export default function ChatBot() {
                 <input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="اكتب سؤالك أو اسم الصنف..."
-                  className="flex-1 rounded-xl border border-[var(--line-3)] bg-ink-900 px-3 py-2 text-xs text-frost-100 outline-none focus:border-volt-500/50 placeholder:text-frost-500"
+                  placeholder="اكتب سؤالك الطبي أو اسم الصنف..."
+                  disabled={loading}
+                  className="flex-1 rounded-xl border border-[var(--line-3)] bg-ink-900 px-3 py-2 text-xs text-frost-100 outline-none focus:border-volt-500/50 placeholder:text-frost-500 disabled:opacity-50"
                 />
                 <button
                   type="submit"
-                  disabled={!input.trim()}
+                  disabled={loading || !input.trim()}
                   aria-label="إرسال"
                   className="grid size-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-volt-400 to-volt-600 text-white disabled:opacity-40 transition-transform active:scale-95"
                 >
