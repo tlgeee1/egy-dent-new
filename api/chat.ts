@@ -93,27 +93,54 @@ export default async function handler(req: any, res: any) {
   try {
     const systemPrompt = await buildSystemPrompt();
 
-    // تبسيط الـ history لأقصى درجة لمنع أي أخطاء في تتابع الرسائل
-    const cleanHistory = Array.isArray(history)
-      ? history.slice(-6).map((h: any) => ({
-          role: h.role === "user" ? "user" : "model",
-          parts: [{ text: h.text }]
-        }))
-      : [];
+    // 1) كشف الموديل المتاح في حسابك تلقائياً
+    let selectedModel = "models/gemini-1.5-flash";
+    try {
+      const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${cleanKey}`);
+      if (listRes.ok) {
+        const listData = await listRes.json();
+        const available = (listData?.models || []).filter((m: any) =>
+          m.supportedGenerationMethods?.includes("generateContent")
+        );
+
+        if (available.length > 0) {
+          // اختيار أفضل موديل متاح
+          const preferred =
+            available.find((m: any) => m.name.includes("2.0-flash")) ||
+            available.find((m: any) => m.name.includes("1.5-flash") && !m.name.includes("8b")) ||
+            available.find((m: any) => m.name.includes("1.5-pro")) ||
+            available[0];
+
+          selectedModel = preferred.name;
+        }
+      } else {
+        const errJson = await listRes.text();
+        return res.status(200).json({
+          reply: `⚠️ مفتاح جوجل غير صالح أو به مشكلة في الصلاحيات:\n${errJson.substring(0, 150)}`
+        });
+      }
+    } catch (e: any) {
+      console.error("ListModels failed:", e);
+    }
+
+    // 2) إعداد المحتوى المتوافق مع 100% من موديلات جوجل
+    const promptWithInstructions = `${systemPrompt}\n\n---\nسؤال الطبيب / العميل الحالي:\n${message.trim()}`;
 
     const contents = [
-      ...cleanHistory,
-      { role: "user", parts: [{ text: message.trim() }] }
+      ...(Array.isArray(history) ? history.slice(-4) : []).map((h: any) => ({
+        role: h.role === "user" ? "user" : "model",
+        parts: [{ text: h.text }]
+      })),
+      { role: "user", parts: [{ text: promptWithInstructions }] }
     ];
 
-    // الاتصال مباشرة بالموديل الرسمي والأساسي المستقر لجوجل
-    const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${cleanKey}`;
+    // 3) إرسال الطلب للموديل المختار
+    const targetUrl = `https://generativelanguage.googleapis.com/v1beta/${selectedModel}:generateContent?key=${cleanKey}`;
     
     const response = await fetch(targetUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        system_instruction: { parts: [{ text: systemPrompt }] },
         contents,
         generationConfig: {
           temperature: 0.6,
@@ -124,15 +151,8 @@ export default async function handler(req: any, res: any) {
 
     if (!response.ok) {
       const errText = await response.text();
-      let detailedMsg = errText;
-      try {
-        const parsed = JSON.parse(errText);
-        detailedMsg = parsed?.error?.message || errText;
-      } catch {}
-      
-      console.error("Gemini Error:", detailedMsg);
-      return res.status(200).json({ 
-        reply: `⚠️ جوجل رفض الإجابة بالخطأ التالي:\n\n"${detailedMsg}"` 
+      return res.status(200).json({
+        reply: `⚠️ جوجل رفض الإجابة (${selectedModel}):\n${errText.substring(0, 150)}`
       });
     }
 
