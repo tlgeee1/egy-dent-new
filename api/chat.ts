@@ -72,14 +72,6 @@ ${policyText}
   return prompt;
 }
 
-// قائمة أفضل وأحدث موديلات بالترتيب للتبديل الفوري لو سيرفر عليه ضغط
-const MODELS_LIST = [
-  "gemini-2.0-flash",
-  "gemini-1.5-flash",
-  "gemini-1.5-flash-latest",
-  "gemini-1.5-pro",
-];
-
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -101,72 +93,58 @@ export default async function handler(req: any, res: any) {
   try {
     const systemPrompt = await buildSystemPrompt();
 
-    const contents: { role: "user" | "model"; parts: [{ text: string }] }[] = [];
-    let expectedRole: "user" | "model" = "user";
+    // تبسيط الـ history لأقصى درجة لمنع أي أخطاء في تتابع الرسائل
+    const cleanHistory = Array.isArray(history)
+      ? history.slice(-6).map((h: any) => ({
+          role: h.role === "user" ? "user" : "model",
+          parts: [{ text: h.text }]
+        }))
+      : [];
 
-    if (Array.isArray(history)) {
-      for (const h of history.slice(-6)) {
-        if (h && typeof h.text === "string" && h.text.trim()) {
-          const role = h.role === "user" ? "user" : "model";
-          if (role === expectedRole) {
-            contents.push({ role, parts: [{ text: h.text.trim() }] });
-            expectedRole = expectedRole === "user" ? "model" : "user";
-          }
-        }
-      }
-    }
+    const contents = [
+      ...cleanHistory,
+      { role: "user", parts: [{ text: message.trim() }] }
+    ];
 
-    if (contents.length > 0 && contents[contents.length - 1].role === "user") {
-      contents.pop();
-    }
-
-    contents.push({ role: "user", parts: [{ text: message.trim() }] });
-
-    // تجربة الموديلات مع ميزة الـ Retry الذكية لحل خطأ 503
-    for (const model of MODELS_LIST) {
-      for (let attempt = 0; attempt < 2; attempt++) {
-        try {
-          const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${cleanKey}`;
-          const response = await fetch(targetUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              system_instruction: { parts: [{ text: systemPrompt }] },
-              contents,
-              generationConfig: {
-                temperature: 0.6,
-                maxOutputTokens: 600,
-              },
-            }),
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            const reply =
-              data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("").trim() ||
-              "أهلاً بك يا دكتور! كيف يمكنني مساعدتك؟";
-
-            return res.status(200).json({ reply });
-          }
-
-          // لو الخطأ 503 (ضغط سيرفر) أو 429، استنى نصف ثانية وجرب تاني أو بدل الموديل
-          if (response.status === 503 || response.status === 429) {
-            await new Promise((resolve) => setTimeout(resolve, 600));
-            continue; // جرب المحاولة التانية
-          }
-        } catch {
-          await new Promise((resolve) => setTimeout(resolve, 500));
-        }
-      }
-    }
-
-    // رد هادئ واحترافي لو كل سيرفرات جوجل العالمية واقعة
-    return res.status(200).json({ 
-      reply: "أهلاً بك يا دكتور! 🦷 يوجد ضغط لحظي على خوادم الذكاء الاصطناعي، يمكنك إعادة إرسال سؤالك وسأجيبك فوراً، أو تواصل معنا مباشرة عبر الواتساب (01151605515)." 
+    // الاتصال مباشرة بالموديل الرسمي والأساسي المستقر لجوجل
+    const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${cleanKey}`;
+    
+    const response = await fetch(targetUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: systemPrompt }] },
+        contents,
+        generationConfig: {
+          temperature: 0.6,
+          maxOutputTokens: 600,
+        },
+      }),
     });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      let detailedMsg = errText;
+      try {
+        const parsed = JSON.parse(errText);
+        detailedMsg = parsed?.error?.message || errText;
+      } catch {}
+      
+      console.error("Gemini Error:", detailedMsg);
+      return res.status(200).json({ 
+        reply: `⚠️ جوجل رفض الإجابة بالخطأ التالي:\n\n"${detailedMsg}"` 
+      });
+    }
+
+    const data = await response.json();
+    const reply =
+      data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("").trim() ||
+      "أهلاً بك يا دكتور! كيف يمكنني مساعدتك؟";
+
+    return res.status(200).json({ reply });
   } catch (err: any) {
     return res.status(200).json({ 
-      reply: "حدث خطأ غير متوقع، يرجى المحاولة مرة أخرى." 
+      reply: `💥 خطأ داخلي في الخادم:\n${err.message}` 
     });
   }
 }
