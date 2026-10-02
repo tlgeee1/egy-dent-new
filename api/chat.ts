@@ -72,14 +72,6 @@ ${policyText}
   return prompt;
 }
 
-// قائمة الموديلات النشطة والشغالة رسمياً فقط (تم استبعاد أي موديل متوقف مثل 2.5)
-const ACTIVE_STABLE_MODELS = [
-  "gemini-2.0-flash",
-  "gemini-2.0-flash-lite",
-  "gemini-1.5-flash-latest",
-  "gemini-1.5-pro-latest",
-];
-
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -101,7 +93,42 @@ export default async function handler(req: any, res: any) {
   try {
     const systemPrompt = await buildSystemPrompt();
 
-    // دمج التعليمات وسؤال الطبيب
+    // جلب الموديلات الصالحة والمتاحة في حسابك مباشرة من جوجل
+    let modelsToTry: string[] = [];
+    try {
+      const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${cleanKey}`);
+      if (listRes.ok) {
+        const listData = await listRes.json();
+        modelsToTry = (listData?.models || [])
+          .filter((m: any) => 
+            m.supportedGenerationMethods?.includes("generateContent") &&
+            !m.name.includes("2.5") && // استبعاد الموديل القديم الملغي
+            !m.name.includes("embedding") &&
+            !m.name.includes("aqa")
+          )
+          .map((m: any) => m.name.replace(/^models\//, "")); // تنظيف الاسم لمنع تكرار models/
+
+        // ترتيب: الأحدث فلاش أولاً ثم برو
+        modelsToTry.sort((a, b) => {
+          const score = (n: string) => {
+            if (n.includes("2.0-flash")) return 1;
+            if (n.includes("1.5-flash")) return 2;
+            if (n.includes("1.5-pro")) return 3;
+            if (n.includes("pro")) return 4;
+            return 5;
+          };
+          return score(a) - score(b);
+        });
+      }
+    } catch (e) {
+      console.error("ListModels failed:", e);
+    }
+
+    // لو فشل جلب القائمة نستخدم القائمة الاحتياطية المعتمدة
+    if (modelsToTry.length === 0) {
+      modelsToTry = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-pro"];
+    }
+
     const promptWithInstructions = `${systemPrompt}\n\n---\nسؤال الطبيب الحالي:\n${message.trim()}`;
 
     const contents = [
@@ -114,10 +141,11 @@ export default async function handler(req: any, res: any) {
 
     let lastError = "";
 
-    // تجربة الموديلات الفعالة الحديثة بالترتيب
-    for (const modelName of ACTIVE_STABLE_MODELS) {
+    // تجربة الموديلات بالاسم الصحيح النظيف
+    for (const modelName of modelsToTry) {
       try {
         const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${cleanKey}`;
+        
         const response = await fetch(targetUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -133,14 +161,14 @@ export default async function handler(req: any, res: any) {
         if (response.ok) {
           const data = await response.json();
           const reply =
-            data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("").trim() ||
-            "أهلاً بك يا دكتور! كيف يمكنني مساعدتك؟";
+            data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("").trim();
 
-          return res.status(200).json({ reply });
+          if (reply) {
+            return res.status(200).json({ reply });
+          }
         } else {
           const errText = await response.text();
           lastError = errText;
-          console.error(`Model ${modelName} failed:`, errText);
         }
       } catch (err: any) {
         lastError = err.message;
