@@ -10,8 +10,6 @@ const liteDb = getFirestore(app);
 let cache: { prompt: string; expiresAt: number } | null = null;
 const CACHE_TTL_MS = 60_000;
 
-let discoveredModel: string | null = null;
-
 async function fetchLiveProducts(): Promise<Product[]> {
   try {
     const snap = await getDocs(collection(liteDb, "products"));
@@ -74,45 +72,13 @@ ${policyText}
   return prompt;
 }
 
-// دالة جلب وترتيب الموديلات الشغالة في الحساب
-async function getAvailableModels(apiKey: string): Promise<string[]> {
-  const fallbackList = [
-    "models/gemini-2.0-flash",
-    "models/gemini-1.5-flash",
-    "models/gemini-1.5-flash-latest",
-    "models/gemini-1.5-pro",
-    "models/gemini-pro",
-  ];
-
-  try {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-    if (res.ok) {
-      const data = await res.json();
-      const valid = (data?.models || [])
-        .filter((m: any) => m.supportedGenerationMethods?.includes("generateContent"))
-        .map((m: any) => m.name as string);
-
-      if (valid.length > 0) {
-        // ترتيب الموديلات: نبدأ بالأحدث والمستقر
-        valid.sort((a, b) => {
-          const score = (name: string) => {
-            if (name.includes("2.0-flash")) return 1;
-            if (name.includes("1.5-flash") && !name.includes("8b")) return 2;
-            if (name.includes("1.5-pro")) return 3;
-            if (name.includes("flash")) return 4;
-            return 5;
-          };
-          return score(a) - score(b);
-        });
-        return valid;
-      }
-    }
-  } catch (e) {
-    console.error("ListModels error:", e);
-  }
-
-  return fallbackList;
-}
+// قائمة أفضل وأحدث موديلات بالترتيب للتبديل الفوري لو سيرفر عليه ضغط
+const MODELS_LIST = [
+  "gemini-2.0-flash",
+  "gemini-1.5-flash",
+  "gemini-1.5-flash-latest",
+  "gemini-1.5-pro",
+];
 
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") {
@@ -133,10 +99,7 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const [systemPrompt, modelsList] = await Promise.all([
-      buildSystemPrompt(),
-      discoveredModel ? Promise.resolve([discoveredModel]) : getAvailableModels(cleanKey),
-    ]);
+    const systemPrompt = await buildSystemPrompt();
 
     const contents: { role: "user" | "model"; parts: [{ text: string }] }[] = [];
     let expectedRole: "user" | "model" = "user";
@@ -159,48 +122,51 @@ export default async function handler(req: any, res: any) {
 
     contents.push({ role: "user", parts: [{ text: message.trim() }] });
 
-    let lastError = "";
+    // تجربة الموديلات مع ميزة الـ Retry الذكية لحل خطأ 503
+    for (const model of MODELS_LIST) {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${cleanKey}`;
+          const response = await fetch(targetUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              system_instruction: { parts: [{ text: systemPrompt }] },
+              contents,
+              generationConfig: {
+                temperature: 0.6,
+                maxOutputTokens: 600,
+              },
+            }),
+          });
 
-    // تجربة الموديلات حتى ينجح واحد منها 100%
-    for (const modelPath of modelsList) {
-      try {
-        const targetUrl = `https://generativelanguage.googleapis.com/v1beta/${modelPath}:generateContent?key=${cleanKey}`;
-        const response = await fetch(targetUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            system_instruction: { parts: [{ text: systemPrompt }] },
-            contents,
-            generationConfig: {
-              temperature: 0.6,
-              maxOutputTokens: 600,
-            },
-          }),
-        });
+          if (response.ok) {
+            const data = await response.json();
+            const reply =
+              data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("").trim() ||
+              "أهلاً بك يا دكتور! كيف يمكنني مساعدتك؟";
 
-        if (response.ok) {
-          const data = await response.json();
-          const reply =
-            data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("").trim() ||
-            "أهلاً بك يا دكتور! كيف يمكنني مساعدتك؟";
+            return res.status(200).json({ reply });
+          }
 
-          discoveredModel = modelPath; // حفظ الموديل الشغال بنجاح
-          return res.status(200).json({ reply });
-        } else {
-          const errText = await response.text();
-          lastError = errText;
+          // لو الخطأ 503 (ضغط سيرفر) أو 429، استنى نصف ثانية وجرب تاني أو بدل الموديل
+          if (response.status === 503 || response.status === 429) {
+            await new Promise((resolve) => setTimeout(resolve, 600));
+            continue; // جرب المحاولة التانية
+          }
+        } catch {
+          await new Promise((resolve) => setTimeout(resolve, 500));
         }
-      } catch (err: any) {
-        lastError = err.message;
       }
     }
 
+    // رد هادئ واحترافي لو كل سيرفرات جوجل العالمية واقعة
     return res.status(200).json({ 
-      reply: `⚠️ تعذر استجابة الموديلات المتاحة:\n${lastError.substring(0, 150)}` 
+      reply: "أهلاً بك يا دكتور! 🦷 يوجد ضغط لحظي على خوادم الذكاء الاصطناعي، يمكنك إعادة إرسال سؤالك وسأجيبك فوراً، أو تواصل معنا مباشرة عبر الواتساب (01151605515)." 
     });
   } catch (err: any) {
     return res.status(200).json({ 
-      reply: `💥 خطأ داخلي في الخادم:\n${err.message}` 
+      reply: "حدث خطأ غير متوقع، يرجى المحاولة مرة أخرى." 
     });
   }
 }
