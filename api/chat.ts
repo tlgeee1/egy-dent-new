@@ -57,7 +57,7 @@ async function getStoreContext() {
   const prompt = `أنت "مساعد إيجي دنت الذكي" — مستشار وخبير مستلزمات طب الأسنان لمتجر "إيجي دنت" (EgyDent) في مصر.
 
 تعليمات الإجابة:
-1. أنت طبيب وصيدلي خبير في كل خامات ومواد الأسنان (Composites, Bonding, Amalgam, Rubber base, Alginate, etc.).
+1. أنت طبيب وصيدلي خبير في كل خامات ومواد الأسنان (Composites, Bonding, Amalgam, Rubber base, Alginate, Etching, etc.).
 2. اشرح الخطوات الطبية السليمة بالترتيب وبشكل واضح ومختصر بالعامية المصرية الراقية.
 3. التزم فقط بالمنتجات المتاحة في المتجر بأسعارها المذكورة تحت.
 4. للتواصل المباشر مع المبيعات: واتساب 01151605515.
@@ -74,11 +74,22 @@ ${policyText}`;
 
 // 🛡️ قاعدة المعرفة الطبية الشاملة لشبكة الأمان (لو جوجل هنج أو فصلت النت)
 function getSmartFallbackReply(userMessage: string, products: Product[]): string {
-  const q = userMessage.toLowerCase().trim();
+  // دالة معالجة النصوص وتوحيد الحروف العربية لضمان الفهم 100%
+  const normalize = (text: string) => {
+    return text
+      .replace(/[أإآا]/g, "ا")
+      .replace(/[ةه]/g, "ه")
+      .replace(/ى/g, "ي")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+  };
+
+  const q = normalize(userMessage);
 
   // 1) الأملجم / البلاتين / حشو الفضة (Amalgam)
-  if (q.includes("املجم") || q.includes("أملجم") || q.includes("بلاتين") || q.includes("ملغم") || q.includes("amalgam")) {
-    if (q.includes("طريقة") || q.includes("كيف") || q.includes("ازاي") || q.includes("خلط") || q.includes("استخدام") || q.includes("تحضير")) {
+  if (q.includes("املجم") || q.includes("بلاتين") || q.includes("فضه") || q.includes("amalgam")) {
+    if (q.includes("طريقه") || q.includes("كيف") || q.includes("ازاي") || q.includes("خلط") || q.includes("استخدام") || q.includes("تحضير") || q.includes("عمل")) {
       return (
         "📝 طريقة خلط وتحضير الأملجم (البلاتين/الفضة) طبياً 🦷:\n\n" +
         "1️⃣ استخدام الكبسولات الجاهزة المعايرة مسبقاً (Amalgam Capsules) لضمان النسب الدقيقة للفضة والزئبق.\n" +
@@ -94,7 +105,7 @@ function getSmartFallbackReply(userMessage: string, products: Product[]): string
 
   // 2) البوند ومواد الربط (Bonding Agents)
   if (q.includes("بوند") || q.includes("بند") || q.includes("bond") || q.includes("ادهيسيف")) {
-    if (q.includes("طريقة") || q.includes("كيف") || q.includes("ازاي") || q.includes("خطوات") || q.includes("استخدام")) {
+    if (q.includes("طريقه") || q.includes("كيف") || q.includes("ازاي") || q.includes("خطوات") || q.includes("استخدام")) {
       return (
         "📝 طريقة تطبيق البوند بخطوات طبية دقيقة 🦷:\n\n" +
         "🔹 بوند الجيل الخامس (Total-Etch):\n" +
@@ -109,13 +120,13 @@ function getSmartFallbackReply(userMessage: string, products: Product[]): string
   }
 
   // 3) الرابر بيز والسيليكون والطبعات
-  if (q.includes("رابر") || q.includes("بيز") || q.includes("طبعة") || q.includes("سيليكون") || q.includes("طبعات")) {
-    if (q.includes("طريقة") || q.includes("كيف") || q.includes("ازاي") || q.includes("خلط") || q.includes("استخدام")) {
+  if (q.includes("رابر") || q.includes("بيز") || q.includes("طبعه") || q.includes("سيليكون") || q.includes("طبعات")) {
+    if (q.includes("طريقه") || q.includes("كيف") || q.includes("ازاي") || q.includes("خلط") || q.includes("استخدام")) {
       return (
         "📝 طريقة خلط الرابر بيز (السيليكون) 🦷:\n\n" +
         "1️⃣ الـ Putty: خذ مقدار متساوي بالملعقة من Base و Catalyst واخلطهم بأطراف أصابعك بسرعة حتى يتوحد اللون تماماً.\n" +
         "⚠️ تنبيه طبي هام: لا تخلط بجوانتي لاتكس نهائياً لأن الكبريت يمنع تصلب السيليكون، استخدم جوانتيات نترايل أو اخلط بيد نظيفة.\n" +
-        "2️⃣ الـ Light Body: يحقن بالمسدس والتيب مباشرة حول تحضير الأسنان فم المريض لتسجيل أدق التفاصيل."
+        "2️⃣ الـ Light Body: يحقن بالمسدس والتيب مباشرة حول تحضير الأسنان فم المريض لتسجيل أدق التفاصيل تحت اللثة."
       );
     }
     return (
@@ -127,7 +138,7 @@ function getSmartFallbackReply(userMessage: string, products: Product[]): string
 
   // 4) الكمبوزيت وحشوات الليزر
   if (q.includes("كمبوزيت") || q.includes("كومبوزيت") || q.includes("حشو")) {
-    if (q.includes("طريقة") || q.includes("كيف") || q.includes("ازاي") || q.includes("خطوات") || q.includes("استخدام")) {
+    if (q.includes("طريقه") || q.includes("كيف") || q.includes("ازاي") || q.includes("خطوات") || q.includes("استخدام")) {
       return (
         "📝 خطوات تطبيق حشو الكمبوزيت التجميلي 🦷:\n\n" +
         "1️⃣ بعد تحضير السن وتطبيق البوند والكيورينج، ابدأ بوضع الكمبوزيت بنظام الطبقات (Incremental Placement).\n" +
@@ -143,8 +154,8 @@ function getSmartFallbackReply(userMessage: string, products: Product[]): string
   }
 
   // 5) الألجينات
-  if (q.includes("الجينيت") || q.includes("الجنيت") || q.includes("جينات") || q.includes("ألجينات")) {
-    if (q.includes("طريقة") || q.includes("كيف") || q.includes("ازاي") || q.includes("خلط")) {
+  if (q.includes("الجينيت") || q.includes("الجنيت") || q.includes("جينات") || q.includes("الserverجين")) {
+    if (q.includes("طريقه") || q.includes("كيف") || q.includes("ازاي") || q.includes("خلط")) {
       return "📝 طريقة خلط الألجينات بدون فقاعات 🦷:\n\n1️⃣ عاير البودرة والماء بالمكاييل المرفقة بدقة وضع البودرة أولاً في الـ Rubber bowl ثم أضف الماء البارد.\n2️⃣ اضغط المعجون بقوة بالاسباتولا ضد جدار الوعاء المطاطي بحركة دائرية سريعة (على شكل حرف 8) للحصول على معجون ناعم ومتجانس تماماً خالٍ من فقاعات الهواء قبل نقله للـ Tray.";
     }
     return "متوفر ألجينات مستوردة عالية الدقة 🧪:\n\n• صيني: 170 ج | كروموبان: 250 ج | IQ: 260 ج\n• زيتالجين Zetalgin: 270 ج | تروبيكال جين: 425 ج\n• كيفيكس Cavex: 460 ج | هيدروجم فايف Hydrogum 5: 485 ج";
@@ -166,7 +177,7 @@ function getSmartFallbackReply(userMessage: string, products: Product[]): string
 
   // 8) ترحيب واستفسارات عامة
   if (q.includes("سلام") || q.includes("صباح") || q.includes("مساء") || q.includes("هاي") || q.includes("ازيك") || q.includes("أهلاً") || q.includes("اهلا")) {
-    return "وعليكم السلام ورحمة الله وبركاته يا دكتور! 🦷 أهلاً بك في إيجي دنت.\nأنا هنا لمساعدتك في أي استفسار عن خامات الأسنان، الأسعار، المقارنات، أو طريقة الاستخدام. تحب تسأل عن إيه النهاردة؟";
+    return "وعليكم السلام ورحمة الله وبركاته يا دكتور! 🦷 أهلاً بك في إيجي دنت.\nأنا هنا لمساعدتك في أي استفسار عن خامات الأسنان، الأسعار، المقارنات، أو طريقة الاستخدام. تحب تسأل عن إيه النهادرين؟";
   }
 
   if (q.includes("شحن") || q.includes("توصيل")) {
@@ -226,7 +237,7 @@ export default async function handler(req: any, res: any) {
     }
   }
 
-  // 🛡️ لو جوجل فيه أي تأخير أو مشكلة أو المفتاح مش شغال، شبكة الأمان بترد فوراً بالرد الطبي الكامل!
+  // 🛡️ لو جوجل فيه أي تأخير أو مشكلة أو المفتاح مش شغال، شبكة الأمان المحدثة والمطورة هترد فوراً وبمنتهى الدقة والذكاء!
   const safeReply = getSmartFallbackReply(message, products);
   return res.status(200).json({ reply: safeReply });
 }
