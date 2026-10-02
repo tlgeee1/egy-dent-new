@@ -54,27 +54,28 @@ async function getStoreContext() {
     })
     .join("\n\n");
 
-  const prompt = `أنت "مساعد إيجي دنت الذكي" — مستشار وخبير مستلزمات طب الأسنان لمتجر "إيجي دنت" (EgyDent) في مصر.
+  const prompt = `أنت "مساعد إيجي دنت الذكي" — مستشار وخبير ومستلزمات طب الأسنان لمتجر "إيجي دنت" (EgyDent) في مصر.
 
-تعليمات الإجابة:
-1. أنت طبيب وصيدلي خبير في كل خامات ومواد الأسنان (Composites, Bonding, Amalgam, Rubber base, Alginate, Etching, etc.).
-2. اشرح الخطوات الطبية السليمة بالترتيب وبشكل واضح ومختصر بالعامية المصرية الراقية.
-3. التزم فقط بالمنتجات المتاحة في المتجر بأسعارها المذكورة تحت.
-4. للتواصل المباشر مع المبيعات: واتساب 01151605515.
+تعليمات الرد الصارمة:
+1. رد دايمًا بالعامية المصرية الراقية والودودة (كأنت طبيب أسنان خبير ومحترم).
+2. أنت طبيب وصيدلي خبير في خامات الأسنان (Composites, Bonding, Amalgam, Rubber base, Alginate, etc.).
+3. اشرح الخطوات الطبية السليمة والعملية بدقة واختصار شديد ومباشر (من 2 لـ 4 جمل).
+4. التزم فقط بقائمة المنتجات والأسعار والسياسات المذكورة بالأسفل، ولا تخترع منتجات أو أسعار غير موجودة.
+5. للتواصل مع المبيعات: واتساب 01151605515.
 
-قائمة المنتجات والأسعار المتاحة:
+قائمة منتجات المتجر الحالية وأسعارها:
 ${productLines}
 
-سياسات المتجر وفروعه:
-${policyText}`;
+سياسات المتجر وفروعنا:
+${policyText}
+فروعنا هي: مدينة نصر، القصر العيني، 6 أكتوبر. الشحن متوفر لكل المحافظات والدفع عند الاستلام.`;
 
   cache = { prompt, expiresAt: Date.now() + CACHE_TTL_MS, products };
   return { prompt, products };
 }
 
-// 🛡️ قاعدة المعرفة الطبية الشاملة لشبكة الأمان (لو جوجل هنج أو فصلت النت)
+// 🛡️ قاعدة المعرفة الطبية الشاملة لشبكة الأمان (الـ Fallback) لضمان العمل دائماً
 function getSmartFallbackReply(userMessage: string, products: Product[]): string {
-  // دالة معالجة النصوص وتوحيد الحروف العربية لضمان الفهم 100%
   const normalize = (text: string) => {
     return text
       .replace(/[أإآا]/g, "ا")
@@ -87,30 +88,28 @@ function getSmartFallbackReply(userMessage: string, products: Product[]): string
 
   const q = normalize(userMessage);
 
-  // 1) الأملجم / البلاتين / حشو الفضة (Amalgam)
   if (q.includes("املجم") || q.includes("بلاتين") || q.includes("فضه") || q.includes("amalgam")) {
-    if (q.includes("طريقه") || q.includes("كيف") || q.includes("ازاي") || q.includes("خلط") || q.includes("استخدام") || q.includes("تحضير") || q.includes("عمل")) {
+    if (q.includes("طريقه") || q.includes("كيف") || q.includes("ازاي") || q.includes("خلط") || q.includes("استخدام") || q.includes("تحضير")) {
       return (
         "📝 طريقة خلط وتحضير الأملجم (البلاتين/الفضة) طبياً 🦷:\n\n" +
-        "1️⃣ استخدام الكبسولات الجاهزة المعايرة مسبقاً (Amalgam Capsules) لضمان النسب الدقيقة للفضة والزئبق.\n" +
-        "2️⃣ ضع الكبسولة في جهاز خلط الأملجم (Amalgamator) واضبط الوقت والسرعة حسب الشركة المصنعة (غالباً سرعة عالية من 8 لـ 12 ثانية).\n" +
-        "3️⃣ بعد انتهاء الخلط، افتح الكبسولة بحذر وافرغ معجون الأملجم في الـ Amalgam well.\n" +
+        "1️⃣ استخدام الكبسولات الجاهزة المعايرة مسبقاً (Amalgam Capsules) لضمان النسب الدقيقة.\n" +
+        "2️⃣ ضع الكبسولة في جهاز خلط الأملجم (Amalgamator) واضبط الوقت والسرعة (سرعة عالية من 8 لـ 12 ثانية).\n" +
+        "3️⃣ بعد انتهاء الخلط، افتح الكبسولة وافرغ معجون الأملجم في الـ Amalgam well.\n" +
         "4️⃣ استخدم الـ Amalgam Carrier لنقله للـ cavity على دفعات.\n" +
-        "5️⃣ اعمل Condensation قوي جداً باستخدام الـ Condenser لطرد الزئبق الزائد للسطح وسد الفراغات.\n" +
+        "5️⃣ اعمل Condensation قوي جداً باستخدام الـ Condenser لطرد الزئبق الزائد وسد الفراغات.\n" +
         "6️⃣ قم بعمل Carving لضبط الـ anatomy، ثم Burnishing لتنعيم السطح تماماً."
       );
     }
     return "متوفر عندنا كبسولات أملجم (بلاتين) مستوردة بجودة عالية وسماكة ممتازة للأسنان الخلفية. تحب تسأل عن الأسعار أو طريقة التحضير؟";
   }
 
-  // 2) البوند ومواد الربط (Bonding Agents)
   if (q.includes("بوند") || q.includes("بند") || q.includes("bond") || q.includes("ادهيسيف")) {
     if (q.includes("طريقه") || q.includes("كيف") || q.includes("ازاي") || q.includes("خطوات") || q.includes("استخدام")) {
       return (
         "📝 طريقة تطبيق البوند بخطوات طبية دقيقة 🦷:\n\n" +
         "🔹 بوند الجيل الخامس (Total-Etch):\n" +
         "1️⃣ ضع الـ Acid Etch 37% لمدة 15 ثانية على المينا و 10 ثواني على العاج.\n" +
-        "2️⃣ اغسل بالماء 20 ثانية لتنظيف الحمض، ثم جفف بلطف مع إبقاء العاج رطباً قليلاً (Moist).\n" +
+        "2️⃣ اغسل بالماء 20 ثانية، ثم جفف بلطف مع إبقاء العاج رطباً قليلاً (Moist).\n" +
         "3️⃣ ضع طبقتين بوند وافرك بلطف 15 ثانية ثم تجفيف هواء خفيف (Air thinning) و Light cure لمدة 20 ثانية.\n\n" +
         "🔸 بوند الجيل الثامن / Universal:\n" +
         "• يفرك مباشرة على العاج 20 ثانية ثم تجفيف خفيف ثم Light cure 20 ثانية (لا يسبب حساسية بعد الحشو)."
@@ -119,7 +118,6 @@ function getSmartFallbackReply(userMessage: string, products: Product[]): string
     return "الفرق بين بوند الجيل الخامس والثامن (Universal) 🧪:\n\n🔹 الجيل الخامس: يحتاج خطوة تخريش منفصلة بالحمض (Total-Etch)، ربط قوي جداً ولكن حساس للرطوبة.\n🔸 الجيل الثامن (Universal): ذاتي التخريش (Self-Etch)، لا يسبب حساسية بعد الحشو نهائياً ويمسك بكفاءة في الزركونيا والمعادن.";
   }
 
-  // 3) الرابر بيز والسيليكون والطبعات
   if (q.includes("رابر") || q.includes("بيز") || q.includes("طبعه") || q.includes("سيليكون") || q.includes("طبعات")) {
     if (q.includes("طريقه") || q.includes("كيف") || q.includes("ازاي") || q.includes("خلط") || q.includes("استخدام")) {
       return (
@@ -136,7 +134,6 @@ function getSmartFallbackReply(userMessage: string, products: Product[]): string
     );
   }
 
-  // 4) الكمبوزيت وحشوات الليزر
   if (q.includes("كمبوزيت") || q.includes("كومبوزيت") || q.includes("حشو")) {
     if (q.includes("طريقه") || q.includes("كيف") || q.includes("ازاي") || q.includes("خطوات") || q.includes("استخدام")) {
       return (
@@ -153,7 +150,6 @@ function getSmartFallbackReply(userMessage: string, products: Product[]): string
     return "متوفر عندنا تشكيلة واسعة من الكمبوزيت من الاقتصادي حتى البريميوم 🦷:\n\n• روبي: 180 ج | برايم: 200 ج | ميتا: 280 ج\n• شارم: 285 ج | هندي: 350 ج | برازيلي: 350 ج\n• نوفا: 500 ج | دي فيل: 500 ج | كير: 600 ج\n• زركون فيل: 650 ج | زد فيل: 800 ج | ايتينا: 800 ج\n• شوفو ياباني: 950 ج | تكوياما: 950 ج | دنت سبلاي: 1250 ج\n• تكوياما اومنيكروما: 1600 ج | اكسترا فيل: 1750 ج | جراندو فوكو: 2050 ج";
   }
 
-  // 5) الألجينات
   if (q.includes("الجينيت") || q.includes("الجنيت") || q.includes("جينات") || q.includes("الserverجين")) {
     if (q.includes("طريقه") || q.includes("كيف") || q.includes("ازاي") || q.includes("خلط")) {
       return "📝 طريقة خلط الألجينات بدون فقاعات 🦷:\n\n1️⃣ عاير البودرة والماء بالمكاييل المرفقة بدقة وضع البودرة أولاً في الـ Rubber bowl ثم أضف الماء البارد.\n2️⃣ اضغط المعجون بقوة بالاسباتولا ضد جدار الوعاء المطاطي بحركة دائرية سريعة (على شكل حرف 8) للحصول على معجون ناعم ومتجانس تماماً خالٍ من فقاعات الهواء قبل نقله للـ Tray.";
@@ -161,12 +157,10 @@ function getSmartFallbackReply(userMessage: string, products: Product[]): string
     return "متوفر ألجينات مستوردة عالية الدقة 🧪:\n\n• صيني: 170 ج | كروموبان: 250 ج | IQ: 260 ج\n• زيتالجين Zetalgin: 270 ج | تروبيكال جين: 425 ج\n• كيفيكس Cavex: 460 ج | هيدروجم فايف Hydrogum 5: 485 ج";
   }
 
-  // 6) الجوانتيات والماسكات
   if (q.includes("جوانت") || q.includes("نترايل") || q.includes("لاتكس") || q.includes("ماسك")) {
     return "أسعار الجوانتيات والماسكات الطبية 🧤:\n\n• نترايل أسود فيت برو: 170 ج\n• netrail أزرق فيت برو: 160 ج\n• نترايل أزرق سوبر كير: 160 ج\n• لاتكس أبيض ماليزي: 165 ج\n• ماسك مصري: 50 ج | ماسك صيني: 65 ج | ماسك ابيك أسود: 140 ج";
   }
 
-  // 7) البحث بالاسم
   const words = q.replace(/سعر|بكام|ثمن|عندكم|عايز|محتاج/g, "").trim().split(" ").filter((w) => w.length > 1);
   for (const word of words) {
     const found = products.find((p) => p.name && p.name.toLowerCase().includes(word));
@@ -175,9 +169,8 @@ function getSmartFallbackReply(userMessage: string, products: Product[]): string
     }
   }
 
-  // 8) ترحيب واستفسارات عامة
   if (q.includes("سلام") || q.includes("صباح") || q.includes("مساء") || q.includes("هاي") || q.includes("ازيك") || q.includes("أهلاً") || q.includes("اهلا")) {
-    return "وعليكم السلام ورحمة الله وبركاته يا دكتور! 🦷 أهلاً بك في إيجي دنت.\nأنا هنا لمساعدتك في أي استفسار عن خامات الأسنان، الأسعار، المقارنات، أو طريقة الاستخدام. تحب تسأل عن إيه النهادرين؟";
+    return "وعليكم السلام ورحمة الله وبركاته يا دكتور! 🦷 أهلاً بك في إيجي دنت.\nأنا هنا لمساعدتك في أي استفسار عن خامات الأسنان، الأسعار، المقارنات، أو طريقة الاستخدام. تحب تسأل عن إيه النهاردة؟";
   }
 
   if (q.includes("شحن") || q.includes("توصيل")) {
@@ -198,46 +191,47 @@ export default async function handler(req: any, res: any) {
   }
 
   const { prompt: systemPrompt, products } = await getStoreContext();
-  const apiKey = process.env.GEMINI_API_KEY?.trim();
+  const apiKey = process.env.DEEPSEEK_API_KEY?.trim();
 
-  // لو مفتاح جوجل متسجل وسليم، نحاول الاتصال الفوري بذكاء اصطناعي
-  if (apiKey && apiKey !== "" && !apiKey.startsWith("YOUR_")) {
-    const activeModels = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-pro"];
-    
-    for (const model of activeModels) {
-      try {
-        const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-        const response = await fetch(targetUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [{ text: `${systemPrompt}\n\n---\nسؤال الطبيب:\n${message.trim()}` }]
-              }
-            ],
-            generationConfig: {
-              temperature: 0.5,
-              maxOutputTokens: 600,
-            },
-          }),
-        });
+  // 1) لو مفتاح DeepSeek متوفر، نتصل بالـ API الاحترافي فائق الذكاء
+  if (apiKey && apiKey !== "") {
+    try {
+      const response = await fetch("https://api.deepseek.com/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "deepseek-chat", // DeepSeek-V3 الأحدث والأذكى والأقوى
+          messages: [
+            { role: "system", content: systemPrompt },
+            ...(Array.isArray(history) ? history.slice(-4) : []).map((h: any) => ({
+              role: h.role === "user" ? "user" : "assistant",
+              content: h.text,
+            })),
+            { role: "user", content: message.trim() },
+          ],
+          temperature: 0.5,
+          max_tokens: 600,
+        }),
+      });
 
-        if (response.ok) {
-          const data = await response.json();
-          const reply = data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("").trim();
-          
-          if (reply && !reply.includes("Role:") && !reply.includes("Persona:")) {
-            return res.status(200).json({ reply }); // نجح الاتصال بجوجل ورجع إجابة ذكية كاملة!
-          }
+      if (response.ok) {
+        const data = await response.json();
+        const reply = data?.choices?.[0]?.message?.content?.trim();
+        if (reply) {
+          return res.status(200).json({ reply }); // نجح الرد الذكي المذهل من DeepSeek!
         }
-      } catch (e) {
-        console.error(`Error on model ${model}:`, e);
+      } else {
+        console.error("DeepSeek API responded with error status:", response.status);
       }
+    } catch (e) {
+      console.error("DeepSeek connection failed:", e);
     }
   }
 
-  // 🛡️ لو جوجل فيه أي تأخير أو مشكلة أو المفتاح مش شغال، شبكة الأمان المحدثة والمطورة هترد فوراً وبمنتهى الدقة والذكاء!
+  // 2) 🛡️ شبكة الأمان بترد فوراً لو الـ API مش شغال أو الـ Key لسه ما اتحطش!
   const safeReply = getSmartFallbackReply(message, products);
   return res.status(200).json({ reply: safeReply });
 }
