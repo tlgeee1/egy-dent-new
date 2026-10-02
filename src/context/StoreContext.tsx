@@ -150,15 +150,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  /* ---------------- Live sync: orders ---------------- */
+  /* ---------------- Live sync: orders (admin only) ---------------- */
+  // الطلبات فيها بيانات العملاء، والقواعد بتسمح بقراءتها للأدمن فقط،
+  // فالاشتراك بيبدأ بس لما الأدمن يسجل دخول، وبيتقفل لما يخرج.
   useEffect(() => {
-    if (!firebaseReady || !db) return;
-    const unsubscribe = onSnapshot(collection(db, ORDERS_COLLECTION), (snap) => {
-      const list = snap.docs.map((d) => d.data() as Order).sort((a, b) => b.date - a.date);
-      setOrders(list);
-    });
+    if (!firebaseReady || !db || !isAdmin) {
+      setOrders([]);
+      return;
+    }
+    const unsubscribe = onSnapshot(
+      collection(db, ORDERS_COLLECTION),
+      (snap) => {
+        const list = snap.docs.map((d) => d.data() as Order).sort((a, b) => b.date - a.date);
+        setOrders(list);
+      },
+      (err) => console.error("orders listener:", err),
+    );
     return () => unsubscribe();
-  }, []);
+  }, [isAdmin]);
 
   /* ---------------- Live sync: settings ---------------- */
   useEffect(() => {
