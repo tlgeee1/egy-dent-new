@@ -52,25 +52,32 @@ async function buildSystemPrompt(): Promise<string> {
     })
     .join("\n\n");
 
-  const prompt = `أنت "مساعد إيجي دنت الذكي" — خبير ومستشار مستلزمات طب الأسنان لمتجر "إيجي دنت" (EgyDent) في مصر.
+  const prompt = `أنت "مساعد إيجي دنت الذكي" — مستشار ومساعد طبي وتجاري لمتجر إيجي دنت (EgyDent) لمستلزمات طب الأسنان بالجملة في مصر.
 
-تعليمات الإجابة:
-1. أنت طبيب وصيدلي خبير في كل خامات ومواد الأسنان (Composites, Bonding 5th & 8th gen, C-Silicone, A-Silicone, Alginate, Etching, etc.).
-2. لو سألك الدكتور عن طريقة استخدام أي خامة، اشرح الخطوات الطبية السليمة بالترتيب وبشكل واضح ومختصر بالعامية المصرية الراقية.
-3. لو سألك عن مقارنة أو ترشيح، قارن علمياً وعملياً ومادياً، ورشح الأصناف المتاحة في المتجر بأسعارها المذكورة تحت.
-4. التزم فقط بالمنتجات والأسعار المذكورة أدناه.
-5. للتواصل المباشر مع المبيعات أو حجز طلبات: واتساب 01151605515.
+قواعد الإجابة الصارمة:
+1. رد دايمًا بالعامية المصرية الراقية والودودة (كأنت طبيب أسنان خبير ومحترم).
+2. استخدم فقط قائمة المنتجات والأسعار والسياسات المذكورة بالأسفل. لا تخترع منتجات أو أسعار غير موجودة في القائمة.
+3. لو سألك الدكتور عن طريقة استخدام أي خامة، اشرح له الخطوات الطبية السليمة والعملية بدقة واختصار (من 2 لـ 4 جمل).
+4. لو سألك عن مقارنة، قارن له علمياً وعملياً ومادياً ورشح له الأنسب من متجرك.
+5. لو العميل طلب أوردر أو تواصل مباشر، وجهه لواتساب المبيعات: 01151605515.
 
-قائمة المنتجات والأسعار المتاحة:
+قائمة منتجات المتجر الحالية وأسعارها:
 ${productLines}
 
-سياسات المتجر وفروعه:
+سياسات المتجر وفروعنا:
 ${policyText}
-فروعنا: مدينة نصر، القصر العيني، 6 أكتوبر. الشحن متاح لكل مصر.`;
+فروعنا هي: مدينة نصر، القصر العيني، 6 أكتوبر. الشحن متوفر لكل المحافظات والدفع عند الاستلام.`;
 
   cache = { prompt, expiresAt: Date.now() + CACHE_TTL_MS };
   return prompt;
 }
+
+// الموديلات الرسمية الأكثر استقراراً في ووردبريس وجوجل
+const SAFE_MODELS = [
+  "gemini-2.0-flash",
+  "gemini-1.5-flash",
+  "gemini-1.5-flash-latest"
+];
 
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") {
@@ -93,56 +100,32 @@ export default async function handler(req: any, res: any) {
   try {
     const systemPrompt = await buildSystemPrompt();
 
-    // جلب الموديلات الصالحة والمتاحة في حسابك مباشرة من جوجل
-    let modelsToTry: string[] = [];
-    try {
-      const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${cleanKey}`);
-      if (listRes.ok) {
-        const listData = await listRes.json();
-        modelsToTry = (listData?.models || [])
-          .filter((m: any) => 
-            m.supportedGenerationMethods?.includes("generateContent") &&
-            !m.name.includes("2.5") && // استبعاد الموديل القديم الملغي
-            !m.name.includes("embedding") &&
-            !m.name.includes("aqa")
-          )
-          .map((m: any) => m.name.replace(/^models\//, "")); // تنظيف الاسم لمنع تكرار models/
+    // تنسيق نظيف للرسايل يرسل فقط كلام العميل والبوت منعاً للتداخل
+    const contents: { role: "user" | "model"; parts: [{ text: string }] }[] = [];
+    let expectedRole: "user" | "model" = "user";
 
-        // ترتيب: الأحدث فلاش أولاً ثم برو
-        modelsToTry.sort((a, b) => {
-          const score = (n: string) => {
-            if (n.includes("2.0-flash")) return 1;
-            if (n.includes("1.5-flash")) return 2;
-            if (n.includes("1.5-pro")) return 3;
-            if (n.includes("pro")) return 4;
-            return 5;
-          };
-          return score(a) - score(b);
-        });
+    if (Array.isArray(history)) {
+      for (const h of history.slice(-6)) {
+        if (h && typeof h.text === "string" && h.text.trim()) {
+          const role = h.role === "user" ? "user" : "model";
+          if (role === expectedRole) {
+            contents.push({ role, parts: [{ text: h.text.trim() }] });
+            expectedRole = expectedRole === "user" ? "model" : "user";
+          }
+        }
       }
-    } catch (e) {
-      console.error("ListModels failed:", e);
     }
 
-    // لو فشل جلب القائمة نستخدم القائمة الاحتياطية المعتمدة
-    if (modelsToTry.length === 0) {
-      modelsToTry = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-pro"];
+    if (contents.length > 0 && contents[contents.length - 1].role === "user") {
+      contents.pop();
     }
 
-    const promptWithInstructions = `${systemPrompt}\n\n---\nسؤال الطبيب الحالي:\n${message.trim()}`;
-
-    const contents = [
-      ...(Array.isArray(history) ? history.slice(-4) : []).map((h: any) => ({
-        role: h.role === "user" ? "user" : "model",
-        parts: [{ text: h.text }]
-      })),
-      { role: "user", parts: [{ text: promptWithInstructions }] }
-    ];
+    contents.push({ role: "user", parts: [{ text: message.trim() }] });
 
     let lastError = "";
 
-    // تجربة الموديلات بالاسم الصحيح النظيف
-    for (const modelName of modelsToTry) {
+    // تجربة الموديلات الفعالة والمستقرة
+    for (const modelName of SAFE_MODELS) {
       try {
         const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${cleanKey}`;
         
@@ -150,10 +133,11 @@ export default async function handler(req: any, res: any) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            system_instruction: { parts: [{ text: systemPrompt }] }, // إرسال التعليمات في الخانة المخصصة لها
             contents,
             generationConfig: {
               temperature: 0.6,
-              maxOutputTokens: 600,
+              maxOutputTokens: 500,
             },
           }),
         });
@@ -161,11 +145,10 @@ export default async function handler(req: any, res: any) {
         if (response.ok) {
           const data = await response.json();
           const reply =
-            data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("").trim();
+            data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("").trim() ||
+            "أهلاً بك يا دكتور! كيف يمكنني مساعدتك؟";
 
-          if (reply) {
-            return res.status(200).json({ reply });
-          }
+          return res.status(200).json({ reply });
         } else {
           const errText = await response.text();
           lastError = errText;
@@ -176,7 +159,7 @@ export default async function handler(req: any, res: any) {
     }
 
     return res.status(200).json({ 
-      reply: `⚠️ تعذر استجابة الموديلات المتاحة:\n${lastError.substring(0, 150)}` 
+      reply: `⚠️ عذراً، تعذر الاتصال بموديلات جوجل:\n${lastError.substring(0, 100)}` 
     });
   } catch (err: any) {
     return res.status(200).json({ 
