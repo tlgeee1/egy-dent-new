@@ -1,6 +1,6 @@
 import { initializeApp, getApps } from "firebase/app";
 import { getFirestore, collection, getDocs } from "firebase/firestore/lite";
-import { firebaseConfig } from "../src/lib/firebase.js";
+import { firebaseConfig } from "../src/lib/firebaseConfig.js";
 import { DEFAULT_CATEGORIES, DEFAULT_PRODUCTS, type Category, type Product } from "../src/data/data.js";
 import { policyPages } from "../src/data/policies.js";
 

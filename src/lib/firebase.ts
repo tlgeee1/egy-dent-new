@@ -2,18 +2,9 @@ import { initializeApp } from "firebase/app";
 import { initializeFirestore, type Firestore } from "firebase/firestore";
 import { getAuth, type Auth } from "firebase/auth";
 import { getStorage, type FirebaseStorage } from "firebase/storage";
+import { firebaseConfig } from "./firebaseConfig";
 
-/** ⚙️ إعدادات Firebase — مشروع egy-dent-store */
-export const firebaseConfig = {
-  apiKey: "AIzaSyAIa2DzWIpc1CRXLjiYjVnYv-P0EskDXcg",
-  authDomain: "egy-dent-store.firebaseapp.com",
-  databaseURL: "https://egy-dent-store-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "egy-dent-store",
-  storageBucket: "egy-dent-store.firebasestorage.app",
-  messagingSenderId: "829834524174",
-  appId: "1:829834524174:web:2362fb9d9d69cb44776e5f",
-  measurementId: "G-C0FRN9599K",
-};
+export { firebaseConfig };
 
 /**
  * لو الكود لسه متحطش — الموقع يشتغل محلي على المتصفح (وضع العرض).
