@@ -1,148 +1,103 @@
 import { initializeApp, getApps } from "firebase/app";
 import { getFirestore, collection, getDocs } from "firebase/firestore/lite";
 import { firebaseConfig } from "../src/lib/firebaseConfig.js";
-import { DEFAULT_PRODUCTS, type Product } from "../src/data/data.js";
+import { DEFAULT_CATEGORIES, DEFAULT_PRODUCTS, type Category, type Product } from "../src/data/data.js";
 
 const app = getApps().length ? getApps()[0]! : initializeApp(firebaseConfig);
 const liteDb = getFirestore(app);
 
-const WA = "01151605515";
-const MODEL = "gemini-3.8-flash";
+let storeCache: { prompt: string; expiresAt: number } | null = null;
+const TTL = 180_000;
 
-function norm(s: string) {
-  return s
-    .toLowerCase()
-    .replace(/[أإآ]/g, "ا")
-    .replace(/ة/g, "ه")
-    .replace(/ى/g, "ي")
-    .replace(/كافيتي|كافيتى/g, "كافتي")
-    .replace(/\s+/g, " ")
-    .trim();
+async function buildSystemPrompt(): Promise<string> {
+  if (storeCache && storeCache.expiresAt > Date.now()) return storeCache.prompt;
+
+  // جلب المنتجات والأقسام
+  const snap = await getDocs(collection(liteDb, "products"));
+  const products = snap.empty ? DEFAULT_PRODUCTS : snap.docs.map((d) => d.data() as Product);
+
+  const catSnap = await getDocs(collection(liteDb, "categories"));
+  const categories = catSnap.empty ? DEFAULT_CATEGORIES : catSnap.docs.map((d) => d.data() as Category);
+  
+  const catNames: Record<string, string> = {};
+  categories.forEach((c) => (catNames[c.id] = c.name));
+
+  // 🚀 السر هنا: دمجنا "اسم القسم" مع "اسم المنتج" عشان يفهم إن الشوفو ده كمبوزيت
+  const productLines = products
+    .filter((p) => !p.showcaseOnly)
+    .map((p) => `- قسم (${catNames[p.cat] ?? "أخرى"}): ${p.name} — السعر: ${p.price} جنيه`)
+    .join("\n");
+
+  const prompt = `أنت "مساعد إيجي دنت الذكي"، طبيب أسنان محترف ومندوب مبيعات لمتجر إيجي دنت في مصر.
+تعليماتك:
+1. أنت لست روبوتاً آلياً، بل طبيب تدردش مع الأطباء بأسلوب بشري، وودود، وبالعامية المصرية.
+2. إذا سألك العميل عن فئة معينة (مثل: كمبوزيت، بوند، سيليكون)، اعرض له كل المنتجات التي تنتمي لهذا القسم من القائمة أدناه.
+3. اشرح الأسئلة الطبية (كافيتي، حشو، خلط) بأسلوب علمي دقيق.
+4. يمنع منعاً باتاً ذكر أي سعر أو منتج غير موجود في القائمة أدناه. إذا لم تجده قل: "عذراً يا دكتور، الصنف ده مش متاح حالياً".
+5. للتواصل وحجز الأوردرات: واتساب 01151605515.
+
+[دليل المنتجات والأسعار المتاحة لديك]:
+${productLines}`;
+
+  storeCache = { prompt, expiresAt: Date.now() + TTL };
+  return storeCache.prompt;
 }
 
-async function loadProducts(): Promise<Product[]> {
-  try {
-    const snap = await getDocs(collection(liteDb, "products"));
-    if (!snap.empty) {
-      return snap.docs.map((d) => d.data() as Product).filter((p) => !p.showcaseOnly);
-    }
-  } catch {
-    /* defaults */
-  }
-  return DEFAULT_PRODUCTS.filter((p) => !p.showcaseOnly);
-}
-
-function format(list: Product[]) {
-  return list.slice(0, 10).map((p) => `• ${p.name} — ${p.price} ج`).join("\n");
-}
-
-async function askGemini(apiKey: string, question: string): Promise<string | null> {
-  try {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 12000);
-    const r = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: "user",
-              parts: [
-                {
-                  text: `مساعد إيجي دنت. عامية مصرية مختصرة. خطوات طبية مرقمة. لا تخترع أسعار. واتساب ${WA}.\nسؤال: ${question}`,
-                },
-              ],
-            },
-          ],
-          generationConfig: { temperature: 0.35, maxOutputTokens: 700 },
-        }),
-        signal: ctrl.signal,
-      }
-    );
-    clearTimeout(t);
-    if (!r.ok) return null;
-    const data = (await r.json()) as {
-      candidates?: { content?: { parts?: { text?: string }[] } }[];
-    };
-    const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("").trim();
-    return text || null;
-  } catch {
-    return null;
-  }
-}
-
-export default async function handler(
-  req: { method?: string; body?: { message?: string } },
-  res: { status: (n: number) => { json: (b: unknown) => void } }
-) {
-  if (req.method !== "POST") {
-    res.status(405).json({ error: "Method not allowed" });
-    return;
-  }
-
-  const message = req.body?.message;
-  if (!message || typeof message !== "string") {
-    res.status(400).json({ error: "الرسالة مطلوبة" });
-    return;
-  }
-
-  const q = norm(message);
-  const all = await loadProducts();
-
-  if (/(السلام|اهلا|ازيك|مرحبا)/.test(q) && q.split(" ").length <= 6) {
-    res.status(200).json({
-      reply: `وعليكم السلام يا دكتور 🦷\nاسأل عن طريقة كافتي أو سعر صنف بالاسم.`,
-    });
-    return;
-  }
-
-  if (/(كافتي|cavity)/.test(q)) {
-    res.status(200).json({
-      reply: `تحضير كافتي — خطوات عامة:
-1) كشف + تخدير.
-2) عزل السن.
-3) فتح بتبريد مائي.
-4) إزالة التسوس بحذر.
-5) تشكيل الحفرة.
-6) غسيل وliner لو محتاج.
-7) إتش + بوند + كمبوزيت طبقات.
-8) إطباق وتلميع.
-حسب حالة المريض. واتساب ${WA}`,
-    });
-    return;
-  }
-
-  if (/(منتجات ايه|عندكم ايه|اصناف)/.test(q) && q.length < 50) {
-    res.status(200).json({
-      reply: `عينة من الأصناف:\n${format(all)}\n\nاكتب اسم الماركة. واتساب ${WA}`,
-    });
-    return;
-  }
-
-  const words = q.split(" ").filter((w) => w.length >= 4);
-  const hits = all.filter((p) => words.some((w) => norm(p.name).includes(w)));
-  if (hits.length && /(بكام|سعر|عندكم|شوفو|كمبوز|بوند|جوان)/.test(q)) {
-    res.status(200).json({ reply: `الأصناف:\n${format(hits)}\n\nواتساب ${WA}` });
-    return;
-  }
+export default async function handler(req: any, res: any) {
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   const apiKey = process.env.GEMINI_API_KEY?.trim();
-  if (apiKey) {
-    const ai = await askGemini(apiKey, message.trim());
-    if (ai) {
-      res.status(200).json({ reply: ai });
-      return;
+  if (!apiKey) {
+    return res.status(200).json({ reply: "مفتاح API غير متوفر. تواصل واتساب 01151605515 🦷" });
+  }
+
+  const { message, history } = req.body || {};
+  if (!message || typeof message !== "string") {
+    return res.status(400).json({ error: "الرسالة مطلوبة" });
+  }
+
+  try {
+    const systemPrompt = await buildSystemPrompt();
+
+    // 🚀 دمج الأوامر في أول رسالة لتجنب أخطاء الإصدارات
+    const contents: any[] = [];
+    
+    if (Array.isArray(history) && history.length > 0) {
+      for (const h of history.slice(-4)) {
+        if (h?.text?.trim()) {
+          contents.push({ role: h.role === "user" ? "user" : "model", parts: [{ text: h.text.trim() }] });
+        }
+      }
+      contents.push({ role: "user", parts: [{ text: message.trim() }] });
+      // حقن الأوامر في الخلفية
+      contents[0].parts[0].text = `[تعليمات النظام الدائمة]:\n${systemPrompt}\n\n[سؤال العميل]:\n${contents[0].parts[0].text}`;
+    } else {
+      contents.push({ role: "user", parts: [{ text: `[تعليمات النظام الدائمة]:\n${systemPrompt}\n\n[سؤال العميل]:\n${message.trim()}` }] });
     }
-  }
 
-  if (hits.length) {
-    res.status(200).json({ reply: `الأصناف:\n${format(hits)}\n\nواتساب ${WA}` });
-    return;
-  }
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: contents,
+        generationConfig: { 
+          temperature: 0.4, // 👈 درجة ذكاء بشرية ممتازة (بتفهم ومبتهلوسش)
+          maxOutputTokens: 600 
+        },
+      })
+    });
 
-  res.status(200).json({
-    reply: `اكتب "طريقة كافتي" أو اسم الصنف. واتساب ${WA}`,
-  });
+    const data = await response.json();
+
+    if (response.ok) {
+      const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+      return res.status(200).json({ reply: reply || "أهلاً بك يا دكتور! كيف يمكنني مساعدتك؟ 🦷" });
+    } else {
+      console.error("Gemini API Error:", data?.error?.message);
+      return res.status(200).json({ reply: "عذراً يا دكتور، السيرفر عليه ضغط خفيف. حاول تاني ثواني، أو كلمنا واتساب 01151605515 🦷" });
+    }
+  } catch (err: any) {
+    console.error("Server Error:", err.message);
+    return res.status(200).json({ reply: "حدث خطأ تقني، يرجى المحاولة لاحقاً أو التواصل واتساب 01151605515 🦷" });
+  }
 }
