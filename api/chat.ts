@@ -7,10 +7,10 @@ import { policyPages } from "../src/data/policies.js";
 const app = getApps().length ? getApps()[0]! : initializeApp(firebaseConfig);
 const liteDb = getFirestore(app);
 
-const PRIMARY = "gemini-3.8-flash";
+const MODELS = ["gemini-3.8-flash", "gemini-2.0-flash", "gemini-flash-latest"];
 let promptCache: { prompt: string; expiresAt: number } | null = null;
-let liveModel: string | null = null;
 const TTL = 300_000;
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function buildSystemPrompt(): Promise<string> {
   if (promptCache && promptCache.expiresAt > Date.now()) return promptCache.prompt;
@@ -19,7 +19,6 @@ async function buildSystemPrompt(): Promise<string> {
     getDocs(collection(liteDb, "products")),
     getDocs(collection(liteDb, "categories")),
   ]);
-
   const products = pSnap.empty ? DEFAULT_PRODUCTS : pSnap.docs.map((d) => d.data() as Product);
   const categories = cSnap.empty ? DEFAULT_CATEGORIES : cSnap.docs.map((d) => d.data() as Category);
   const catNames: Record<string, string> = {};
@@ -38,9 +37,9 @@ async function buildSystemPrompt(): Promise<string> {
     .join("\n\n");
 
   const prompt = `أنت مساعد متجر إيجي دنت لمستلزمات الأسنان في مصر.
-- رد بالعامية المصرية، مختصر وواضح.
-- استخدم المنتجات والأسعار التالية فقط. ممنوع تخترع صنف أو سعر.
-- لو مش متأكد: قول للدكتور يكلم واتساب 01151605515.
+رد بالعامية المصرية، مختصر.
+استخدم المنتجات والأسعار التالية فقط. ممنوع تخترع سعر.
+واتساب: 01151605515.
 
 المنتجات:
 ${productLines}
@@ -51,49 +50,6 @@ ${policyText}
 
   promptCache = { prompt, expiresAt: Date.now() + TTL };
   return prompt;
-}
-
-async function pickModel(apiKey: string): Promise<string> {
-  if (liveModel) return liveModel;
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`
-    );
-    if (res.ok) {
-      const data = await res.json();
-      const names = (data.models || [])
-        .filter((m: any) => (m.supportedGenerationMethods || []).includes("generateContent"))
-        .map((m: any) => String(m.name).replace(/^models\//, ""));
-      const best =
-        names.find((n: string) => n === PRIMARY) ||
-        names.find((n: string) => n.includes("3.8") && n.includes("flash")) ||
-        names.find((n: string) => n.includes("flash")) ||
-        names[0];
-      if (best) {
-        liveModel = best;
-        return best;
-      }
-    }
-  } catch {}
-  liveModel = PRIMARY;
-  return PRIMARY;
-}
-
-async function askGemini(apiKey: string, model: string, prompt: string, question: string) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ role: "user", parts: [{ text: `${prompt}\n\nسؤال الدكتور: ${question}` }] }],
-      generationConfig: { temperature: 0.3, maxOutputTokens: 450 },
-    }),
-  });
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data?.error?.message || `HTTP ${response.status}`);
-  }
-  return data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("").trim() || "";
 }
 
 export default async function handler(req: any, res: any) {
@@ -108,13 +64,44 @@ export default async function handler(req: any, res: any) {
     return res.status(200).json({ reply: "كلمنا واتساب 01151605515 🦷" });
   }
 
-  try {
-    const [prompt, model] = await Promise.all([buildSystemPrompt(), pickModel(apiKey)]);
-    const reply = await askGemini(apiKey, model, prompt, message.trim());
-    if (reply) return res.status(200).json({ reply });
-    return res.status(200).json({ reply: "أهلاً يا دكتور، اكتب اسم الصنف وأقولك السعر. أو واتساب 01151605515 🦷" });
-  } catch (err: any) {
-    liveModel = null;
-    return res.status(200).json({ reply: `⚠️ ${err.message}` });
+  const prompt = await buildSystemPrompt();
+
+  for (const model of MODELS) {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [
+                { role: "user", parts: [{ text: `${prompt}\n\nسؤال الدكتور: ${message.trim()}` }] },
+              ],
+              generationConfig: { temperature: 0.3, maxOutputTokens: 450 },
+            }),
+          }
+        );
+        const data = await response.json();
+
+        if (response.ok) {
+          const reply = data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("").trim();
+          if (reply) return res.status(200).json({ reply });
+        }
+
+        const busy = response.status === 429 || response.status === 503 || String(data?.error?.message || "").includes("high demand");
+        if (busy && attempt < 3) {
+          await sleep(800 * attempt);
+          continue;
+        }
+        if (!busy) break;
+      } catch {
+        if (attempt < 3) await sleep(800 * attempt);
+      }
+    }
   }
+
+  return res.status(200).json({
+    reply: "أهلاً يا دكتور، السيرفر عليه زحمة خفيفة دلوقتي. ابعت تاني بعد ثواني، أو واتساب 01151605515 🦷",
+  });
 }
