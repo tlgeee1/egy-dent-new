@@ -12,7 +12,7 @@ const MODELS = ["gemini-2.0-flash", "gemini-flash-latest", "gemini-3.8-flash"];
 let promptCache: { prompt: string; expiresAt: number } | null = null;
 const TTL = 300_000;
 
-async function fetchWithTimeout(url: string, options: RequestInit, ms = 8000) {
+async function fetchWithTimeout(url: string, options: RequestInit, ms = 8000): Promise<Response> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), ms);
   try {
@@ -25,19 +25,21 @@ async function fetchWithTimeout(url: string, options: RequestInit, ms = 8000) {
 async function buildSystemPrompt(): Promise<string> {
   if (promptCache && promptCache.expiresAt > Date.now()) return promptCache.prompt;
 
-  let products = DEFAULT_PRODUCTS;
-  let categories = DEFAULT_CATEGORIES;
+  let products: Product[] = DEFAULT_PRODUCTS;
+  let categories: Category[] = DEFAULT_CATEGORIES;
   try {
-    const [pSnap, cSnap] = await Promise.all([
-      getDocs(collection(liteDb, "products")),
-      getDocs(collection(liteDb, "categories")),
-    ]);
+    const pSnap = await getDocs(collection(liteDb, "products"));
+    const cSnap = await getDocs(collection(liteDb, "categories"));
     if (!pSnap.empty) products = pSnap.docs.map((d) => d.data() as Product);
     if (!cSnap.empty) categories = cSnap.docs.map((d) => d.data() as Category);
-  } catch {}
+  } catch {
+    /* defaults */
+  }
 
   const catNames: Record<string, string> = {};
-  categories.forEach((c) => (catNames[c.id] = c.name));
+  categories.forEach((c) => {
+    catNames[c.id] = c.name;
+  });
 
   const productLines = products
     .filter((p) => !p.showcaseOnly)
@@ -45,10 +47,12 @@ async function buildSystemPrompt(): Promise<string> {
     .join("\n");
 
   const policyText = Object.values(policyPages)
-    .map((page) =>
-      `## ${page.title}\n` +
-      page.sections.map((s) => [s.heading, s.body, ...(s.bullets ?? [])].filter(Boolean).join(" — ")).join("\n")
-    )
+    .map((page) => {
+      const body = page.sections
+        .map((s) => [s.heading, s.body, ...(s.bullets ?? [])].filter(Boolean).join(" — "))
+        .join("\n");
+      return `## ${page.title}\n${body}`;
+    })
     .join("\n\n");
 
   const prompt = `أنت مساعد متجر إيجي دنت لمستلزمات الأسنان في مصر.
@@ -80,32 +84,53 @@ async function askModel(apiKey: string, model: string, prompt: string, question:
     },
     8000
   );
-  const data = await response.json();
-  if (!response.ok) throw new Error(data?.error?.message || String(response.status));
-  const reply = data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("").trim();
+  const data = (await response.json()) as {
+    candidates?: { content?: { parts?: { text?: string }[] } }[];
+    error?: { message?: string };
+  };
+  if (!response.ok) throw new Error(data.error?.message || String(response.status));
+  const reply = data.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("").trim() || "";
   if (!reply) throw new Error("empty");
   return reply;
 }
 
-export default async function handler(req: any, res: any) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+export default async function handler(
+  req: { method?: string; body?: { message?: string } },
+  res: { status: (n: number) => { json: (b: unknown) => void } }
+) {
+  if (req.method !== "POST") {
+    res.status(405).json({ error: "Method not allowed" });
+    return;
+  }
 
   const apiKey = process.env.GEMINI_API_KEY?.trim();
-  const { message } = req.body || {};
+  const message = req.body?.message;
   if (!message || typeof message !== "string") {
-    return res.status(400).json({ error: "الرسالة مطلوبة" });
+    res.status(400).json({ error: "الرسالة مطلوبة" });
+    return;
   }
   if (!apiKey) {
-    return res.status(200).json({ reply: "كلمنا واتساب 01151605515 🦷" });
+    res.status(200).json({ reply: "كلمنا واتساب 01151605515 🦷" });
+    return;
   }
 
   try {
     const prompt = await buildSystemPrompt();
     const q = message.trim();
-    const reply = await Promise.any(MODELS.map((m) => askModel(apiKey, m, prompt, q)));
-    return res.status(200).json({ reply });
+    for (let i = 0; i < MODELS.length; i++) {
+      try {
+        const reply = await askModel(apiKey, MODELS[i], prompt, q);
+        res.status(200).json({ reply });
+        return;
+      } catch {
+        /* next model */
+      }
+    }
+    res.status(200).json({
+      reply: "السيرفر متأخر دلوقتي. ابعت السؤال تاني، أو واتساب 01151605515 🦷",
+    });
   } catch {
-    return res.status(200).json({
+    res.status(200).json({
       reply: "السيرفر متأخر دلوقتي. ابعت السؤال تاني، أو واتساب 01151605515 🦷",
     });
   }
