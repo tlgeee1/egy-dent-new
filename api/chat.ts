@@ -7,11 +7,11 @@ import { policyPages } from "../src/data/policies.js";
 const app = getApps().length ? getApps()[0]! : initializeApp(firebaseConfig);
 const liteDb = getFirestore(app);
 
-let storeCache: { prompt: string; expiresAt: number } | null = null;
+let storeCache: { prompt: string; products: Product[]; expiresAt: number } | null = null;
 const TTL = 180_000;
 
-async function buildSystemPrompt(): Promise<string> {
-  if (storeCache && storeCache.expiresAt > Date.now()) return storeCache.prompt;
+async function getStoreData() {
+  if (storeCache && storeCache.expiresAt > Date.now()) return storeCache;
 
   const snap = await getDocs(collection(liteDb, "products"));
   const products = snap.empty ? DEFAULT_PRODUCTS : snap.docs.map((d) => d.data() as Product);
@@ -23,70 +23,118 @@ async function buildSystemPrompt(): Promise<string> {
 
   const productLines = products
     .filter((p) => !p.showcaseOnly)
-    .map((p) => `- ${p.name} (${catNames[p.cat] ?? "أخرى"}): ${p.price} جنيه`)
+    .map((p) => `- ${p.name}: ${p.price} جنيه مصرى`)
     .join("\n");
 
   const prompt = `أنت "مساعد إيجي دنت الذكي" لمتجر مستلزمات طب الأسنان في مصر.
 تعليماتك الصارمة:
-1. أنت طبيب ذكي جداً، تفهم الأسئلة المركبة، وترد بالعامية المصرية بوضوح واختصار.
-2. إذا سألك العميل عن أنواع أخرى، اعرض له كل الأنواع المتاحة في القائمة أدناه من نفس الفئة.
-3. يمنع منعاً باتاً تأليف أي سعر أو منتج من خارج القائمة.
-4. إذا لم يكن المنتج متوفراً، قل: "عذراً يا دكتور، الصنف ده مش متاح حالياً، تواصل مع المبيعات على واتساب 01151605515".
+1. أنت طبيب أسنان خبير، تجيب بالعامية المصرية بوضوح واختصار.
+2. ⚠️ تحذير: يمنع منعاً باتاً ذكر أي سعر لأي منتج من خارج القائمة التالية.
+3. إذا سألك المستخدم عن "أنواع أخرى" أو "إيه تاني"، اذكر له جميع المنتجات المشابهة المتاحة في القائمة.
+4. إذا سألك عن منتج غير موجود، قل: "عذراً يا دكتور، الصنف ده مش متوفر حالياً، تواصل مع المبيعات على واتساب 01151605515".
 5. للتواصل وحجز الأوردرات: واتساب 01151605515.
 
-المنتجات والأسعار المتاحة لدينا اليوم:
+المنتجات والأسعار المتاحة:
 ${productLines}`;
 
-  storeCache = { prompt, expiresAt: Date.now() + TTL };
-  return storeCache.prompt;
+  storeCache = { prompt, products, expiresAt: Date.now() + TTL };
+  return storeCache;
+}
+
+// 🚀 محرك بحث ذكي "بذاكرة" بيفتكر سياق الكلام
+function smartContextFallback(currentMsg: string, history: any[], products: Product[]): string {
+  // تجميع كل الكلام اللي اتقال في الشات عشان يفهم هو بيسأل على "إيه تاني" في أنهي صنف
+  const fullContext = [...history.map(h => h.text), currentMsg].join(" ").toLowerCase();
+  
+  // استخراج الكلمات المهمة
+  const searchWords = fullContext.split(" ").filter(w => w.length > 3 && w !== "عايز" && w !== "تاني" && w !== "انواع" && w !== "مفيش");
+  
+  const matched = products.filter(p => {
+    if (p.showcaseOnly) return false;
+    const pName = p.name.toLowerCase();
+    return searchWords.some(w => pName.includes(w));
+  });
+
+  if (matched.length > 0) {
+    // لو سأل "إيه تاني؟" هيجيبله كل الأنواع (لحد 10 أنواع)
+    const list = matched.slice(0, 10).map(p => `• ${p.name} — ${p.price} ج`).join("\n");
+    return `بناءً على استفسارك يا دكتور، دي كل الأصناف المتاحة عندنا من النوع ده:\n\n${list}\n\nللحجز تواصل واتساب: 01151605515 🦷`;
+  }
+
+  return `أهلاً بك يا دكتور! عشان أقدر أفيدك بدقة أكبر في الأسعار، يرجى التواصل مع المبيعات مباشرة على واتساب: 01151605515 🦷`;
 }
 
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
+  const apiKey = process.env.GEMINI_API_KEY?.trim();
   const { message, history } = req.body || {};
+
   if (!message || typeof message !== "string") {
     return res.status(400).json({ error: "الرسالة مطلوبة" });
   }
 
-  try {
-    const systemPrompt = await buildSystemPrompt();
+  const { prompt: systemPrompt, products } = await getStoreData();
 
-    // تجهيز المحادثة بالكامل (بما فيها الأسئلة السابقة عشان يفهم السياق)
-    const messages: any[] = [{ role: "system", content: systemPrompt }];
-    if (Array.isArray(history)) {
-      for (const h of history.slice(-6)) { // زودنا الذاكرة عشان يفتكر أنت سألته في إيه قبلها
-        if (h?.text?.trim()) {
-          messages.push({
-            role: h.role === "user" ? "user" : "assistant",
-            content: h.text.trim()
-          });
-        }
+  const safeHistory = Array.isArray(history) ? history : [];
+
+  if (!apiKey) {
+    return res.status(200).json({ reply: smartContextFallback(message, safeHistory, products) });
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 6000); // 6 ثواني فقط
+
+  try {
+    const contents: any[] = [];
+    for (const h of safeHistory.slice(-4)) {
+      if (h?.text?.trim()) {
+        contents.push({ role: h.role === "user" ? "user" : "model", parts: [{ text: h.text.trim() }] });
       }
     }
-    messages.push({ role: "user", content: message.trim() });
+    contents.push({ role: "user", parts: [{ text: message.trim() }] });
 
-    // 🚀 الاتصال المباشر والمجاني بسيرفرات OpenAI عبر Pollinations (بدون API Key)
-    const response = await fetch("https://text.pollinations.ai/", {
+    // 💡 التجربة الأولى: الموديل الحديث
+    let targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    
+    let response = await fetch(targetUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        messages: messages,
-        model: "openai", // يستخدم GPT-4o-mini
-        temperature: 0.2 // دقيق جداً
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents: contents,
+        generationConfig: { temperature: 0.2, maxOutputTokens: 500 },
       }),
+      signal: controller.signal
     });
 
+    // 💡 لو الموديل الحديث مش متاح على مفتاحك، هيجرب الموديل الأقدم المضمون (gemini-pro)
+    if (response.status === 404) {
+      targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`;
+      response = await fetch(targetUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: `${systemPrompt}\n\n${message.trim()}` }] }], // gemini-pro القديم مش بيقبل systemInstruction منفصل
+          generationConfig: { temperature: 0.2, maxOutputTokens: 500 },
+        }),
+        signal: controller.signal
+      });
+    }
+
+    clearTimeout(timeoutId);
+    const data = await response.json();
+
     if (response.ok) {
-      // السيرفر ده بيرجع النص مباشرة (Plain Text)
-      const replyText = await response.text(); 
-      return res.status(200).json({ reply: replyText.trim() });
+      const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+      return res.status(200).json({ reply: reply || "أهلاً بك يا دكتور! كيف يمكنني مساعدتك؟ 🦷" });
     } else {
-      console.error("AI Server Error:", response.status);
-      return res.status(200).json({ reply: "عذراً يا دكتور، في تحديث لحظي للأسعار. ثواني وحاول تسألني تاني 🦷" });
+      // لو جوجل قفلت خالص، الرد الذكي اللي بذاكرة هيشتغل
+      return res.status(200).json({ reply: smartContextFallback(message, safeHistory, products) });
     }
   } catch (err: any) {
-    console.error("Chat Error:", err.message);
-    return res.status(200).json({ reply: "حصلت مشكلة تقنية بسيطة، كلمنا واتساب 01151605515 وهنرد عليك فوراً 🦷" });
+    clearTimeout(timeoutId);
+    // لو النت فصل أو الوقت خلص، الرد الذكي اللي بذاكرة هيشتغل
+    return res.status(200).json({ reply: smartContextFallback(message, safeHistory, products) });
   }
 }
