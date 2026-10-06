@@ -7,11 +7,11 @@ import { policyPages } from "../src/data/policies.js";
 const app = getApps().length ? getApps()[0]! : initializeApp(firebaseConfig);
 const liteDb = getFirestore(app);
 
-let storeCache: { prompt: string; products: Product[]; catNames: Record<string, string>; expiresAt: number } | null = null;
+let storeCache: { prompt: string; expiresAt: number } | null = null;
 const TTL = 180_000;
 
-async function getStoreData() {
-  if (storeCache && storeCache.expiresAt > Date.now()) return storeCache;
+async function buildSystemPrompt(): Promise<string> {
+  if (storeCache && storeCache.expiresAt > Date.now()) return storeCache.prompt;
 
   const snap = await getDocs(collection(liteDb, "products"));
   const products = snap.empty ? DEFAULT_PRODUCTS : snap.docs.map((d) => d.data() as Product);
@@ -23,95 +23,70 @@ async function getStoreData() {
 
   const productLines = products
     .filter((p) => !p.showcaseOnly)
-    .map((p) => `- ${p.name}: ${p.price} جنيه`)
+    .map((p) => `- ${p.name} (${catNames[p.cat] ?? "أخرى"}): ${p.price} جنيه`)
     .join("\n");
 
   const prompt = `أنت "مساعد إيجي دنت الذكي" لمتجر مستلزمات طب الأسنان في مصر.
-تعليماتك الصارمة جداً:
-1. رد بالعامية المصرية باختصار ووضوح في سطرين كحد أقصى.
-2. يمنع منعاً باتاً ذكر أي سعر لأي منتج من خارج القائمة التالية.
-3. إذا سألك العميل عن منتج غير موجود، قل: "عذراً يا دكتور، الصنف ده مش متوفر حالياً، يرجى التواصل مع المبيعات على واتساب 01151605515".
-4. للتواصل وحجز الأوردرات: واتساب 01151605515.
+تعليماتك الصارمة:
+1. أنت طبيب ذكي جداً، تفهم الأسئلة المركبة، وترد بالعامية المصرية بوضوح واختصار.
+2. إذا سألك العميل عن أنواع أخرى، اعرض له كل الأنواع المتاحة في القائمة أدناه من نفس الفئة.
+3. يمنع منعاً باتاً تأليف أي سعر أو منتج من خارج القائمة.
+4. إذا لم يكن المنتج متوفراً، قل: "عذراً يا دكتور، الصنف ده مش متاح حالياً، تواصل مع المبيعات على واتساب 01151605515".
+5. للتواصل وحجز الأوردرات: واتساب 01151605515.
 
-المنتجات والأسعار المتاحة:
+المنتجات والأسعار المتاحة لدينا اليوم:
 ${productLines}`;
 
-  storeCache = { prompt, products, catNames, expiresAt: Date.now() + TTL };
-  return storeCache;
-}
-
-// 🚀 بحث محلي ذكي وسريع جداً (بيشتغل لو النت فصل أو المفتاح غلط)
-function instantLocalSearch(query: string, products: Product[]): string {
-  const q = query.toLowerCase().trim();
-  const words = q.split(" ").filter(w => w.length > 2);
-  
-  const matched = products.filter(p => {
-    if (p.showcaseOnly) return false;
-    const pName = p.name.toLowerCase();
-    return words.some(w => pName.includes(w));
-  });
-
-  if (matched.length > 0) {
-    const list = matched.slice(0, 4).map(p => `• ${p.name} — ${p.price} ج`).join("\n");
-    return `أهلاً يا دكتور! دي أسعار الأصناف اللي سألت عليها فوراً:\n\n${list}\n\nللحجز تواصل واتساب: 01151605515 🦷`;
-  }
-
-  return `أهلاً بك يا دكتور! لمزيد من التفاصيل حول الأسعار والخامات، يرجى التواصل مع المبيعات مباشرة على واتساب: 01151605515 🦷`;
+  storeCache = { prompt, expiresAt: Date.now() + TTL };
+  return storeCache.prompt;
 }
 
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const apiKey = process.env.GEMINI_API_KEY?.trim();
   const { message, history } = req.body || {};
-
-  if (!message) return res.status(400).json({ error: "الرسالة مطلوبة" });
-
-  const { prompt: systemPrompt, products } = await getStoreData();
-
-  if (!apiKey) {
-    return res.status(200).json({ reply: instantLocalSearch(message, products) });
+  if (!message || typeof message !== "string") {
+    return res.status(400).json({ error: "الرسالة مطلوبة" });
   }
 
-  // ⏱️ تقليل وقت الانتظار لـ 4 ثواني فقط عشان الشات ميعلقش
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 4000); 
-
   try {
-    const contents: any[] = [];
+    const systemPrompt = await buildSystemPrompt();
+
+    // تجهيز المحادثة بالكامل (بما فيها الأسئلة السابقة عشان يفهم السياق)
+    const messages: any[] = [{ role: "system", content: systemPrompt }];
     if (Array.isArray(history)) {
-      for (const h of history.slice(-4)) {
+      for (const h of history.slice(-6)) { // زودنا الذاكرة عشان يفتكر أنت سألته في إيه قبلها
         if (h?.text?.trim()) {
-          contents.push({ role: h.role === "user" ? "user" : "model", parts: [{ text: h.text.trim() }] });
+          messages.push({
+            role: h.role === "user" ? "user" : "assistant",
+            content: h.text.trim()
+          });
         }
       }
     }
-    contents.push({ role: "user", parts: [{ text: message.trim() }] });
+    messages.push({ role: "user", content: message.trim() });
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+    // 🚀 الاتصال المباشر والمجاني بسيرفرات OpenAI عبر Pollinations (بدون API Key)
+    const response = await fetch("https://text.pollinations.ai/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: systemPrompt }] },
-        contents: contents,
-        generationConfig: { temperature: 0.1, maxOutputTokens: 300 }, // دقيق جداً وسريع
+        messages: messages,
+        model: "openai", // يستخدم GPT-4o-mini
+        temperature: 0.2 // دقيق جداً
       }),
-      signal: controller.signal
     });
 
-    clearTimeout(timeoutId);
-    const data = await response.json();
-
     if (response.ok) {
-      const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-      return res.status(200).json({ reply: reply || "أهلاً بك يا دكتور! كيف يمكنني مساعدتك؟ 🦷" });
+      // السيرفر ده بيرجع النص مباشرة (Plain Text)
+      const replyText = await response.text(); 
+      return res.status(200).json({ reply: replyText.trim() });
     } else {
-      // لو المفتاح تالف هيرد فوراً من الداتا بيز بدل رسالة الخطأ
-      return res.status(200).json({ reply: instantLocalSearch(message, products) });
+      console.error("AI Server Error:", response.status);
+      return res.status(200).json({ reply: "عذراً يا دكتور، في تحديث لحظي للأسعار. ثواني وحاول تسألني تاني 🦷" });
     }
   } catch (err: any) {
-    clearTimeout(timeoutId);
-    // لو النت بطيء هيرد فوراً من الداتا بيز 
-    return res.status(200).json({ reply: instantLocalSearch(message, products) });
+    console.error("Chat Error:", err.message);
+    return res.status(200).json({ reply: "حصلت مشكلة تقنية بسيطة، كلمنا واتساب 01151605515 وهنرد عليك فوراً 🦷" });
   }
 }
