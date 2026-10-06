@@ -7,7 +7,16 @@ import { policyPages } from "../src/data/policies.js";
 const app = getApps().length ? getApps()[0]! : initializeApp(firebaseConfig);
 const liteDb = getFirestore(app);
 
-let cachedModel: string | null = null;
+// قائمة أحدث الموديلات الرسمية الفعالة من جوجل
+const CANDIDATE_MODELS = [
+  "gemini-2.0-flash",
+  "gemini-2.0-flash-lite",
+  "gemini-1.5-flash-8b",
+  "gemini-1.5-flash-latest",
+  "gemini-1.5-pro-latest"
+];
+
+let workingModelCache: string | null = null;
 
 async function fetchLiveProducts(): Promise<Product[]> {
   try {
@@ -44,50 +53,18 @@ async function buildSystemPrompt(): Promise<string> {
     )
     .join("\n\n");
 
-  return `أنت "مساعد إيجي دنت الذكي" لمتجر مستلزمات طب الأسنان في مصر.
+  return `أنت "مساعد إيجي دنت الذكي" — مستشار ومساعد متجر مستلزمات طب الأسنان في مصر.
 تعليماتك:
-1. أنت طبيب وصيدلي خبير في خامات الأسنان، رد بالعامية المصرية الراقية والواضحة.
+1. أنت طبيب وصيدلي خبير في خامات الأسنان، رد بالعامية المصرية الراقية والواضحة والموجزة.
 2. التزم فقط بالمنتجات والأسعار المذكورة أدناه ولا تبتكر أسعاراً من عندك.
-3. للتواصل والمبيعات: 01151605515.
+3. للتواصل والمبيعات وحجز الأوردرات: واتساب 01151605515.
 
 المنتجات والأسعار المتاحة:
 ${productLines}
 
 سياسات المتجر وفروعه:
 ${policyText}
-فروعنا: مدينة نصر، القصر العيني، 6 أكتوبر.`;
-}
-
-// دالة لاكتشاف الموديل الشغال في حسابك تلقائياً
-async function getWorkingModel(apiKey: string): Promise<string> {
-  if (cachedModel) return cachedModel;
-
-  try {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-    if (res.ok) {
-      const data = await res.json();
-      const validModels = (data.models || [])
-        .filter((m: any) => m.supportedGenerationMethods?.includes("generateContent"))
-        .map((m: any) => m.name as string);
-
-      if (validModels.length > 0) {
-        // نختار أفضل موديل متاح في حسابك
-        const best =
-          validModels.find((m) => m.includes("2.0-flash")) ||
-          validModels.find((m) => m.includes("flash")) ||
-          validModels.find((m) => m.includes("pro")) ||
-          validModels[0];
-
-        cachedModel = best;
-        return best;
-      }
-    }
-  } catch (e) {
-    console.error("Error fetching models:", e);
-  }
-
-  // في حالة تعذر القائمة، نستخدم الموديل القياسي
-  return "models/gemini-2.0-flash";
+فروعنا: مدينة نصر، القصر العيني، 6 أكتوبر. الشحن متاح لكل مصر.`;
 }
 
 export default async function handler(req: any, res: any) {
@@ -97,7 +74,7 @@ export default async function handler(req: any, res: any) {
 
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) {
-    return res.status(200).json({ reply: "⚠️ مفتاح GEMINI_API_KEY غير موجود في إعدادات السيرفر." });
+    return res.status(200).json({ reply: "⚠️ مفتاح GEMINI_API_KEY غير موجود في Vercel." });
   }
 
   const { message } = req.body || {};
@@ -106,46 +83,62 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const [systemPrompt, activeModel] = await Promise.all([
-      buildSystemPrompt(),
-      getWorkingModel(apiKey),
-    ]);
+    const systemPrompt = await buildSystemPrompt();
 
-    const targetUrl = `https://generativelanguage.googleapis.com/v1beta/${activeModel}:generateContent?key=${apiKey}`;
+    // نضع الموديل الذي نجح سابقاً في المقدمة لتسريع الرد لأقصى درجة
+    const modelsToTry = workingModelCache
+      ? [workingModelCache, ...CANDIDATE_MODELS.filter((m) => m !== workingModelCache)]
+      : CANDIDATE_MODELS;
 
-    const response = await fetch(targetUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: "user",
-            parts: [{ text: `${systemPrompt}\n\nسؤال العميل: ${message.trim()}` }],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.6,
-          maxOutputTokens: 600,
-        },
-      }),
+    let lastErrorMsg = "";
+
+    // حلقة تجربة الموديلات حتى ينجح واحد منها
+    for (const model of modelsToTry) {
+      try {
+        const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+        const response = await fetch(targetUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [
+              {
+                role: "user",
+                parts: [{ text: `${systemPrompt}\n\nسؤال العميل: ${message.trim()}` }],
+              },
+            ],
+            generationConfig: {
+              temperature: 0.6,
+              maxOutputTokens: 600,
+            },
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const reply =
+            data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("").trim();
+
+          if (reply) {
+            workingModelCache = model; // حفظ الموديل الشغال في الذاكرة
+            return res.status(200).json({ reply });
+          }
+        } else {
+          const errData = await response.json().catch(() => ({}));
+          lastErrorMsg = errData?.error?.message || `Error ${response.status}`;
+        }
+      } catch (err: any) {
+        lastErrorMsg = err.message;
+      }
+    }
+
+    return res.status(200).json({
+      reply: `⚠️ تعذر استجابة الموديلات المتاحة:\n${lastErrorMsg}`,
     });
 
-    const data = await response.json();
-
-    if (response.ok) {
-      const reply =
-        data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("").trim() ||
-        "أهلاً بك يا دكتور! كيف يمكنني مساعدتك اليوم؟";
-
-      return res.status(200).json({ reply });
-    } else {
-      return res.status(200).json({
-        reply: `⚠️ جوجل رفضت الطلب بالموديل (${activeModel}):\n${data?.error?.message || "خطأ غير معروف"}`,
-      });
-    }
   } catch (err: any) {
     return res.status(200).json({
-      reply: `💥 خطأ داخلي: ${err.message}`,
+      reply: `💥 خطأ في السيرفر: ${err.message}`,
     });
   }
 }
