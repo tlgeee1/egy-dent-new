@@ -8,9 +8,15 @@ const app = getApps().length ? getApps()[0]! : initializeApp(firebaseConfig);
 const liteDb = getFirestore(app);
 
 let cache: { prompt: string; expiresAt: number } | null = null;
-const CACHE_TTL_MS = 60_000;
+const CACHE_TTL_MS = 120_000; // تم زيادة الكاش لدقيقتين لتسريع الأداء
 
-let discoveredModel: string | null = null;
+// ترتيب الموديلات من الأسرع والأكثر تحملاً للضغط
+const PREFERRED_MODELS = [
+  "gemini-2.0-flash",
+  "gemini-1.5-flash",
+  "gemini-1.5-flash-8b",
+  "gemini-1.5-pro"
+];
 
 async function fetchLiveProducts(): Promise<Product[]> {
   try {
@@ -60,58 +66,18 @@ async function buildSystemPrompt(): Promise<string> {
 1. أنت طبيب وصيدلي خبير في كل خامات ومواد الأسنان (Composites, Bonding 5th & 8th gen, C-Silicone, A-Silicone, Alginate, Etching, etc.).
 2. لو سألك الدكتور عن طريقة استخدام أي خامة، اشرح الخطوات الطبية السليمة بالترتيب وبشكل واضح ومختصر بالعامية المصرية الراقية.
 3. لو سألك عن مقارنة أو ترشيح، قارن علمياً وعملياً ومادياً، ورشح الأصناف المتاحة في المتجر بأسعارها المذكورة تحت.
-4. التزم فقط بالمنتجات والأسعار المذكورة أدناه.
-5. للتواصل المباشر مع المبيعات أو حجز طلبات: واتساب 01151605515.
+4. التزم فقط بالمنتجات والأسعار المذكورة أدناه ولا تخترع أسعاراً من عندك.
+5. للتواصل المباشر مع المبيعات أو حجز طلبيات خاصة: واتساب 01151605515.
 
 قائمة المنتجات والأسعار المتاحة:
 ${productLines}
 
 سياسات المتجر وفروعه:
 ${policyText}
-فروعنا: مدينة نصر، القصر العيني، 6 أكتوبر. الشحن متاح لكل مصر.`;
+فروعنا: مدينة نصر، القصر العيني، 6 أكتوبر. الشحن متاح لكل محافظات مصر.`;
 
   cache = { prompt, expiresAt: Date.now() + CACHE_TTL_MS };
   return prompt;
-}
-
-// دالة جلب وترتيب الموديلات الشغالة في الحساب
-async function getAvailableModels(apiKey: string): Promise<string[]> {
-  const fallbackList = [
-    "models/gemini-2.0-flash",
-    "models/gemini-1.5-flash",
-    "models/gemini-1.5-flash-latest",
-    "models/gemini-1.5-pro",
-    "models/gemini-pro",
-  ];
-
-  try {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-    if (res.ok) {
-      const data = await res.json();
-      const valid = (data?.models || [])
-        .filter((m: any) => m.supportedGenerationMethods?.includes("generateContent"))
-        .map((m: any) => m.name as string);
-
-      if (valid.length > 0) {
-        // ترتيب الموديلات: نبدأ بالأحدث والمستقر
-        valid.sort((a, b) => {
-          const score = (name: string) => {
-            if (name.includes("2.0-flash")) return 1;
-            if (name.includes("1.5-flash") && !name.includes("8b")) return 2;
-            if (name.includes("1.5-pro")) return 3;
-            if (name.includes("flash")) return 4;
-            return 5;
-          };
-          return score(a) - score(b);
-        });
-        return valid;
-      }
-    }
-  } catch (e) {
-    console.error("ListModels error:", e);
-  }
-
-  return fallbackList;
 }
 
 export default async function handler(req: any, res: any) {
@@ -122,7 +88,7 @@ export default async function handler(req: any, res: any) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey.trim() === "") {
     return res.status(200).json({ 
-      reply: "⚠️ تنبيه: مفتاح GEMINI_API_KEY غير موجود في إعدادات Vercel. يرجى إضافته وعمل Redeploy." 
+      reply: "عذراً، خدمة المساعد الذكي غير مفعلة حالياً. يرجى التواصل عبر الواتساب." 
     });
   }
 
@@ -133,10 +99,7 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const [systemPrompt, modelsList] = await Promise.all([
-      buildSystemPrompt(),
-      discoveredModel ? Promise.resolve([discoveredModel]) : getAvailableModels(cleanKey),
-    ]);
+    const systemPrompt = await buildSystemPrompt();
 
     const contents: { role: "user" | "model"; parts: [{ text: string }] }[] = [];
     let expectedRole: "user" | "model" = "user";
@@ -159,12 +122,10 @@ export default async function handler(req: any, res: any) {
 
     contents.push({ role: "user", parts: [{ text: message.trim() }] });
 
-    let lastError = "";
-
-    // تجربة الموديلات حتى ينجح واحد منها 100%
-    for (const modelPath of modelsList) {
+    // تجربة الموديلات بالترتيب، مع إعادة المحاولة التلقائية
+    for (const model of PREFERRED_MODELS) {
       try {
-        const targetUrl = `https://generativelanguage.googleapis.com/v1beta/${modelPath}:generateContent?key=${cleanKey}`;
+        const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${cleanKey}`;
         const response = await fetch(targetUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -172,7 +133,7 @@ export default async function handler(req: any, res: any) {
             system_instruction: { parts: [{ text: systemPrompt }] },
             contents,
             generationConfig: {
-              temperature: 0.6,
+              temperature: 0.5,
               maxOutputTokens: 600,
             },
           }),
@@ -181,26 +142,25 @@ export default async function handler(req: any, res: any) {
         if (response.ok) {
           const data = await response.json();
           const reply =
-            data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("").trim() ||
-            "أهلاً بك يا دكتور! كيف يمكنني مساعدتك؟";
+            data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("").trim();
 
-          discoveredModel = modelPath; // حفظ الموديل الشغال بنجاح
-          return res.status(200).json({ reply });
-        } else {
-          const errText = await response.text();
-          lastError = errText;
+          if (reply) {
+            return res.status(200).json({ reply });
+          }
         }
-      } catch (err: any) {
-        lastError = err.message;
+      } catch {
+        // لو الموديل ده عليه ضغط، هينتقل تلقائياً للموديل اللي بعده
+        continue;
       }
     }
 
+    // رسالة احترافية في حال فشلت كل السيرفرات دون إظهار أي كود تقني
     return res.status(200).json({ 
-      reply: `⚠️ تعذر استجابة الموديلات المتاحة:\n${lastError.substring(0, 150)}` 
+      reply: "أهلاً بك يا دكتور! السيرفرات تواجه ضغطاً خفيفاً حالياً، يرجى إعادة إرسال رسالتك بعد ثوانٍ، أو تواصل معنا مباشرة عبر زر الواتساب بالأسفل 🦷" 
     });
-  } catch (err: any) {
+  } catch {
     return res.status(200).json({ 
-      reply: `💥 خطأ داخلي في الخادم:\n${err.message}` 
+      reply: "حدث خطأ غير متوقع، يرجى المحاولة مرة أخرى أو مراسلتنا واتساب." 
     });
   }
 }
