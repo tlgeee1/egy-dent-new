@@ -1,8 +1,16 @@
-import { Heart, Mail, MapPin, Phone } from "lucide-react";
+import { Heart, Mail, MapPin, Phone, Code2 } from "lucide-react";
 import { ToothMark } from "./ui";
 import { socialLinks } from "@/data/data";
 
 export default function Footer() {
+  // بياناتك كمطور محترف
+  const developerName = "م. عادل الحمايل";
+  const developerPhone = "201282175854"; // الرقم بالصيغة الدولية الصحيحة لمصر
+
+  // رسالة واتساب مجهزة تلقائياً تفتح مباشرة في الشات معك
+  const waMessage = "أهلاً بك يا باشمهندس عادل، شفت تصميمك المميز لموقع إيجي دنت وكنت حابب أستفسر عن تصميم وبرمجة موقع لمشروعي.";
+  const developerWaLink = `https://wa.me/${developerPhone}?text=${encodeURIComponent(waMessage)}`;
+
   return (
     <footer className="relative overflow-hidden border-t border-[var(--line-2)] bg-ink-900">
       <div className="mx-auto max-w-7xl px-5 py-20 lg:px-8">
@@ -108,13 +116,37 @@ export default function Footer() {
         >
           EGY DENT
         </p>
-        <div className="absolute inset-x-0 bottom-0 flex flex-col items-center justify-between gap-3 border-t border-[var(--line-1)] bg-ink-950 px-5 py-5 md:flex-row lg:px-14">
-          <p className="text-xs text-frost-400">© {new Date().getFullYear()} إيجي دنت — جميع الحقوق محفوظة</p>
-          <p className="flex items-center gap-1.5 text-xs text-frost-400">
+        
+        {/* الشريط السفلي الأخير (تمت موازنته ليحتوي على اسمك بشكل فخم) */}
+        <div className="absolute inset-x-0 bottom-0 flex flex-col items-center justify-between gap-4 border-t border-[var(--line-1)] bg-ink-950 px-5 py-5 md:flex-row lg:px-14">
+          
+          {/* حقوق الملكية */}
+          <p className="text-xs text-frost-400 order-3 md:order-1">
+            © {new Date().getFullYear()} إيجي دنت — جميع الحقوق محفوظة
+          </p>
+
+          {/* كبسولة توقيعك كـ Developer مع رابط واتساب مباشر */}
+          <div className="flex items-center gap-1.5 text-xs text-frost-400 order-1 md:order-2 bg-ink-900/80 px-4 py-1.5 rounded-full border border-[var(--line-1)]">
+            <Code2 className="size-3.5 text-volt-400 animate-pulse" />
+            <span>تصميم وتطوير:</span>
+            <a
+              href={developerWaLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="تواصل مع المطور م. عادل الحمايل"
+              className="font-bold text-volt-400 hover:text-white hover:underline transition-all underline-offset-4"
+            >
+              {developerName}
+            </a>
+          </div>
+
+          {/* صنع في مصر */}
+          <p className="flex items-center gap-1.5 text-xs text-frost-400 order-2 md:order-3">
             صُنع بـ
             <Heart className="size-3.5 fill-red-400 text-red-400" />
             في مصر
           </p>
+
         </div>
       </div>
     </footer>
