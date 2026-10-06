@@ -7,12 +7,12 @@ const app = getApps().length ? getApps()[0]! : initializeApp(firebaseConfig);
 const liteDb = getFirestore(app);
 
 let storeCache: { prompt: string; expiresAt: number } | null = null;
+let workingModelCache: string | null = null; // كاش لاسم الموديل عشان نسأله مرة واحدة بس
 const TTL = 180_000;
 
 async function buildSystemPrompt(): Promise<string> {
   if (storeCache && storeCache.expiresAt > Date.now()) return storeCache.prompt;
 
-  // جلب المنتجات والأقسام
   const snap = await getDocs(collection(liteDb, "products"));
   const products = snap.empty ? DEFAULT_PRODUCTS : snap.docs.map((d) => d.data() as Product);
 
@@ -22,7 +22,6 @@ async function buildSystemPrompt(): Promise<string> {
   const catNames: Record<string, string> = {};
   categories.forEach((c) => (catNames[c.id] = c.name));
 
-  // 🚀 دمج اسم القسم مع اسم المنتج عشان الذكاء الاصطناعي يفهمهم
   const productLines = products
     .filter((p) => !p.showcaseOnly)
     .map((p) => `- [قسم ${catNames[p.cat] ?? "أخرى"}]: ${p.name} — السعر: ${p.price} جنيه`)
@@ -55,15 +54,37 @@ export default async function handler(req: any, res: any) {
   if (!message) return res.status(400).json({ error: "الرسالة مطلوبة" });
 
   try {
+    // 🚀 1. اكتشاف الموديل الشغال على المفتاح بتاعك (لو مش محفوظ في الكاش)
+    if (!workingModelCache) {
+      const modelsRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+      const modelsData = await modelsRes.json();
+      
+      if (modelsRes.ok && modelsData.models) {
+        // بنجيب الموديلات اللي بتدعم الشات
+        const validModels = modelsData.models
+          .filter((m: any) => m.supportedGenerationMethods?.includes("generateContent"))
+          .map((m: any) => m.name); // بيرجع بصيغة models/gemini-pro مثلاً
+
+        // بنختار أحسن موديل متاح في مفتاحك (لو مفيش 1.5 هننزل للـ pro العادي)
+        workingModelCache = 
+          validModels.find((m: string) => m.includes("1.5-flash")) || 
+          validModels.find((m: string) => m.includes("gemini-pro")) || 
+          validModels[0];
+      }
+      
+      if (!workingModelCache) {
+        return res.status(200).json({ reply: `🚨 إيرور: المفتاح بتاعك مفيش عليه أي موديلات شغالة!` });
+      }
+    }
+
     const systemPrompt = await buildSystemPrompt();
 
-    // 🚀 تصليح خطأ تكرار الرسائل اللي كان بيخلي جوجل ترفض الطلب
+    // 2. تظبيط الرسايل عشان جوجل متعملش إيرور تكرار
     const contents: any[] = [];
     if (Array.isArray(history) && history.length > 0) {
       for (const h of history) {
         if (h?.text?.trim()) {
           const role = h.role === "user" ? "user" : "model";
-          // دمج الرسائل المتتالية لنفس الشخص عشان جوجل مترفضش الطلب
           if (contents.length > 0 && contents[contents.length - 1].role === role) {
             contents[contents.length - 1].parts[0].text += `\n${h.text.trim()}`;
           } else {
@@ -73,7 +94,6 @@ export default async function handler(req: any, res: any) {
       }
     }
     
-    // التأكد من إضافة الرسالة الحالية لو مش موجودة
     const lastContent = contents.length > 0 ? contents[contents.length - 1].parts[0].text : "";
     if (!lastContent.includes(message.trim())) {
       if (contents.length > 0 && contents[contents.length - 1].role === "user") {
@@ -83,13 +103,14 @@ export default async function handler(req: any, res: any) {
       }
     }
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+    // 🚀 3. الاتصال بالموديل اللي اكتشفناه من حسابك
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${workingModelCache}:generateContent?key=${apiKey}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: systemPrompt }] },
         contents: contents,
-        generationConfig: { temperature: 0.4, maxOutputTokens: 600 },
+        generationConfig: { temperature: 0.4, maxOutputTokens: 600 }, // ذكاء مضبوط
       })
     });
 
@@ -99,10 +120,12 @@ export default async function handler(req: any, res: any) {
       const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
       return res.status(200).json({ reply: reply || "أهلاً بك يا دكتور! كيف يمكنني مساعدتك؟ 🦷" });
     } else {
-      // 🚨 هنا هنطبع الخطأ الحقيقي اللي جاي من جوجل للمستخدم عشان نفهمه
+      // لو الموديل ده جاب إيرور (زي مثلاً إنه قديم ومبيفهمش SystemInstruction) هنمسح الكاش ونرد بالإيرور
+      workingModelCache = null; 
       return res.status(200).json({ reply: `🚨 إيرور جوجل: ${data?.error?.message}` });
     }
   } catch (err: any) {
+    workingModelCache = null;
     return res.status(200).json({ reply: `💥 خطأ تقني: ${err.message}` });
   }
 }
