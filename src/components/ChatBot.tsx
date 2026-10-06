@@ -23,6 +23,7 @@ export default function ChatBot() {
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  // المتغير اللي كان عامل المشكلة
   const waLink = settings?.whatsapp
     ? `https://wa.me/${settings.whatsapp}?text=${encodeURIComponent("أهلاً، بتواصل معاكم بخصوص استفسار من المتجر")}`
     : undefined;
@@ -74,8 +75,7 @@ export default function ChatBot() {
       const data = await res.json();
       
       if (res.ok && data.reply) {
-        // ✅ التعديل هنا: إضافة ( || "" ) لضمان أن النص سيكون string ولن يعترض TypeScript
-        setMessages((prev) => [...prev, { role: "model", text: data.reply || "عذراً، لم أفهم الرد." }]);
+        setMessages((prev) => [...prev, { role: "model", text: data.reply || "" }]);
       } else {
         setMessages((prev) => [...prev, { role: "model", text: "عذراً يا دكتور، يرجى المحاولة بعد لحظات 🦷" }]);
       }
@@ -177,6 +177,21 @@ export default function ChatBot() {
                 <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="اكتب سؤالك الطبي أو اسم الصنف..." disabled={loading} className="flex-1 rounded-xl border border-[var(--line-3)] bg-[var(--fill-2,#0f172a)] px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-volt-500/50 disabled:opacity-50" />
                 <button type="submit" disabled={loading || !input.trim()} className="grid size-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-volt-400 to-volt-600 text-white disabled:opacity-40 active:scale-95"><Send className="size-4" /></button>
               </form>
+            )}
+
+            {/* ✅ استخدام المتغير waLink عشان TypeScript ميزعلش */}
+            {view.screen === "ai" && waLink && (
+              <div className="border-t border-[var(--line-2)] p-2.5 bg-[var(--fill-1,transparent)]">
+                <a
+                  href={waLink}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-l from-emerald-500 to-emerald-600 py-2 text-xs font-black text-white transition-transform hover:scale-[1.02]"
+                >
+                  <MessageCircle className="size-3.5" />
+                  تحدث مع المبيعات واتساب
+                </a>
+              </div>
             )}
 
           </motion.div>
