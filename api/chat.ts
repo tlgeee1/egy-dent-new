@@ -7,141 +7,190 @@ import { policyPages } from "../src/data/policies.js";
 const app = getApps().length ? getApps()[0]! : initializeApp(firebaseConfig);
 const liteDb = getFirestore(app);
 
-let storeCache: { prompt: string; products: Product[]; expiresAt: number } | null = null;
-const TTL = 180_000;
+const MODELS = ["gemini-2.0-flash", "gemini-flash-latest", "gemini-3.8-flash"];
+const WA = "01151605515";
+let cache: {
+  products: Product[];
+  catNames: Record<string, string>;
+  prompt: string;
+  at: number;
+} | null = null;
+const TTL = 120_000;
 
-async function getStoreData() {
-  if (storeCache && storeCache.expiresAt > Date.now()) return storeCache;
+function norm(s: string) {
+  return s
+    .toLowerCase()
+    .replace(/[أإآ]/g, "ا")
+    .replace(/ة/g, "ه")
+    .replace(/ى/g, "ي")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
-  const snap = await getDocs(collection(liteDb, "products"));
-  const products = snap.empty ? DEFAULT_PRODUCTS : snap.docs.map((d) => d.data() as Product);
+async function loadStore() {
+  if (cache && Date.now() - cache.at < TTL) return cache;
 
-  const productLines = products
-    .filter((p) => !p.showcaseOnly)
-    .map((p) => `- ${p.name}: ${p.price} جنيه`)
-    .join("\n");
+  let products = DEFAULT_PRODUCTS;
+  let categories = DEFAULT_CATEGORIES;
+  try {
+    const [pSnap, cSnap] = await Promise.all([
+      getDocs(collection(liteDb, "products")),
+      getDocs(collection(liteDb, "categories")),
+    ]);
+    if (!pSnap.empty) products = pSnap.docs.map((d) => d.data() as Product);
+    if (!cSnap.empty) categories = cSnap.docs.map((d) => d.data() as Category);
+  } catch {
+    /* defaults */
+  }
 
-  const prompt = `أنت "مساعد إيجي دنت الذكي" لمتجر مستلزمات طب الأسنان في مصر.
-1. رد بالعامية المصرية بوضوح واختصار.
-2. يمنع منعاً باتاً ذكر أي سعر لمنتج من خارج القائمة.
-3. للتواصل: واتساب 01151605515.
+  products = products.filter((p) => !p.showcaseOnly);
+  const catNames: Record<string, string> = {};
+  categories.forEach((c) => {
+    catNames[c.id] = c.name;
+  });
+
+  const productLines = products.map((p) => `- ${p.name} (${catNames[p.cat] ?? ""}): ${p.price}ج`).join("\n");
+  const policyText = Object.values(policyPages)
+    .map((page) => page.title)
+    .join("، ");
+
+  const prompt = `أنت مساعد إيجي دنت الذكي: طبيب أسنان ومستشار مبيعات المتجر.
+- عامية مصرية راقية، خطوات مرقمة للأسئلة الطبية (كافتي، بوند، ألجينيت...).
+- الأسعار والأصناف من القائمة فقط. ممنوع تخترع.
+- لو سأل "عندكم منتجات إيه" أو عرض عام: لخّص الفئات واذكر 8–12 صنف بأسعارهم من القائمة، ومتقلوش اكتب الاسم بوضوح من غير ما تعرض حاجة.
+- واتساب ${WA}. فروع: مدينة نصر، القصر العيني، 6 أكتوبر. سياسات: ${policyText}.
+
 المنتجات:
 ${productLines}`;
 
-  storeCache = { prompt, products, expiresAt: Date.now() + TTL };
-  return storeCache;
+  cache = { products, catNames, prompt, at: Date.now() };
+  return cache;
 }
 
-// 🧠 المحرك الذكي المحلي (متبرمج يفهم كلام البشر)
-function smartContextFallback(currentMsg: string, history: any[], products: Product[]): string {
-  const q = currentMsg.toLowerCase().trim();
+function formatList(items: Product[], max = 12) {
+  return items
+    .slice(0, max)
+    .map((p) => `• ${p.name} — ${p.price} ج`)
+    .join("\n");
+}
 
-  // 1. الرد على التحية
-  if (/(سلام|أهلا|اهلا|ازيك|مرحبا|صباح|مساء)/.test(q) && q.length < 20) {
-    return `وعليكم السلام يا دكتور! أهلاً بك في إيجي دنت 🦷\nأقدر أساعدك في أسعار الخامات، طرق الاستخدام، أو تفاصيل الشحن. اسألني عن أي حاجة!`;
-  }
+function catalogReply(store: NonNullable<typeof cache>) {
+  const byCat: Record<string, Product[]> = {};
+  store.products.forEach((p) => {
+    const k = store.catNames[p.cat] || "أصناف";
+    if (!byCat[k]) byCat[k] = [];
+    if (byCat[k].length < 3) byCat[k].push(p);
+  });
+  const cats = Object.keys(byCat);
+  const lines = cats
+    .slice(0, 8)
+    .map((c) => `${c}:\n${formatList(byCat[c], 3)}`)
+    .join("\n\n");
+  return `أهلاً يا دكتور، دي عينة من أصناف إيجي دنت:\n\n${lines}\n\nاكتب اسم الصنف أو الفئة وأجيبلك الباقي بالسعر.\nواتساب ${WA}`;
+}
 
-  // 2. الأسئلة الطبية وطرق الاستخدام (مثل الألجينات والبوند)
-  if ((q.includes("جينيت") || q.includes("الجات")) && (q.includes("طريق") || q.includes("عجين") || q.includes("مقادير") || q.includes("عمل"))) {
-    return `يا دكتور، مقادير وطريقة خلط الألجينات (Alginate) المظبوطة:
-1. المقاس القياسي: مكيال بودرة واحد (Scoop) قصاده مكيال مياه واحد (وفقاً للعبوة).
-2. الخلط (Spatulation): اخلط بسرعة وبقوة في اتجاه جدار المطاط (Rubber bowl) لمدة 30-45 ثانية لحد ما العجينة تبقى ناعمة جداً (Creamy) ومفيهاش فقاعات.
-3. حطها في التراي وخد المقاس فوراً.
+function searchProducts(q: string, products: Product[]) {
+  const nq = norm(q);
+  const words = nq.split(" ").filter((w) => w.length >= 3);
+  return products
+    .map((p) => {
+      const n = norm(p.name);
+      let s = 0;
+      words.forEach((w) => {
+        if (n.includes(w)) s += 4;
+      });
+      return { p, s };
+    })
+    .filter((x) => x.s >= 4)
+    .sort((a, b) => b.s - a.s)
+    .map((x) => x.p);
+}
 
-لو محتاج تعرف أسعار الألجينات المتاحة عندنا، اكتب "أسعار الألجينات" 🦷`;
-  }
-
-  if (q.includes("بوند") && (q.includes("طريق") || q.includes("استخدام"))) {
-    return `طريقة استخدام البوند الصح يا دكتور:
-1. اغسل وجفف السِنة (خلي العاج Moist وماتنشفوش للآخر).
-2. حط طبقة البوند ووزعها بالهوا برفق لمدة 5 ثواني عشان تطير المذيبات.
-3. اعمل Light Cure لمدة 10-20 ثانية.`;
-  }
-
-  // 3. تحليل سياق "إيه تاني؟"
-  let searchTarget = q;
-  const moreKeywords = ["تاني", "انواع", "غيره", "مفيش", "ايه كمان"];
-  const isAskingForMore = moreKeywords.some(w => q.includes(w)) && q.split(" ").length <= 5;
-
-  if (isAskingForMore && history.length > 0) {
-    // لو قال "إيه تاني"، هنجيب آخر سؤال سأله الدكتور بس وندور بيه
-    const lastUserMsg = history.reverse().find(h => h.role === "user");
-    if (lastUserMsg) searchTarget = lastUserMsg.text.toLowerCase();
-  }
-
-  // 4. محرك البحث في المنتجات
-  const stopWords = ["عايز", "بكام", "عندكم", "سعر", "لو", "سمحت", "فيه", "تاني", "انواع", "مفيش"];
-  const searchWords = searchTarget.split(" ").filter(w => w.length > 2 && !stopWords.includes(w));
-
-  if (searchWords.length > 0) {
-    const matched = products.filter(p => {
-      if (p.showcaseOnly) return false;
-      const pName = p.name.toLowerCase();
-      // بيبحث عن أي كلمة مهمة في اسم المنتج
-      return searchWords.some(w => pName.includes(w));
-    });
-
-    if (matched.length > 0) {
-      const limit = isAskingForMore ? 10 : 4; // لو سأل "إيه تاني" نعرضله 10 منتجات بدل 4
-      const list = matched.slice(0, limit).map(p => `• ${p.name} — ${p.price} ج`).join("\n");
-      const intro = isAskingForMore ? "بناءً على طلبك، دي كل الأنواع المتاحة عندنا من الصنف ده:" : "دي أسعار الأصناف المتاحة عندنا فوراً بناءً على سؤالك:";
-      return `${intro}\n\n${list}\n\nللحجز تواصل واتساب: 01151605515 🦷`;
+async function askGemini(apiKey: string, prompt: string, question: string): Promise<string | null> {
+  for (const model of MODELS) {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 12000);
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [{ text: `${prompt}\n\nسؤال الدكتور: ${question}` }] }],
+            generationConfig: { temperature: 0.35, maxOutputTokens: 700 },
+          }),
+          signal: ctrl.signal,
+        }
+      );
+      clearTimeout(t);
+      if (!response.ok) continue;
+      const data = (await response.json()) as {
+        candidates?: { content?: { parts?: { text?: string }[] } }[];
+      };
+      const reply = data.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("").trim();
+      if (reply && !reply.includes("اكتب اسم الصنف بوضوح")) return reply;
+    } catch {
+      continue;
     }
   }
-
-  // 5. الرد الافتراضي لو مفهمش خالص
-  return `أهلاً بك يا دكتور! عشان أقدر أفيدك بدقة، يرجى كتابة اسم الصنف بوضوح (مثل: كمبوزيت شوفو، أو الجينيت)، أو التواصل مع المبيعات على واتساب: 01151605515 🦷`;
+  return null;
 }
 
-export default async function handler(req: any, res: any) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+export default async function handler(
+  req: { method?: string; body?: { message?: string } },
+  res: { status: (n: number) => { json: (b: unknown) => void } }
+) {
+  if (req.method !== "POST") {
+    res.status(405).json({ error: "Method not allowed" });
+    return;
+  }
+  const message = req.body?.message;
+  if (!message || typeof message !== "string") {
+    res.status(400).json({ error: "الرسالة مطلوبة" });
+    return;
+  }
+
+  const store = await loadStore();
+  const q = message.trim();
+  const nq = norm(q);
+
+  if (/(السلام|اهلا|ازيك|مرحبا)/.test(nq) && nq.split(" ").length <= 5) {
+    res.status(200).json({
+      reply: `وعليكم السلام يا دكتور 🦷\nأقدر أساعدك في طريقة الاستخدام أو الأسعار. اسأل مثلاً: كافتي إزاي؟ أو كمبوزيت شوفو بكام؟`,
+    });
+    return;
+  }
+
+  if (/(منتجات ايه|عندكم ايه|اصناف|عرض|كتالوج|منتجاتكم)/.test(nq) && nq.length < 40) {
+    res.status(200).json({ reply: catalogReply(store) });
+    return;
+  }
+
+  const hits = searchProducts(q, store.products);
+  const wantPrice = /(بكام|سعر|عندكم|كمبوز|بوند|جوان|شوفو|الجين)/.test(nq);
+  if (wantPrice && hits.length && !/(ازاي|طريقه|كافتي|cavity|تحضير)/.test(nq)) {
+    res.status(200).json({
+      reply: `الأصناف المتاحة:\n\n${formatList(hits, 10)}\n\nواتساب ${WA}`,
+    });
+    return;
+  }
 
   const apiKey = process.env.GEMINI_API_KEY?.trim();
-  const { message, history } = req.body || {};
-
-  if (!message) return res.status(400).json({ error: "الرسالة مطلوبة" });
-
-  const { prompt: systemPrompt, products } = await getStoreData();
-  const safeHistory = Array.isArray(history) ? history : [];
-
-  if (!apiKey) {
-    return res.status(200).json({ reply: smartContextFallback(message, safeHistory, products) });
+  if (apiKey) {
+    const ai = await askGemini(apiKey, store.prompt, q);
+    if (ai) {
+      res.status(200).json({ reply: ai });
+      return;
+    }
   }
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 4000); 
-
-  try {
-    const contents: any[] = [];
-    for (const h of safeHistory.slice(-4)) {
-      if (h?.text?.trim()) {
-        contents.push({ role: h.role === "user" ? "user" : "model", parts: [{ text: h.text.trim() }] });
-      }
-    }
-    contents.push({ role: "user", parts: [{ text: message.trim() }] });
-
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: systemPrompt }] },
-        contents: contents,
-        generationConfig: { temperature: 0.1, maxOutputTokens: 300 },
-      }),
-      signal: controller.signal
+  if (hits.length) {
+    res.status(200).json({
+      reply: `الأصناف المتاحة:\n\n${formatList(hits, 10)}\n\nواتساب ${WA}`,
     });
-
-    clearTimeout(timeoutId);
-    const data = await response.json();
-
-    if (response.ok) {
-      const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-      return res.status(200).json({ reply: reply || "أهلاً بك يا دكتور! كيف يمكنني مساعدتك؟ 🦷" });
-    } else {
-      return res.status(200).json({ reply: smartContextFallback(message, safeHistory, products) });
-    }
-  } catch (err: any) {
-    clearTimeout(timeoutId);
-    return res.status(200).json({ reply: smartContextFallback(message, safeHistory, products) });
+    return;
   }
+
+  res.status(200).json({ reply: catalogReply(store) });
 }
