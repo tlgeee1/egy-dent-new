@@ -16,52 +16,81 @@ async function getStoreData() {
   const snap = await getDocs(collection(liteDb, "products"));
   const products = snap.empty ? DEFAULT_PRODUCTS : snap.docs.map((d) => d.data() as Product);
 
-  const catSnap = await getDocs(collection(liteDb, "categories"));
-  const categories = catSnap.empty ? DEFAULT_CATEGORIES : catSnap.docs.map((d) => d.data() as Category);
-  const catNames: Record<string, string> = {};
-  categories.forEach((c) => (catNames[c.id] = c.name));
-
   const productLines = products
     .filter((p) => !p.showcaseOnly)
-    .map((p) => `- ${p.name}: ${p.price} جنيه مصرى`)
+    .map((p) => `- ${p.name}: ${p.price} جنيه`)
     .join("\n");
 
   const prompt = `أنت "مساعد إيجي دنت الذكي" لمتجر مستلزمات طب الأسنان في مصر.
-تعليماتك الصارمة:
-1. أنت طبيب أسنان خبير، تجيب بالعامية المصرية بوضوح واختصار.
-2. ⚠️ تحذير: يمنع منعاً باتاً ذكر أي سعر لأي منتج من خارج القائمة التالية.
-3. إذا سألك المستخدم عن "أنواع أخرى" أو "إيه تاني"، اذكر له جميع المنتجات المشابهة المتاحة في القائمة.
-4. إذا سألك عن منتج غير موجود، قل: "عذراً يا دكتور، الصنف ده مش متوفر حالياً، تواصل مع المبيعات على واتساب 01151605515".
-5. للتواصل وحجز الأوردرات: واتساب 01151605515.
-
-المنتجات والأسعار المتاحة:
+1. رد بالعامية المصرية بوضوح واختصار.
+2. يمنع منعاً باتاً ذكر أي سعر لمنتج من خارج القائمة.
+3. للتواصل: واتساب 01151605515.
+المنتجات:
 ${productLines}`;
 
   storeCache = { prompt, products, expiresAt: Date.now() + TTL };
   return storeCache;
 }
 
-// 🚀 محرك بحث ذكي "بذاكرة" بيفتكر سياق الكلام
+// 🧠 المحرك الذكي المحلي (متبرمج يفهم كلام البشر)
 function smartContextFallback(currentMsg: string, history: any[], products: Product[]): string {
-  // تجميع كل الكلام اللي اتقال في الشات عشان يفهم هو بيسأل على "إيه تاني" في أنهي صنف
-  const fullContext = [...history.map(h => h.text), currentMsg].join(" ").toLowerCase();
-  
-  // استخراج الكلمات المهمة
-  const searchWords = fullContext.split(" ").filter(w => w.length > 3 && w !== "عايز" && w !== "تاني" && w !== "انواع" && w !== "مفيش");
-  
-  const matched = products.filter(p => {
-    if (p.showcaseOnly) return false;
-    const pName = p.name.toLowerCase();
-    return searchWords.some(w => pName.includes(w));
-  });
+  const q = currentMsg.toLowerCase().trim();
 
-  if (matched.length > 0) {
-    // لو سأل "إيه تاني؟" هيجيبله كل الأنواع (لحد 10 أنواع)
-    const list = matched.slice(0, 10).map(p => `• ${p.name} — ${p.price} ج`).join("\n");
-    return `بناءً على استفسارك يا دكتور، دي كل الأصناف المتاحة عندنا من النوع ده:\n\n${list}\n\nللحجز تواصل واتساب: 01151605515 🦷`;
+  // 1. الرد على التحية
+  if (/(سلام|أهلا|اهلا|ازيك|مرحبا|صباح|مساء)/.test(q) && q.length < 20) {
+    return `وعليكم السلام يا دكتور! أهلاً بك في إيجي دنت 🦷\nأقدر أساعدك في أسعار الخامات، طرق الاستخدام، أو تفاصيل الشحن. اسألني عن أي حاجة!`;
   }
 
-  return `أهلاً بك يا دكتور! عشان أقدر أفيدك بدقة أكبر في الأسعار، يرجى التواصل مع المبيعات مباشرة على واتساب: 01151605515 🦷`;
+  // 2. الأسئلة الطبية وطرق الاستخدام (مثل الألجينات والبوند)
+  if ((q.includes("جينيت") || q.includes("الجات")) && (q.includes("طريق") || q.includes("عجين") || q.includes("مقادير") || q.includes("عمل"))) {
+    return `يا دكتور، مقادير وطريقة خلط الألجينات (Alginate) المظبوطة:
+1. المقاس القياسي: مكيال بودرة واحد (Scoop) قصاده مكيال مياه واحد (وفقاً للعبوة).
+2. الخلط (Spatulation): اخلط بسرعة وبقوة في اتجاه جدار المطاط (Rubber bowl) لمدة 30-45 ثانية لحد ما العجينة تبقى ناعمة جداً (Creamy) ومفيهاش فقاعات.
+3. حطها في التراي وخد المقاس فوراً.
+
+لو محتاج تعرف أسعار الألجينات المتاحة عندنا، اكتب "أسعار الألجينات" 🦷`;
+  }
+
+  if (q.includes("بوند") && (q.includes("طريق") || q.includes("استخدام"))) {
+    return `طريقة استخدام البوند الصح يا دكتور:
+1. اغسل وجفف السِنة (خلي العاج Moist وماتنشفوش للآخر).
+2. حط طبقة البوند ووزعها بالهوا برفق لمدة 5 ثواني عشان تطير المذيبات.
+3. اعمل Light Cure لمدة 10-20 ثانية.`;
+  }
+
+  // 3. تحليل سياق "إيه تاني؟"
+  let searchTarget = q;
+  const moreKeywords = ["تاني", "انواع", "غيره", "مفيش", "ايه كمان"];
+  const isAskingForMore = moreKeywords.some(w => q.includes(w)) && q.split(" ").length <= 5;
+
+  if (isAskingForMore && history.length > 0) {
+    // لو قال "إيه تاني"، هنجيب آخر سؤال سأله الدكتور بس وندور بيه
+    const lastUserMsg = history.reverse().find(h => h.role === "user");
+    if (lastUserMsg) searchTarget = lastUserMsg.text.toLowerCase();
+  }
+
+  // 4. محرك البحث في المنتجات
+  const stopWords = ["عايز", "بكام", "عندكم", "سعر", "لو", "سمحت", "فيه", "تاني", "انواع", "مفيش"];
+  const searchWords = searchTarget.split(" ").filter(w => w.length > 2 && !stopWords.includes(w));
+
+  if (searchWords.length > 0) {
+    const matched = products.filter(p => {
+      if (p.showcaseOnly) return false;
+      const pName = p.name.toLowerCase();
+      // بيبحث عن أي كلمة مهمة في اسم المنتج
+      return searchWords.some(w => pName.includes(w));
+    });
+
+    if (matched.length > 0) {
+      const limit = isAskingForMore ? 10 : 4; // لو سأل "إيه تاني" نعرضله 10 منتجات بدل 4
+      const list = matched.slice(0, limit).map(p => `• ${p.name} — ${p.price} ج`).join("\n");
+      const intro = isAskingForMore ? "بناءً على طلبك، دي كل الأنواع المتاحة عندنا من الصنف ده:" : "دي أسعار الأصناف المتاحة عندنا فوراً بناءً على سؤالك:";
+      return `${intro}\n\n${list}\n\nللحجز تواصل واتساب: 01151605515 🦷`;
+    }
+  }
+
+  // 5. الرد الافتراضي لو مفهمش خالص
+  return `أهلاً بك يا دكتور! عشان أقدر أفيدك بدقة، يرجى كتابة اسم الصنف بوضوح (مثل: كمبوزيت شوفو، أو الجينيت)، أو التواصل مع المبيعات على واتساب: 01151605515 🦷`;
 }
 
 export default async function handler(req: any, res: any) {
@@ -70,12 +99,9 @@ export default async function handler(req: any, res: any) {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   const { message, history } = req.body || {};
 
-  if (!message || typeof message !== "string") {
-    return res.status(400).json({ error: "الرسالة مطلوبة" });
-  }
+  if (!message) return res.status(400).json({ error: "الرسالة مطلوبة" });
 
   const { prompt: systemPrompt, products } = await getStoreData();
-
   const safeHistory = Array.isArray(history) ? history : [];
 
   if (!apiKey) {
@@ -83,7 +109,7 @@ export default async function handler(req: any, res: any) {
   }
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 6000); // 6 ثواني فقط
+  const timeoutId = setTimeout(() => controller.abort(), 4000); 
 
   try {
     const contents: any[] = [];
@@ -94,33 +120,16 @@ export default async function handler(req: any, res: any) {
     }
     contents.push({ role: "user", parts: [{ text: message.trim() }] });
 
-    // 💡 التجربة الأولى: الموديل الحديث
-    let targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-    
-    let response = await fetch(targetUrl, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: systemPrompt }] },
         contents: contents,
-        generationConfig: { temperature: 0.2, maxOutputTokens: 500 },
+        generationConfig: { temperature: 0.1, maxOutputTokens: 300 },
       }),
       signal: controller.signal
     });
-
-    // 💡 لو الموديل الحديث مش متاح على مفتاحك، هيجرب الموديل الأقدم المضمون (gemini-pro)
-    if (response.status === 404) {
-      targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`;
-      response = await fetch(targetUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: `${systemPrompt}\n\n${message.trim()}` }] }], // gemini-pro القديم مش بيقبل systemInstruction منفصل
-          generationConfig: { temperature: 0.2, maxOutputTokens: 500 },
-        }),
-        signal: controller.signal
-      });
-    }
 
     clearTimeout(timeoutId);
     const data = await response.json();
@@ -129,12 +138,10 @@ export default async function handler(req: any, res: any) {
       const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
       return res.status(200).json({ reply: reply || "أهلاً بك يا دكتور! كيف يمكنني مساعدتك؟ 🦷" });
     } else {
-      // لو جوجل قفلت خالص، الرد الذكي اللي بذاكرة هيشتغل
       return res.status(200).json({ reply: smartContextFallback(message, safeHistory, products) });
     }
   } catch (err: any) {
     clearTimeout(timeoutId);
-    // لو النت فصل أو الوقت خلص، الرد الذكي اللي بذاكرة هيشتغل
     return res.status(200).json({ reply: smartContextFallback(message, safeHistory, products) });
   }
 }
