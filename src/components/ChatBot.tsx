@@ -1,112 +1,327 @@
-import { initializeApp, getApps } from "firebase/app";
-import { getFirestore, collection, getDocs } from "firebase/firestore/lite";
-import { firebaseConfig } from "../src/lib/firebaseConfig.js";
-import { DEFAULT_CATEGORIES, DEFAULT_PRODUCTS, type Category, type Product } from "../src/data/data.js";
-import { policyPages } from "../src/data/policies.js";
+import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { MessageCircle, X, ChevronRight, Send, Loader2, Sparkles } from "lucide-react";
+import { useStore } from "@/context/StoreContext";
 
-const app = getApps().length ? getApps()[0]! : initializeApp(firebaseConfig);
-const liteDb = getFirestore(app);
+const FAQS: { q: string; a: string }[] = [
+  {
+    q: "التوصيل بياخد قد إيه؟",
+    a: "التوصيل بيوصل خلال 24-48 ساعة للقاهرة والجيزة، و 2-4 أيام عمل لباقي المحافظات.",
+  },
+  {
+    q: "المنتجات أصلية ومضمونة؟",
+    a: "أيوه، كل منتجاتنا أصلية 100% ومستوردة من وكلاء معتمدين، ومضمونة بالكامل.",
+  },
+  {
+    q: "طرق الدفع المتاحة إيه؟",
+    a: "متاح الدفع عند الاستلام (كاش)، فودافون كاش، انستاباي، والتحويلات البنكية.",
+  },
+  {
+    q: "الشحن مجاني؟",
+    a: "الشحن مجاني للطلبات الكبيرة اللي بتتعدى الحد الأدنى المحدد في المتجر.",
+  },
+  {
+    q: "سياسة الاستبدال والإرجاع؟",
+    a: "متاح الاسترجاع والاستبدال خلال 14 يوم من الاستلام طالما المنتج في عبوته الأصلية السليمة.",
+  },
+];
 
-const MODELS = ["gemini-2.0-flash", "gemini-flash-latest", "gemini-3.8-flash"];
+type ChatMsg = { role: "user" | "model"; text: string };
+type View = { screen: "menu" } | { screen: "answer"; index: number } | { screen: "ai" };
 
-let promptCache: { prompt: string; expiresAt: number } | null = null;
-const TTL = 300_000;
+export default function ChatBot() {
+  const { settings, orders } = useStore();
+  const [open, setOpen] = useState(false);
+  const [view, setView] = useState<View>({ screen: "menu" });
+  const [messages, setMessages] = useState<ChatMsg[]>([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
-async function fetchWithTimeout(url: string, options: RequestInit, ms = 8000) {
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), ms);
-  try {
-    return await fetch(url, { ...options, signal: ctrl.signal });
-  } finally {
-    clearTimeout(t);
-  }
-}
+  const waLink = settings.whatsapp
+    ? `https://wa.me/${settings.whatsapp}?text=${encodeURIComponent("أهلاً، بتواصل معاكم بخصوص استفسار من المتجر")}`
+    : undefined;
 
-async function buildSystemPrompt(): Promise<string> {
-  if (promptCache && promptCache.expiresAt > Date.now()) return promptCache.prompt;
+  const toggle = () => {
+    setOpen((v) => !v);
+    if (open) setView({ screen: "menu" });
+  };
 
-  let products = DEFAULT_PRODUCTS;
-  let categories = DEFAULT_CATEGORIES;
-  try {
-    const [pSnap, cSnap] = await Promise.all([
-      getDocs(collection(liteDb, "products")),
-      getDocs(collection(liteDb, "categories")),
-    ]);
-    if (!pSnap.empty) products = pSnap.docs.map((d) => d.data() as Product);
-    if (!cSnap.empty) categories = cSnap.docs.map((d) => d.data() as Category);
-  } catch {}
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, loading, view]);
 
-  const catNames: Record<string, string> = {};
-  categories.forEach((c) => (catNames[c.id] = c.name));
+  const handleSend = async (textToSend?: string) => {
+    const queryText = (textToSend || input).trim();
+    if (!queryText || loading) return;
 
-  const productLines = products
-    .filter((p) => !p.showcaseOnly)
-    .map((p) => `- ${p.name} (${catNames[p.cat] ?? p.cat}): ${p.price} جنيه`)
-    .join("\n");
+    setMessages((prev) => [...prev, { role: "user", text: queryText }]);
+    if (!textToSend) setInput("");
+    setLoading(true);
 
-  const policyText = Object.values(policyPages)
-    .map((page) =>
-      `## ${page.title}\n` +
-      page.sections.map((s) => [s.heading, s.body, ...(s.bullets ?? [])].filter(Boolean).join(" — ")).join("\n")
-    )
-    .join("\n\n");
+    const qLower = queryText.toLowerCase();
+    if (qLower.includes("eg-")) {
+      const foundOrder = orders.find(
+        (o) => o.id.toLowerCase() === qLower || qLower.includes(o.id.toLowerCase())
+      );
+      if (foundOrder) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "model",
+            text: `📦 بيانات طلبك رقم (${foundOrder.id}):\n• العميل: ${foundOrder.customer.name}\n• العيادة: ${foundOrder.customer.clinic}\n• الإجمالي: ${foundOrder.total} ج\n• الحالة: [ ${foundOrder.status} ]`,
+          },
+        ]);
+        setLoading(false);
+        return;
+      }
+    }
 
-  const prompt = `أنت مساعد متجر إيجي دنت لمستلزمات الأسنان في مصر.
-رد بالعامية المصرية، مختصر.
-استخدم المنتجات والأسعار التالية فقط. ممنوع تخترع سعر.
-واتساب: 01151605515.
+    const ctrl = new AbortController();
+    const timer = window.setTimeout(() => ctrl.abort(), 20000);
 
-المنتجات:
-${productLines}
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: queryText,
+          history: messages.slice(-6),
+        }),
+        signal: ctrl.signal,
+      });
 
-السياسات:
-${policyText}
-فروع: مدينة نصر، القصر العيني، 6 أكتوبر.`;
+      const data = (await res.json()) as { reply?: string; error?: string };
+      if (res.ok && data.reply) {
+        setMessages((prev) => [...prev, { role: "model", text: data.reply }]);
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          { role: "model", text: data.error || "تعذر الرد حالياً، يرجى المحاولة مرة أخرى." },
+        ]);
+      }
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        { role: "model", text: "الاتصال اتأخر. ابعت تاني أو كلمنا واتساب." },
+      ]);
+    } finally {
+      window.clearTimeout(timer);
+      setLoading(false);
+    }
+  };
 
-  promptCache = { prompt, expiresAt: Date.now() + TTL };
-  return prompt;
-}
+  return (
+    <>
+      <button
+        onClick={toggle}
+        aria-label={open ? "إغلاق الشات" : "افتح المساعد الذكي"}
+        className="fixed bottom-24 right-5 z-[150] grid size-14 place-items-center rounded-2xl bg-gradient-to-br from-volt-400 to-volt-600 text-white shadow-[0_12px_32px_rgba(34,211,238,0.4)] transition-transform hover:scale-105 active:scale-95 sm:bottom-6 sm:right-6"
+      >
+        <AnimatePresence mode="wait" initial={false}>
+          {open ? (
+            <motion.span key="x" initial={{ scale: 0, rotate: -90 }} animate={{ scale: 1, rotate: 0 }} exit={{ scale: 0 }}>
+              <X className="size-6" />
+            </motion.span>
+          ) : (
+            <motion.span key="c" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0, rotate: 90 }}>
+              <MessageCircle className="size-6" />
+            </motion.span>
+          )}
+        </AnimatePresence>
+      </button>
 
-async function askModel(apiKey: string, model: string, prompt: string, question: string): Promise<string> {
-  const response = await fetchWithTimeout(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: `${prompt}\n\nسؤال الدكتور: ${question}` }] }],
-        generationConfig: { temperature: 0.3, maxOutputTokens: 400 },
-      }),
-    },
-    8000
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: 30, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 350, damping: 30 }}
+            className="fixed bottom-40 right-5 z-[150] flex w-[92vw] max-w-sm flex-col overflow-hidden rounded-[1.75rem] border border-[var(--line-3)] bg-[var(--bg-elevated,#090d16)] shadow-2xl sm:bottom-24 sm:right-6"
+          >
+            <div className="flex items-center justify-between border-b border-[var(--line-2)] bg-gradient-to-l from-volt-500/15 via-transparent to-transparent p-4">
+              <div className="flex items-center gap-3">
+                <span className="grid size-10 place-items-center rounded-xl bg-gradient-to-br from-volt-400 to-volt-700 shadow-[0_4px_16px_rgba(34,211,238,0.3)]">
+                  <Sparkles className="size-5 text-white" />
+                </span>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <p className="font-display text-sm font-black text-[var(--text-primary)]">مساعد إيجي دنت الذكي</p>
+                    <span className="rounded-full bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-bold text-emerald-400">AI Live</span>
+                  </div>
+                  <p className="text-[11px] text-[var(--text-secondary,#94a3b8)]">مدعوم بالذكاء الاصطناعي الطبي</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="max-h-[22rem] min-h-[17rem] overflow-y-auto p-4">
+              {view.screen === "menu" && (
+                <div className="space-y-3">
+                  <div className="rounded-2xl border border-volt-500/30 bg-volt-500/10 p-3 text-xs text-[var(--text-primary)]">
+                    <p className="font-bold text-volt-400">أهلاً بك يا دكتور! 🦷</p>
+                    <p className="mt-1 leading-relaxed text-[var(--text-secondary,#94a3b8)]">
+                      تقدر تسألني أي سؤال طبي أو تجاري عن الخامات والأسعار والاستخدامات:
+                    </p>
+                  </div>
+                  <div className="space-y-1.5">
+                    {FAQS.map((f, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setView({ screen: "answer", index: i })}
+                        className="flex w-full items-center justify-between rounded-xl border border-[var(--line-3)] bg-[var(--fill-2,#0f172a)] px-3.5 py-2.5 text-right text-xs font-bold text-[var(--text-primary)] transition-colors hover:border-volt-500/50 hover:text-volt-400"
+                      >
+                        {f.q}
+                        <ChevronRight className="size-3.5 rotate-180 text-[var(--text-secondary,#64748b)]" />
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => setView({ screen: "ai" })}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-l from-volt-500 to-volt-700 py-3 text-xs font-black text-white shadow-[0_4px_16px_rgba(34,211,238,0.35)] transition-transform hover:scale-[1.02]"
+                  >
+                    <MessageCircle className="size-4 text-white" />
+                    اسأل الذكاء الاصطناعي الآن
+                  </button>
+                </div>
+              )}
+
+              {view.screen === "answer" && (
+                <div className="space-y-3">
+                  <button
+                    onClick={() => setView({ screen: "menu" })}
+                    className="flex items-center gap-1 text-xs font-bold text-[var(--text-secondary,#94a3b8)] hover:text-volt-400"
+                  >
+                    <ChevronRight className="size-3.5" />
+                    رجوع للأسئلة
+                  </button>
+                  <div className="rounded-2xl border border-[var(--line-3)] bg-[var(--fill-2,#0f172a)] p-4">
+                    <p className="font-display text-sm font-black text-volt-400">{FAQS[view.index].q}</p>
+                    <p className="mt-2 text-xs leading-relaxed text-[var(--text-primary)]">{FAQS[view.index].a}</p>
+                  </div>
+                  <button
+                    onClick={() => setView({ screen: "ai" })}
+                    className="w-full rounded-xl border border-[var(--line-3)] py-2 text-xs font-bold text-[var(--text-primary)] hover:bg-[var(--fill-3,#1e293b)]"
+                  >
+                    اسأل الذكاء الاصطناعي سؤالاً آخر
+                  </button>
+                </div>
+              )}
+
+              {view.screen === "ai" && (
+                <div className="flex h-full flex-col">
+                  <div className="mb-3 flex items-center justify-between border-b border-[var(--line-2)] pb-2">
+                    <button
+                      onClick={() => setView({ screen: "menu" })}
+                      className="flex items-center gap-1 text-xs font-bold text-[var(--text-secondary,#94a3b8)] hover:text-volt-400"
+                    >
+                      <ChevronRight className="size-3.5" />
+                      رجوع للقائمة
+                    </button>
+                    <span className="text-[10px] text-[var(--text-secondary,#64748b)]">Gemini AI Active</span>
+                  </div>
+
+                  {messages.length === 0 && (
+                    <div className="my-auto space-y-2 py-4 text-center">
+                      <Sparkles className="mx-auto size-8 animate-pulse text-volt-400" />
+                      <p className="text-xs font-bold text-[var(--text-primary)]">
+                        اسألني عن أي تفصيلة طبية، خامة، استخدام أو مقارنة
+                      </p>
+                      <p className="text-[11px] text-[var(--text-secondary,#94a3b8)]">
+                        مثال: &quot;إزاي أستخدم البوند؟&quot; أو &quot;إيه الفرق بين أنواع السيليكون؟&quot;
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="space-y-3">
+                    {messages.map((m, i) => (
+                      <div key={i} className={m.role === "user" ? "text-left" : "text-right"}>
+                        <div
+                          className={
+                            m.role === "user"
+                              ? "inline-block max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-bl-sm border border-volt-500/40 bg-volt-500/20 px-3.5 py-2.5 text-xs font-medium text-[var(--text-primary)]"
+                              : "inline-block max-w-[95%] whitespace-pre-wrap rounded-2xl rounded-br-sm border border-[var(--line-3)] bg-[var(--fill-2,#0f172a)] p-3 text-xs leading-relaxed text-[var(--text-primary)] shadow-sm"
+                          }
+                        >
+                          <p>{m.text}</p>
+                        </div>
+                      </div>
+                    ))}
+                    {loading && (
+                      <div className="text-right">
+                        <span className="inline-flex items-center gap-2 rounded-2xl border border-[var(--line-3)] bg-[var(--fill-2,#0f172a)] px-3 py-2 text-xs text-[var(--text-primary)]">
+                          <Loader2 className="size-3.5 animate-spin text-volt-400" />
+                          جاري التفكير وصياغة الرد الطبي...
+                        </span>
+                      </div>
+                    )}
+                    <div ref={bottomRef} />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {view.screen === "ai" && (
+              <div className="no-scrollbar flex gap-1.5 overflow-x-auto border-t border-[var(--line-2)]/40 bg-[var(--fill-1,transparent)] px-3 pb-2 pt-1">
+                {[
+                  { label: "🧴 طريقة استخدام البوند", query: "إزاي أستخدم بوند الأسنان بالطريقة الصح؟" },
+                  { label: "🧪 الفرق بين السيليكون", query: "إيه الفرق بين رابر بيز عادي وادشن سيليكون؟" },
+                  { label: "🦷 أفضل كمبوزيت أمامي", query: "إيه أفضل كمبوزيت للأسنان الأمامية عندكم؟" },
+                  { label: "🧤 أسعار الجوانتيات", query: "عندكم جوانتيات إيه وبكام؟" },
+                ].map((chip, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleSend(chip.query)}
+                    className="shrink-0 rounded-full border border-[var(--line-3)] bg-[var(--fill-2,#0f172a)] px-2.5 py-1 text-[10px] font-bold text-[var(--text-primary)] transition-colors hover:border-volt-500/50 hover:text-volt-400"
+                  >
+                    {chip.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {view.screen === "ai" && (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSend();
+                }}
+                className="flex items-center gap-2 border-t border-[var(--line-2)] bg-[var(--fill-1,transparent)] p-3"
+              >
+                <input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="اكتب سؤالك الطبي أو اسم الصنف..."
+                  disabled={loading}
+                  className="flex-1 rounded-xl border border-[var(--line-3)] bg-[var(--fill-2,#0f172a)] px-3 py-2 text-xs text-[var(--text-primary)] outline-none placeholder:text-[var(--text-secondary,#64748b)] focus:border-volt-500/50 disabled:opacity-50"
+                />
+                <button
+                  type="submit"
+                  disabled={loading || !input.trim()}
+                  aria-label="إرسال"
+                  className="grid size-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-volt-400 to-volt-600 text-white transition-transform active:scale-95 disabled:opacity-40"
+                >
+                  <Send className="size-4" />
+                </button>
+              </form>
+            )}
+
+            {waLink && (
+              <div className="border-t border-[var(--line-2)] bg-[var(--fill-1,transparent)] p-2.5">
+                <a
+                  href={waLink}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-l from-emerald-500 to-emerald-600 py-2.5 text-xs font-black text-white shadow-[0_4px_16px_rgba(16,185,129,0.25)] transition-transform hover:scale-[1.01]"
+                >
+                  <MessageCircle className="size-3.5" />
+                  تحدث مع الصيدلي / المبيعات واتساب
+                </a>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
-  const data = await response.json();
-  if (!response.ok) throw new Error(data?.error?.message || String(response.status));
-  const reply = data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("").trim();
-  if (!reply) throw new Error("empty");
-  return reply;
-}
-
-export default async function handler(req: any, res: any) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
-
-  const apiKey = process.env.GEMINI_API_KEY?.trim();
-  const { message } = req.body || {};
-  if (!message || typeof message !== "string") {
-    return res.status(400).json({ error: "الرسالة مطلوبة" });
-  }
-  if (!apiKey) {
-    return res.status(200).json({ reply: "كلمنا واتساب 01151605515 🦷" });
-  }
-
-  try {
-    const prompt = await buildSystemPrompt();
-    const q = message.trim();
-    const reply = await Promise.any(MODELS.map((m) => askModel(apiKey, m, prompt, q)));
-    return res.status(200).json({ reply });
-  } catch {
-    return res.status(200).json({
-      reply: "السيرفر متأخر دلوقتي. ابعت السؤال تاني، أو واتساب 01151605515 🦷",
-    });
-  }
 }
