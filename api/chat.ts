@@ -22,21 +22,21 @@ async function buildSystemPrompt(): Promise<string> {
   const catNames: Record<string, string> = {};
   categories.forEach((c) => (catNames[c.id] = c.name));
 
-  // 🚀 السر هنا: دمجنا "اسم القسم" مع "اسم المنتج" عشان يفهم إن الشوفو ده كمبوزيت
+  // 🚀 دمج اسم القسم مع اسم المنتج عشان الذكاء الاصطناعي يفهمهم
   const productLines = products
     .filter((p) => !p.showcaseOnly)
-    .map((p) => `- قسم (${catNames[p.cat] ?? "أخرى"}): ${p.name} — السعر: ${p.price} جنيه`)
+    .map((p) => `- [قسم ${catNames[p.cat] ?? "أخرى"}]: ${p.name} — السعر: ${p.price} جنيه`)
     .join("\n");
 
   const prompt = `أنت "مساعد إيجي دنت الذكي"، طبيب أسنان محترف ومندوب مبيعات لمتجر إيجي دنت في مصر.
 تعليماتك:
-1. أنت لست روبوتاً آلياً، بل طبيب تدردش مع الأطباء بأسلوب بشري، وودود، وبالعامية المصرية.
-2. إذا سألك العميل عن فئة معينة (مثل: كمبوزيت، بوند، سيليكون)، اعرض له كل المنتجات التي تنتمي لهذا القسم من القائمة أدناه.
-3. اشرح الأسئلة الطبية (كافيتي، حشو، خلط) بأسلوب علمي دقيق.
-4. يمنع منعاً باتاً ذكر أي سعر أو منتج غير موجود في القائمة أدناه. إذا لم تجده قل: "عذراً يا دكتور، الصنف ده مش متاح حالياً".
+1. تحدث بالعامية المصرية الراقية والواضحة.
+2. للأسئلة الطبية (كافيتي، حشو، ألجينات)، اشرح الخطوات الطبية بدقة واختصار.
+3. إذا سألك العميل عن منتجات أو "أنواع"، ابحث في القائمة أدناه، واعرض جميع المنتجات التي تنتمي لنفس القسم.
+4. يمنع منعاً باتاً ذكر أي سعر أو منتج غير موجود في القائمة أدناه.
 5. للتواصل وحجز الأوردرات: واتساب 01151605515.
 
-[دليل المنتجات والأسعار المتاحة لديك]:
+[المنتجات المتاحة وأقسامها وأسعارها]:
 ${productLines}`;
 
   storeCache = { prompt, expiresAt: Date.now() + TTL };
@@ -52,38 +52,44 @@ export default async function handler(req: any, res: any) {
   }
 
   const { message, history } = req.body || {};
-  if (!message || typeof message !== "string") {
-    return res.status(400).json({ error: "الرسالة مطلوبة" });
-  }
+  if (!message) return res.status(400).json({ error: "الرسالة مطلوبة" });
 
   try {
     const systemPrompt = await buildSystemPrompt();
 
-    // 🚀 دمج الأوامر في أول رسالة لتجنب أخطاء الإصدارات
+    // 🚀 تصليح خطأ تكرار الرسائل اللي كان بيخلي جوجل ترفض الطلب
     const contents: any[] = [];
-    
     if (Array.isArray(history) && history.length > 0) {
-      for (const h of history.slice(-4)) {
+      for (const h of history) {
         if (h?.text?.trim()) {
-          contents.push({ role: h.role === "user" ? "user" : "model", parts: [{ text: h.text.trim() }] });
+          const role = h.role === "user" ? "user" : "model";
+          // دمج الرسائل المتتالية لنفس الشخص عشان جوجل مترفضش الطلب
+          if (contents.length > 0 && contents[contents.length - 1].role === role) {
+            contents[contents.length - 1].parts[0].text += `\n${h.text.trim()}`;
+          } else {
+            contents.push({ role, parts: [{ text: h.text.trim() }] });
+          }
         }
       }
-      contents.push({ role: "user", parts: [{ text: message.trim() }] });
-      // حقن الأوامر في الخلفية
-      contents[0].parts[0].text = `[تعليمات النظام الدائمة]:\n${systemPrompt}\n\n[سؤال العميل]:\n${contents[0].parts[0].text}`;
-    } else {
-      contents.push({ role: "user", parts: [{ text: `[تعليمات النظام الدائمة]:\n${systemPrompt}\n\n[سؤال العميل]:\n${message.trim()}` }] });
+    }
+    
+    // التأكد من إضافة الرسالة الحالية لو مش موجودة
+    const lastContent = contents.length > 0 ? contents[contents.length - 1].parts[0].text : "";
+    if (!lastContent.includes(message.trim())) {
+      if (contents.length > 0 && contents[contents.length - 1].role === "user") {
+        contents[contents.length - 1].parts[0].text += `\n${message.trim()}`;
+      } else {
+        contents.push({ role: "user", parts: [{ text: message.trim() }] });
+      }
     }
 
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        systemInstruction: { parts: [{ text: systemPrompt }] },
         contents: contents,
-        generationConfig: { 
-          temperature: 0.4, // 👈 درجة ذكاء بشرية ممتازة (بتفهم ومبتهلوسش)
-          maxOutputTokens: 600 
-        },
+        generationConfig: { temperature: 0.4, maxOutputTokens: 600 },
       })
     });
 
@@ -93,11 +99,10 @@ export default async function handler(req: any, res: any) {
       const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
       return res.status(200).json({ reply: reply || "أهلاً بك يا دكتور! كيف يمكنني مساعدتك؟ 🦷" });
     } else {
-      console.error("Gemini API Error:", data?.error?.message);
-      return res.status(200).json({ reply: "عذراً يا دكتور، السيرفر عليه ضغط خفيف. حاول تاني ثواني، أو كلمنا واتساب 01151605515 🦷" });
+      // 🚨 هنا هنطبع الخطأ الحقيقي اللي جاي من جوجل للمستخدم عشان نفهمه
+      return res.status(200).json({ reply: `🚨 إيرور جوجل: ${data?.error?.message}` });
     }
   } catch (err: any) {
-    console.error("Server Error:", err.message);
-    return res.status(200).json({ reply: "حدث خطأ تقني، يرجى المحاولة لاحقاً أو التواصل واتساب 01151605515 🦷" });
+    return res.status(200).json({ reply: `💥 خطأ تقني: ${err.message}` });
   }
 }
