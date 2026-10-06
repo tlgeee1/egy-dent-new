@@ -7,20 +7,35 @@ import { policyPages } from "../src/data/policies.js";
 const app = getApps().length ? getApps()[0]! : initializeApp(firebaseConfig);
 const liteDb = getFirestore(app);
 
-const MODELS = ["gemini-3.8-flash", "gemini-2.0-flash", "gemini-flash-latest"];
+const MODELS = ["gemini-2.0-flash", "gemini-flash-latest", "gemini-3.8-flash"];
+
 let promptCache: { prompt: string; expiresAt: number } | null = null;
 const TTL = 300_000;
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function fetchWithTimeout(url: string, options: RequestInit, ms = 8000) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetch(url, { ...options, signal: ctrl.signal });
+  } finally {
+    clearTimeout(t);
+  }
+}
 
 async function buildSystemPrompt(): Promise<string> {
   if (promptCache && promptCache.expiresAt > Date.now()) return promptCache.prompt;
 
-  const [pSnap, cSnap] = await Promise.all([
-    getDocs(collection(liteDb, "products")),
-    getDocs(collection(liteDb, "categories")),
-  ]);
-  const products = pSnap.empty ? DEFAULT_PRODUCTS : pSnap.docs.map((d) => d.data() as Product);
-  const categories = cSnap.empty ? DEFAULT_CATEGORIES : cSnap.docs.map((d) => d.data() as Category);
+  let products = DEFAULT_PRODUCTS;
+  let categories = DEFAULT_CATEGORIES;
+  try {
+    const [pSnap, cSnap] = await Promise.all([
+      getDocs(collection(liteDb, "products")),
+      getDocs(collection(liteDb, "categories")),
+    ]);
+    if (!pSnap.empty) products = pSnap.docs.map((d) => d.data() as Product);
+    if (!cSnap.empty) categories = cSnap.docs.map((d) => d.data() as Category);
+  } catch {}
+
   const catNames: Record<string, string> = {};
   categories.forEach((c) => (catNames[c.id] = c.name));
 
@@ -52,6 +67,26 @@ ${policyText}
   return prompt;
 }
 
+async function askModel(apiKey: string, model: string, prompt: string, question: string): Promise<string> {
+  const response = await fetchWithTimeout(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: `${prompt}\n\nسؤال الدكتور: ${question}` }] }],
+        generationConfig: { temperature: 0.3, maxOutputTokens: 400 },
+      }),
+    },
+    8000
+  );
+  const data = await response.json();
+  if (!response.ok) throw new Error(data?.error?.message || String(response.status));
+  const reply = data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("").trim();
+  if (!reply) throw new Error("empty");
+  return reply;
+}
+
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
@@ -64,44 +99,14 @@ export default async function handler(req: any, res: any) {
     return res.status(200).json({ reply: "كلمنا واتساب 01151605515 🦷" });
   }
 
-  const prompt = await buildSystemPrompt();
-
-  for (const model of MODELS) {
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [
-                { role: "user", parts: [{ text: `${prompt}\n\nسؤال الدكتور: ${message.trim()}` }] },
-              ],
-              generationConfig: { temperature: 0.3, maxOutputTokens: 450 },
-            }),
-          }
-        );
-        const data = await response.json();
-
-        if (response.ok) {
-          const reply = data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("").trim();
-          if (reply) return res.status(200).json({ reply });
-        }
-
-        const busy = response.status === 429 || response.status === 503 || String(data?.error?.message || "").includes("high demand");
-        if (busy && attempt < 3) {
-          await sleep(800 * attempt);
-          continue;
-        }
-        if (!busy) break;
-      } catch {
-        if (attempt < 3) await sleep(800 * attempt);
-      }
-    }
+  try {
+    const prompt = await buildSystemPrompt();
+    const q = message.trim();
+    const reply = await Promise.any(MODELS.map((m) => askModel(apiKey, m, prompt, q)));
+    return res.status(200).json({ reply });
+  } catch {
+    return res.status(200).json({
+      reply: "السيرفر متأخر دلوقتي. ابعت السؤال تاني، أو واتساب 01151605515 🦷",
+    });
   }
-
-  return res.status(200).json({
-    reply: "أهلاً يا دكتور، السيرفر عليه زحمة خفيفة دلوقتي. ابعت تاني بعد ثواني، أو واتساب 01151605515 🦷",
-  });
 }
