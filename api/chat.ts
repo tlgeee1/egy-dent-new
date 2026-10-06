@@ -7,131 +7,100 @@ import { policyPages } from "../src/data/policies.js";
 const app = getApps().length ? getApps()[0]! : initializeApp(firebaseConfig);
 const liteDb = getFirestore(app);
 
-const MODELS = ["gemini-2.0-flash", "gemini-flash-latest", "gemini-3.8-flash"];
-
-let promptCache: { prompt: string; expiresAt: number } | null = null;
-const TTL = 300_000;
-
-async function fetchWithTimeout(url: string, options: RequestInit, ms = 8000): Promise<Response> {
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), ms);
-  try {
-    return await fetch(url, { ...options, signal: ctrl.signal });
-  } finally {
-    clearTimeout(t);
-  }
-}
+let storeCache: { prompt: string; expiresAt: number } | null = null;
+const TTL = 180_000;
 
 async function buildSystemPrompt(): Promise<string> {
-  if (promptCache && promptCache.expiresAt > Date.now()) return promptCache.prompt;
+  if (storeCache && storeCache.expiresAt > Date.now()) return storeCache.prompt;
 
-  let products: Product[] = DEFAULT_PRODUCTS;
-  let categories: Category[] = DEFAULT_CATEGORIES;
-  try {
-    const pSnap = await getDocs(collection(liteDb, "products"));
-    const cSnap = await getDocs(collection(liteDb, "categories"));
-    if (!pSnap.empty) products = pSnap.docs.map((d) => d.data() as Product);
-    if (!cSnap.empty) categories = cSnap.docs.map((d) => d.data() as Category);
-  } catch {
-    /* defaults */
-  }
+  const snap = await getDocs(collection(liteDb, "products"));
+  const products = snap.empty ? DEFAULT_PRODUCTS : snap.docs.map((d) => d.data() as Product);
 
+  const catSnap = await getDocs(collection(liteDb, "categories"));
+  const categories = catSnap.empty ? DEFAULT_CATEGORIES : catSnap.docs.map((d) => d.data() as Category);
   const catNames: Record<string, string> = {};
-  categories.forEach((c) => {
-    catNames[c.id] = c.name;
-  });
+  categories.forEach((c) => (catNames[c.id] = c.name));
 
   const productLines = products
     .filter((p) => !p.showcaseOnly)
-    .map((p) => `- ${p.name} (${catNames[p.cat] ?? p.cat}): ${p.price} جنيه`)
+    .map((p) => `- ${p.name}: ${p.price} جنيه مصرى`)
     .join("\n");
 
-  const policyText = Object.values(policyPages)
-    .map((page) => {
-      const body = page.sections
-        .map((s) => [s.heading, s.body, ...(s.bullets ?? [])].filter(Boolean).join(" — "))
-        .join("\n");
-      return `## ${page.title}\n${body}`;
-    })
-    .join("\n\n");
+  const prompt = `أنت "مساعد إيجي دنت الذكي" لمتجر مستلزمات طب الأسنان في مصر.
+تعليماتك العسكرية والصارمة:
+1. أنت طبيب أسنان خبير، تجيب بالعامية المصرية بوضوح واختصار.
+2. ⚠️ تحذير: يمنع منعاً باتاً ذكر أي سعر لأي منتج من خارج القائمة التالية.
+3. إذا سألك المستخدم عن منتج غير موجود في القائمة، قل حرفياً: "عذراً يا دكتور، الصنف ده مش متوفر في الداتا بتاعتي حالياً، يرجى التواصل مع المبيعات على واتساب 01151605515".
+4. لا تقم بالتقريب، اذكر السعر كما هو مكتوب بالضبط.
+5. إذا كان السؤال عن طرق الاستخدام، اشرحها طبياً بشكل صحيح ومختصر.
 
-  const prompt = `أنت مساعد متجر إيجي دنت لمستلزمات الأسنان في مصر.
-رد بالعامية المصرية، مختصر.
-استخدم المنتجات والأسعار التالية فقط. ممنوع تخترع سعر.
-واتساب: 01151605515.
-
-المنتجات:
+قائمة المنتجات والأسعار المتاحة في المتجر اليوم:
 ${productLines}
 
-السياسات:
-${policyText}
-فروع: مدينة نصر، القصر العيني، 6 أكتوبر.`;
+سياسة الشحن: التوصيل للقاهرة والجيزة خلال 48 ساعة، وباقي المحافظات 4 أيام.`;
 
-  promptCache = { prompt, expiresAt: Date.now() + TTL };
-  return prompt;
+  storeCache = { prompt, expiresAt: Date.now() + TTL };
+  return storeCache.prompt;
 }
 
-async function askModel(apiKey: string, model: string, prompt: string, question: string): Promise<string> {
-  const response = await fetchWithTimeout(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: `${prompt}\n\nسؤال الدكتور: ${question}` }] }],
-        generationConfig: { temperature: 0.3, maxOutputTokens: 400 },
-      }),
-    },
-    8000
-  );
-  const data = (await response.json()) as {
-    candidates?: { content?: { parts?: { text?: string }[] } }[];
-    error?: { message?: string };
-  };
-  if (!response.ok) throw new Error(data.error?.message || String(response.status));
-  const reply = data.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("").trim() || "";
-  if (!reply) throw new Error("empty");
-  return reply;
-}
-
-export default async function handler(
-  req: { method?: string; body?: { message?: string } },
-  res: { status: (n: number) => { json: (b: unknown) => void } }
-) {
-  if (req.method !== "POST") {
-    res.status(405).json({ error: "Method not allowed" });
-    return;
-  }
+export default async function handler(req: any, res: any) {
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   const apiKey = process.env.GEMINI_API_KEY?.trim();
-  const message = req.body?.message;
-  if (!message || typeof message !== "string") {
-    res.status(400).json({ error: "الرسالة مطلوبة" });
-    return;
-  }
   if (!apiKey) {
-    res.status(200).json({ reply: "كلمنا واتساب 01151605515 🦷" });
-    return;
+    return res.status(200).json({ reply: "خدمة المساعد الذكي بتتجهز حالياً. تواصل معنا واتساب 01151605515 🦷" });
+  }
+
+  const { message, history } = req.body || {};
+  if (!message || typeof message !== "string") {
+    return res.status(400).json({ error: "الرسالة مطلوبة" });
   }
 
   try {
-    const prompt = await buildSystemPrompt();
-    const q = message.trim();
-    for (let i = 0; i < MODELS.length; i++) {
-      try {
-        const reply = await askModel(apiKey, MODELS[i], prompt, q);
-        res.status(200).json({ reply });
-        return;
-      } catch {
-        /* next model */
+    const systemPrompt = await buildSystemPrompt();
+
+    const contents: any[] = [];
+    if (Array.isArray(history)) {
+      for (const h of history.slice(-4)) {
+        if (h?.text?.trim()) {
+          contents.push({ role: h.role === "user" ? "user" : "model", parts: [{ text: h.text.trim() }] });
+        }
       }
     }
-    res.status(200).json({
-      reply: "السيرفر متأخر دلوقتي. ابعت السؤال تاني، أو واتساب 01151605515 🦷",
-    });
-  } catch {
-    res.status(200).json({
-      reply: "السيرفر متأخر دلوقتي. ابعت السؤال تاني، أو واتساب 01151605515 🦷",
-    });
+    contents.push({ role: "user", parts: [{ text: message.trim() }] });
+
+    // وضعنا مؤقت زمني 8 ثواني لجوجل لضمان عدم الاستعجال والخطأ
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000); 
+
+    try {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          contents: contents,
+          generationConfig: { temperature: 0.1, maxOutputTokens: 500 }, // دقة متناهية
+        }),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+      const data = await response.json();
+
+      if (response.ok) {
+        const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+        return res.status(200).json({ reply: reply || "أهلاً بك يا دكتور! كيف يمكنني مساعدتك؟ 🦷" });
+      } else {
+        console.error("Gemini API Error:", data?.error?.message);
+        return res.status(200).json({ reply: "عذراً يا دكتور، السيرفر عليه ضغط حالياً. ثواني وحاول تاني، أو كلمنا واتساب 01151605515 🦷" });
+      }
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId);
+      console.error("Fetch Error:", fetchError.message);
+      return res.status(200).json({ reply: "عذراً يا دكتور، السيرفر مشغول لحظياً. يرجى إعادة إرسال رسالتك 🦷" });
+    }
+  } catch (err: any) {
+    return res.status(200).json({ reply: "حصلت مشكلة تقنية بسيطة، من فضلك حاول تاني أو كلمنا واتساب 01151605515 🦷" });
   }
 }
