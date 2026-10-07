@@ -6,7 +6,6 @@ import { DEFAULT_PRODUCTS, type Product } from "../src/data/data.js";
 const app = getApps().length ? getApps()[0]! : initializeApp(firebaseConfig);
 const liteDb = getFirestore(app);
 
-// جلب المنتجات من الفايربيس
 async function getProducts(): Promise<Product[]> {
   try {
     const snap = await getDocs(collection(liteDb, "products"));
@@ -17,21 +16,31 @@ async function getProducts(): Promise<Product[]> {
   return DEFAULT_PRODUCTS;
 }
 
-// 🧠 المحرك الذكي المطور
+// 🔧 دالة لتصليح الأخطاء الإملائية واللغة العربية (عشان البحث يكون دقيق)
+const normalizeArabic = (text: string) => {
+  return text.toLowerCase()
+    .replace(/[أإآ]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/ى/g, 'ي')
+    .replace(/(الجينيت|الجات|الجنيت)/g, 'الجينات')
+    .replace(/(كومبوزيت|كمبوزت)/g, 'كمبوزيت')
+    .replace(/(بوندنج)/g, 'بوند');
+};
+
+// 🧠 المحرك الذكي (مطور بنظام النقاط)
 function localAIEngine(message: string, history: any[], products: Product[]): string {
   const q = message.toLowerCase().trim();
 
-  // 1. الرد على التحية (بكل أشكالها المصرية بحمزة ومن غير حمزة)
+  // 1. الرد على التحية 
   if (/(سلام|السلام|أهلا|اهلا|ازيك|مرحبا|صباح|مساء|مسا|هاي|هلو)/.test(q) && q.length < 35) {
-    return `أهلاً بك يا دكتور! نورت إيجي دنت 🦷
-أنا المساعد الذكي، أقدر أشرحلك طرق استخدام الخامات، أو أبحثلك عن أسعار أي خامة متاحة عندنا. تأمرني بإيه؟`;
+    return `وعليكم السلام يا دكتور! نورت إيجي دنت 🦷
+أنا المساعد الذكي، أقدر أشرحلك طرق استخدام الخامات، أو أبحثلك عن أسعار أي صنف متاح عندنا. تأمرني بإيه؟`;
   }
 
-  // 2. تحليل نية الدكتور
   const isAskingForMethod = /(طريقة|طريقه|استخدام|ازاي|كيف|شرح|عمل|خطوات|مقادير|خلط)/.test(q);
   const isAskingForComparison = /(فرق|مقارنة|احسن|افضل|ايهما|أفضل)/.test(q);
 
-  // 3. الأسئلة الطبية وطرق الاستخدام
+  // 2. الأسئلة الطبية وطرق الاستخدام
   if (isAskingForMethod) {
     if (q.includes("كافيتي") || q.includes("تحضير")) {
       return `يا دكتور، لتحضير الكافيتي (Cavity Preparation) بشكل سليم:
@@ -39,9 +48,9 @@ function localAIEngine(message: string, history: any[], products: Product[]): st
 2. عمل Outline form لضمان الرؤية الجيدة.
 3. غسيل وتجفيف الكافيتي جيداً.
 4. وضع الـ Etch ثم الـ Bond واعمل Light Cure.
-تحب أعرضلك أسعار الكمبوزيت أو البوند المتاحة عندنا؟ 🦷`;
+تحب أعرضلك أسعار الكمبوزيت المتاحة عندنا؟ 🦷`;
     }
-    if (q.includes("جينيت") || q.includes("الجات") || q.includes("عجينة")) {
+    if (q.includes("جينيت") || q.includes("الجات") || q.includes("جينات") || q.includes("عجينة")) {
       return `يا دكتور، طريقة خلط الألجينات المظبوطة:
 1. مكيال بودرة قصاده مكيال مياه (حسب العبوة).
 2. اخلط بسرعة في اتجاه جدار الـ Rubber bowl لمدة 30-45 ثانية لحد ما العجينة تبقى Creamy.
@@ -52,57 +61,68 @@ function localAIEngine(message: string, history: any[], products: Product[]): st
       return `طريقة استخدام البوند الصح يا دكتور:
 1. اغسل وجفف السِنة (خلي العاج Moist وماتنشفوش للآخر).
 2. حط طبقة البوند ووزعها بالهوا برفق لمدة 5 ثواني عشان تطير المذيبات.
-3. اعمل Light Cure لمدة 10-20 ثانية.
-تحب تشوف أسعار البوند؟ 🦷`;
+3. اعمل Light Cure لمدة 10-20 ثانية.`;
     }
   }
 
-  // 4. المقارنات الطبية
+  // 3. المقارنات الطبية
   if (isAskingForComparison) {
     if (q.includes("سيليكون") || q.includes("رابر") || q.includes("طبعة")) {
       return `الفرق بين أنواع خامات الطبعة يا دكتور:
 • C-Silicone: اقتصادي وممتاز للحالات اليومية، لكن لازم يتصب خلال ساعات.
-• A-Silicone: دقة متناهية وثبات أبعادي عالي جداً، وتقدر تصبه حتى بعد أيام.
-متاح عندنا النوعين بأسعار ممتازة، تحب أعرضهم؟ 🦷`;
+• A-Silicone: دقة متناهية وثبات أبعادي عالي جداً، وتقدر تصبه حتى بعد أيام.`;
     }
     if (q.includes("كمبوزيت") || q.includes("حشو")) {
-      return `بص يا دكتور، الكومبوزيت الـ Flowable ممتاز للتجاويف الصغيرة وكبطانة لأنه بيفرش بسهولة، لكن الـ Packable بيتحمل الضغط العالي وممتاز للأسنان الخلفية.
-تحب تشوف أسعارهم عندنا بكام؟ 🦷`;
+      return `بص يا دكتور، الكومبوزيت الـ Flowable ممتاز للتجاويف الصغيرة وكبطانة لأنه بيفرش بسهولة، لكن الـ Packable بيتحمل الضغط العالي وممتاز للأسنان الخلفية.`;
     }
   }
 
-  // 5. محرك البحث الذكي عن المنتجات والأسعار
+  // 4. محرك البحث الذكي المبني على النقاط (Scoring System)
   let searchTarget = q;
   if (/(تاني|غيره|كمان|انواع|أنواع)/.test(q) && history.length > 0) {
     const lastUserMsg = history.reverse().find((h: any) => h.role === "user");
     if (lastUserMsg) searchTarget = lastUserMsg.text.toLowerCase();
   }
 
-  const stopWords = ["عايز", "عاوز", "بكام", "سعر", "لو", "سمحت", "فيه", "عندكم", "انواع", "تاني", "ايه", "افضل", "نوع", "ممكن", "محتاج", "الخير", "النور", "ياريت", "هات"];
-  const searchWords = searchTarget.split(" ").filter(w => w.length > 2 && !stopWords.includes(w));
+  const normTarget = normalizeArabic(searchTarget);
+  const stopWords = ["عايز", "عاوز", "بكام", "سعر", "لو", "سمحت", "فيه", "عندكم", "انواع", "تاني", "ايه", "افضل", "نوع", "ممكن", "محتاج", "الخير", "هات"];
+  const searchWords = normTarget.split(" ").filter(w => w.length > 2 && !stopWords.includes(w));
 
   if (searchWords.length > 0) {
-    const matched = products.filter(p => {
-      if (p.showcaseOnly) return false;
-      const pName = p.name.toLowerCase();
-      return searchWords.some(w => pName.includes(w));
-    });
+    // 🚀 تطبيق نظام النقاط
+    const scoredProducts = products.map(p => {
+      let score = 0;
+      if (p.showcaseOnly) return { ...p, score };
 
-    if (matched.length > 0) {
-      matched.sort((a, b) => {
-        const aMatch = searchWords.filter(w => a.name.toLowerCase().includes(w)).length;
-        const bMatch = searchWords.filter(w => b.name.toLowerCase().includes(w)).length;
-        return bMatch - aMatch;
+      const pName = normalizeArabic(p.name);
+      
+      // لو العميل كتب الاسم بالظبط
+      if (pName.includes(searchWords.join(" "))) score += 100;
+
+      searchWords.forEach(w => {
+        if (pName.includes(w)) {
+          score += 10; // 10 نقط لو الكلمة العادية موجودة
+          // 50 نقطة بونص لو الكلمة أساسية طبية عشان متتمسحش في وسط كلمات زي "صيني" أو "عادي"
+          if (["الجينات", "كمبوزيت", "بوند", "جتابيركا", "سيليكون", "رابر"].includes(w)) {
+            score += 50; 
+          }
+        }
       });
+      return { ...p, score };
+    }).filter(p => p.score > 0);
 
-      const list = matched.slice(0, 10).map(p => `• ${p.name} — ${p.price} ج`).join("\n");
+    if (scoredProducts.length > 0) {
+      // ترتيب النتايج من الأعلى نقاط (الأكثر دقة) للأقل
+      scoredProducts.sort((a, b) => b.score - a.score);
+
+      const list = scoredProducts.slice(0, 8).map(p => `• ${p.name} — ${p.price} ج`).join("\n");
       return `بناءً على استفسارك يا دكتور، دي الأصناف المتاحة عندنا:\n\n${list}\n\nللحجز تواصل واتساب: 01151605515 🦷`;
     } else {
       return `عذراً يا دكتور، الصنف ده مش متاح في المتجر حالياً، يرجى التواصل مع المبيعات على واتساب 01151605515 للتأكد من توافره بالمخزن 🦷`;
     }
   }
 
-  // 6. الرد الافتراضي
+  // 5. الرد الافتراضي
   return `أهلاً بك يا دكتور! عشان أقدر أفيدك بدقة، يرجى كتابة اسم الصنف بوضوح (مثل: كمبوزيت شوفو، أو ألجينات)، أو التواصل مع المبيعات على واتساب: 01151605515 🦷`;
 }
 
