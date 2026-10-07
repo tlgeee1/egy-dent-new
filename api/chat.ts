@@ -1,143 +1,120 @@
 import { initializeApp, getApps } from "firebase/app";
 import { getFirestore, collection, getDocs } from "firebase/firestore/lite";
 import { firebaseConfig } from "../src/lib/firebaseConfig.js";
-import { DEFAULT_PRODUCTS, type Product } from "../src/data/data.js";
+import { DEFAULT_CATEGORIES, DEFAULT_PRODUCTS, type Category, type Product } from "../src/data/data.js";
+import { policyPages } from "../src/data/policies.js";
 
 const app = getApps().length ? getApps()[0]! : initializeApp(firebaseConfig);
 const liteDb = getFirestore(app);
 
-async function getProducts(): Promise<Product[]> {
-  try {
-    const snap = await getDocs(collection(liteDb, "products"));
-    if (!snap.empty) return snap.docs.map((d) => d.data() as Product);
-  } catch (e) {
-    console.error("Firebase Error", e);
-  }
-  return DEFAULT_PRODUCTS;
-}
+let promptCache: { prompt: string; expiresAt: number } | null = null;
+const TTL = 180_000;
 
-// 🔧 دالة لتصليح الأخطاء الإملائية واللغة العربية (عشان البحث يكون دقيق)
-const normalizeArabic = (text: string) => {
-  return text.toLowerCase()
-    .replace(/[أإآ]/g, 'ا')
-    .replace(/ة/g, 'ه')
-    .replace(/ى/g, 'ي')
-    .replace(/(الجينيت|الجات|الجنيت)/g, 'الجينات')
-    .replace(/(كومبوزيت|كمبوزت)/g, 'كمبوزيت')
-    .replace(/(بوندنج)/g, 'بوند');
-};
+async function buildSystemPrompt(): Promise<string> {
+  if (promptCache && promptCache.expiresAt > Date.now()) return promptCache.prompt;
 
-// 🧠 المحرك الذكي (مطور بنظام النقاط)
-function localAIEngine(message: string, history: any[], products: Product[]): string {
-  const q = message.toLowerCase().trim();
+  const snap = await getDocs(collection(liteDb, "products"));
+  const products = snap.empty ? DEFAULT_PRODUCTS : snap.docs.map((d) => d.data() as Product);
 
-  // 1. الرد على التحية 
-  if (/(سلام|السلام|أهلا|اهلا|ازيك|مرحبا|صباح|مساء|مسا|هاي|هلو)/.test(q) && q.length < 35) {
-    return `وعليكم السلام يا دكتور! نورت إيجي دنت 🦷
-أنا المساعد الذكي، أقدر أشرحلك طرق استخدام الخامات، أو أبحثلك عن أسعار أي صنف متاح عندنا. تأمرني بإيه؟`;
-  }
+  const catSnap = await getDocs(collection(liteDb, "categories"));
+  const categories = catSnap.empty ? DEFAULT_CATEGORIES : catSnap.docs.map((d) => d.data() as Category);
+  
+  const catNames: Record<string, string> = {};
+  categories.forEach((c) => (catNames[c.id] = c.name));
 
-  const isAskingForMethod = /(طريقة|طريقه|استخدام|ازاي|كيف|شرح|عمل|خطوات|مقادير|خلط)/.test(q);
-  const isAskingForComparison = /(فرق|مقارنة|احسن|افضل|ايهما|أفضل)/.test(q);
+  const productLines = products
+    .filter((p) => !p.showcaseOnly)
+    .map((p) => `- [قسم ${catNames[p.cat] ?? "أخرى"}]: ${p.name} — السعر: ${p.price} جنيه`)
+    .join("\n");
 
-  // 2. الأسئلة الطبية وطرق الاستخدام
-  if (isAskingForMethod) {
-    if (q.includes("كافيتي") || q.includes("تحضير")) {
-      return `يا دكتور، لتحضير الكافيتي (Cavity Preparation) بشكل سليم:
-1. إزالة التسوس بالكامل باستخدام Round bur.
-2. عمل Outline form لضمان الرؤية الجيدة.
-3. غسيل وتجفيف الكافيتي جيداً.
-4. وضع الـ Etch ثم الـ Bond واعمل Light Cure.
-تحب أعرضلك أسعار الكمبوزيت المتاحة عندنا؟ 🦷`;
-    }
-    if (q.includes("جينيت") || q.includes("الجات") || q.includes("جينات") || q.includes("عجينة")) {
-      return `يا دكتور، طريقة خلط الألجينات المظبوطة:
-1. مكيال بودرة قصاده مكيال مياه (حسب العبوة).
-2. اخلط بسرعة في اتجاه جدار الـ Rubber bowl لمدة 30-45 ثانية لحد ما العجينة تبقى Creamy.
-3. حطها في التراي وخد المقاس فوراً.
-محتاج أعرضلك أسعار الألجينات المتاحة عندنا؟ 🦷`;
-    }
-    if (q.includes("بوند")) {
-      return `طريقة استخدام البوند الصح يا دكتور:
-1. اغسل وجفف السِنة (خلي العاج Moist وماتنشفوش للآخر).
-2. حط طبقة البوند ووزعها بالهوا برفق لمدة 5 ثواني عشان تطير المذيبات.
-3. اعمل Light Cure لمدة 10-20 ثانية.`;
-    }
-  }
+  const policyText = Object.values(policyPages)
+    .map((page) =>
+      `## ${page.title}\n` +
+      page.sections.map((s) => [s.heading, s.body, ...(s.bullets ?? [])].filter(Boolean).join(" — ")).join("\n")
+    )
+    .join("\n\n");
 
-  // 3. المقارنات الطبية
-  if (isAskingForComparison) {
-    if (q.includes("سيليكون") || q.includes("رابر") || q.includes("طبعة")) {
-      return `الفرق بين أنواع خامات الطبعة يا دكتور:
-• C-Silicone: اقتصادي وممتاز للحالات اليومية، لكن لازم يتصب خلال ساعات.
-• A-Silicone: دقة متناهية وثبات أبعادي عالي جداً، وتقدر تصبه حتى بعد أيام.`;
-    }
-    if (q.includes("كمبوزيت") || q.includes("حشو")) {
-      return `بص يا دكتور، الكومبوزيت الـ Flowable ممتاز للتجاويف الصغيرة وكبطانة لأنه بيفرش بسهولة، لكن الـ Packable بيتحمل الضغط العالي وممتاز للأسنان الخلفية.`;
-    }
-  }
+  const prompt = `أنت "مساعد إيجي دنت الذكي"، طبيب أسنان خبير ومندوب مبيعات لمتجر إيجي دنت في مصر.
+تعليماتك:
+1. تحدث بالعامية المصرية الراقية والواضحة.
+2. أجب عن أي سؤال طبي أو مقارنة بين المواد السنية بشكل علمي دقيق كطبيب خبير.
+3. إذا سألك العميل عن منتجات أو أسعار، ابحث في القائمة أدناه فقط، واذكر السعر كما هو.
+4. يمنع منعاً باتاً تأليف أي سعر أو منتج غير موجود في القائمة أدناه.
+5. للتواصل وحجز الأوردرات: واتساب 01151605515.
 
-  // 4. محرك البحث الذكي المبني على النقاط (Scoring System)
-  let searchTarget = q;
-  if (/(تاني|غيره|كمان|انواع|أنواع)/.test(q) && history.length > 0) {
-    const lastUserMsg = history.reverse().find((h: any) => h.role === "user");
-    if (lastUserMsg) searchTarget = lastUserMsg.text.toLowerCase();
-  }
+[قائمة منتجات المتجر وأسعارها]:
+${productLines}
 
-  const normTarget = normalizeArabic(searchTarget);
-  const stopWords = ["عايز", "عاوز", "بكام", "سعر", "لو", "سمحت", "فيه", "عندكم", "انواع", "تاني", "ايه", "افضل", "نوع", "ممكن", "محتاج", "الخير", "هات"];
-  const searchWords = normTarget.split(" ").filter(w => w.length > 2 && !stopWords.includes(w));
+[سياسات المتجر]:
+${policyText}`;
 
-  if (searchWords.length > 0) {
-    // 🚀 تطبيق نظام النقاط
-    const scoredProducts = products.map(p => {
-      let score = 0;
-      if (p.showcaseOnly) return { ...p, score };
-
-      const pName = normalizeArabic(p.name);
-      
-      // لو العميل كتب الاسم بالظبط
-      if (pName.includes(searchWords.join(" "))) score += 100;
-
-      searchWords.forEach(w => {
-        if (pName.includes(w)) {
-          score += 10; // 10 نقط لو الكلمة العادية موجودة
-          // 50 نقطة بونص لو الكلمة أساسية طبية عشان متتمسحش في وسط كلمات زي "صيني" أو "عادي"
-          if (["الجينات", "كمبوزيت", "بوند", "جتابيركا", "سيليكون", "رابر"].includes(w)) {
-            score += 50; 
-          }
-        }
-      });
-      return { ...p, score };
-    }).filter(p => p.score > 0);
-
-    if (scoredProducts.length > 0) {
-      // ترتيب النتايج من الأعلى نقاط (الأكثر دقة) للأقل
-      scoredProducts.sort((a, b) => b.score - a.score);
-
-      const list = scoredProducts.slice(0, 8).map(p => `• ${p.name} — ${p.price} ج`).join("\n");
-      return `بناءً على استفسارك يا دكتور، دي الأصناف المتاحة عندنا:\n\n${list}\n\nللحجز تواصل واتساب: 01151605515 🦷`;
-    } else {
-      return `عذراً يا دكتور، الصنف ده مش متاح في المتجر حالياً، يرجى التواصل مع المبيعات على واتساب 01151605515 للتأكد من توافره بالمخزن 🦷`;
-    }
-  }
-
-  // 5. الرد الافتراضي
-  return `أهلاً بك يا دكتور! عشان أقدر أفيدك بدقة، يرجى كتابة اسم الصنف بوضوح (مثل: كمبوزيت شوفو، أو ألجينات)، أو التواصل مع المبيعات على واتساب: 01151605515 🦷`;
+  promptCache = { prompt, expiresAt: Date.now() + TTL };
+  return promptCache.prompt;
 }
 
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
+  const apiKey = process.env.GEMINI_API_KEY?.trim();
+  if (!apiKey) {
+    return res.status(200).json({ reply: "مفتاح API غير متوفر. تواصل واتساب 01151605515 🦷" });
+  }
+
   const { message, history } = req.body || {};
   if (!message) return res.status(400).json({ error: "الرسالة مطلوبة" });
 
   try {
-    const products = await getProducts();
-    const safeHistory = Array.isArray(history) ? history : [];
-    const reply = localAIEngine(message, safeHistory, products);
-    return res.status(200).json({ reply: reply });
+    const systemPrompt = await buildSystemPrompt();
+
+    // تنسيق رسائل المحادثة عشان جوجل متطلعش إيرور تكرار
+    const contents: any[] = [];
+    if (Array.isArray(history)) {
+      let lastRole = "";
+      for (const h of history.slice(-6)) {
+        if (h?.text?.trim()) {
+          const role = h.role === "user" ? "user" : "model";
+          if (role === lastRole && contents.length > 0) {
+            contents[contents.length - 1].parts[0].text += `\n${h.text.trim()}`;
+          } else {
+            contents.push({ role, parts: [{ text: h.text.trim() }] });
+            lastRole = role;
+          }
+        }
+      }
+    }
+    
+    // إضافة الرسالة الجديدة
+    if (contents.length > 0 && contents[contents.length - 1].role === "user") {
+      contents[contents.length - 1].parts[0].text += `\n${message.trim()}`;
+    } else {
+      contents.push({ role: "user", parts: [{ text: message.trim() }] });
+    }
+
+    // الاتصال الفوري بالذكاء الاصطناعي
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents: contents,
+        generationConfig: { temperature: 0.4, maxOutputTokens: 600 },
+      })
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+      return res.status(200).json({ reply: reply || "أهلاً بك يا دكتور! كيف يمكنني مساعدتك؟ 🦷" });
+    } else {
+      // لو الباقة خلصت أو حصل ضغط من جوجل
+      const errorMsg = data?.error?.message?.toLowerCase() || "";
+      if (errorMsg.includes("quota") || response.status === 429) {
+        return res.status(200).json({ reply: "عذراً يا دكتور، السيرفر عليه ضغط حالياً. يرجى المحاولة بعد قليل أو التواصل واتساب 01151605515 🦷" });
+      }
+      return res.status(200).json({ reply: `🚨 إيرور جوجل: ${data?.error?.message}` });
+    }
   } catch (err: any) {
-    return res.status(200).json({ reply: "حدث خطأ بسيط، تواصل معنا واتساب 01151605515 🦷" });
+    return res.status(200).json({ reply: `💥 حدث خطأ تقني، يرجى المحاولة لاحقاً 🦷` });
   }
 }
