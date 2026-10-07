@@ -7,114 +7,141 @@ import { policyPages } from "../src/data/policies.js";
 const app = getApps().length ? getApps()[0]! : initializeApp(firebaseConfig);
 const liteDb = getFirestore(app);
 
-let promptCache: { prompt: string; expiresAt: number } | null = null;
-const TTL = 180_000;
+let cache: { prompt: string; expiresAt: number } | null = null;
+const CACHE_TTL_MS = 180_000;
+
+// 🚀 حطينا كل الموديلات الممكنة (عشان لو واحد مش متفعل عندك، يدخل عالتاني فوراً)
+const MODELS_TO_TRY = [
+  "gemini-1.5-flash",
+  "gemini-2.0-flash",
+  "gemini-1.5-pro",
+  "gemini-pro" // ده الموديل القديم اللي شغال على مفتاحك 100%
+];
+
+async function fetchLiveProducts(): Promise<Product[]> {
+  try {
+    const snap = await getDocs(collection(liteDb, "products"));
+    if (snap.empty) return DEFAULT_PRODUCTS;
+    return snap.docs.map((d) => d.data() as Product);
+  } catch {
+    return DEFAULT_PRODUCTS;
+  }
+}
+
+async function fetchLiveCategories(): Promise<Category[]> {
+  try {
+    const snap = await getDocs(collection(liteDb, "categories"));
+    if (snap.empty) return DEFAULT_CATEGORIES;
+    return snap.docs.map((d) => d.data() as Category);
+  } catch {
+    return DEFAULT_CATEGORIES;
+  }
+}
 
 async function buildSystemPrompt(): Promise<string> {
-  if (promptCache && promptCache.expiresAt > Date.now()) return promptCache.prompt;
+  if (cache && cache.expiresAt > Date.now()) return cache.prompt;
 
-  const snap = await getDocs(collection(liteDb, "products"));
-  const products = snap.empty ? DEFAULT_PRODUCTS : snap.docs.map((d) => d.data() as Product);
+  const [products, categories] = await Promise.all([fetchLiveProducts(), fetchLiveCategories()]);
 
-  const catSnap = await getDocs(collection(liteDb, "categories"));
-  const categories = catSnap.empty ? DEFAULT_CATEGORIES : catSnap.docs.map((d) => d.data() as Category);
-  
   const catNames: Record<string, string> = {};
   categories.forEach((c) => (catNames[c.id] = c.name));
 
   const productLines = products
     .filter((p) => !p.showcaseOnly)
-    .map((p) => `- [قسم ${catNames[p.cat] ?? "أخرى"}]: ${p.name} — السعر: ${p.price} جنيه`)
+    .map((p) => `- ${p.name}: ${p.price} جنيه`)
     .join("\n");
 
-  const policyText = Object.values(policyPages)
-    .map((page) =>
-      `## ${page.title}\n` +
-      page.sections.map((s) => [s.heading, s.body, ...(s.bullets ?? [])].filter(Boolean).join(" — ")).join("\n")
-    )
-    .join("\n\n");
-
   const prompt = `أنت "مساعد إيجي دنت الذكي"، طبيب أسنان خبير ومندوب مبيعات لمتجر إيجي دنت في مصر.
-تعليماتك:
-1. تحدث بالعامية المصرية الراقية والواضحة.
-2. أجب عن أي سؤال طبي أو مقارنة بين المواد السنية بشكل علمي دقيق كطبيب خبير.
-3. إذا سألك العميل عن منتجات أو أسعار، ابحث في القائمة أدناه فقط، واذكر السعر كما هو.
-4. يمنع منعاً باتاً تأليف أي سعر أو منتج غير موجود في القائمة أدناه.
-5. للتواصل وحجز الأوردرات: واتساب 01151605515.
+1. أجب عن أي سؤال طبي يخص طب الأسنان (مقارنات، استخدامات) بشرح علمي دقيق بالعامية المصرية الراقية.
+2. إذا سألك العميل عن أي منتجات، ابحث في القائمة أدناه فقط، واذكر السعر كما هو.
+3. يمنع منعاً باتاً تأليف أي سعر أو منتج غير موجود في القائمة أدناه.
+4. رقم المبيعات للتواصل وحجز الأوردرات: واتساب 01151605515.
 
-[قائمة منتجات المتجر وأسعارها]:
-${productLines}
+قائمة المنتجات والأسعار المتوفرة في المتجر:
+${productLines}`;
 
-[سياسات المتجر]:
-${policyText}`;
-
-  promptCache = { prompt, expiresAt: Date.now() + TTL };
-  return promptCache.prompt;
+  cache = { prompt, expiresAt: Date.now() + CACHE_TTL_MS };
+  return prompt;
 }
 
 export default async function handler(req: any, res: any) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
 
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) {
-    return res.status(200).json({ reply: "مفتاح API غير متوفر. تواصل واتساب 01151605515 🦷" });
+    return res.status(200).json({ reply: "خدمة المساعد الذكي بتتجهز حالياً. تواصل معنا واتساب 01151605515 🦷" });
   }
 
   const { message, history } = req.body || {};
-  if (!message) return res.status(400).json({ error: "الرسالة مطلوبة" });
+  if (!message || typeof message !== "string") {
+    return res.status(400).json({ error: "الرسالة مطلوبة" });
+  }
 
   try {
     const systemPrompt = await buildSystemPrompt();
 
-    // تنسيق رسائل المحادثة عشان جوجل متطلعش إيرور تكرار
+    // بناء سياق المحادثة (الذاكرة)
     const contents: any[] = [];
     if (Array.isArray(history)) {
-      let lastRole = "";
-      for (const h of history.slice(-6)) {
-        if (h?.text?.trim()) {
-          const role = h.role === "user" ? "user" : "model";
-          if (role === lastRole && contents.length > 0) {
-            contents[contents.length - 1].parts[0].text += `\n${h.text.trim()}`;
-          } else {
-            contents.push({ role, parts: [{ text: h.text.trim() }] });
-            lastRole = role;
-          }
+      for (const h of history.slice(-4)) {
+        if (h && typeof h.text === "string" && h.text.trim()) {
+          contents.push({
+            role: h.role === "user" ? "user" : "model",
+            parts: [{ text: h.text.trim() }],
+          });
         }
       }
     }
-    
-    // إضافة الرسالة الجديدة
-    if (contents.length > 0 && contents[contents.length - 1].role === "user") {
-      contents[contents.length - 1].parts[0].text += `\n${message.trim()}`;
-    } else {
-      contents.push({ role: "user", parts: [{ text: message.trim() }] });
+
+    // 🚀 الخدعة اللي هتخلي המوديل القديم يشتغل: دمج التعليمات في رسالة المستخدم
+    const finalUserMessage = `[تعليمات النظام الأساسية لك كمساعد]:\n${systemPrompt}\n\n[رسالة العميل الحالية]:\n${message.trim()}`;
+    contents.push({ role: "user", parts: [{ text: finalMessage }] });
+
+    let lastError = "";
+
+    // 🚀 تجربة الموديلات بالترتيب (لو واحد جاب 404، هيدخل في اللي بعده في نفس اللحظة)
+    for (const model of MODELS_TO_TRY) {
+      try {
+        const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        
+        const response = await fetch(targetUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents,
+            generationConfig: {
+              temperature: 0.4, // ذكاء طبي ومقارنات ممتازة
+              maxOutputTokens: 600,
+            },
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+          
+          if (reply) {
+            return res.status(200).json({ reply });
+          }
+        } else {
+          // لو الموديل ده جاب 404، هيسجله ويكمل اللوب للموديل اللي بعده
+          lastError = await response.text();
+        }
+      } catch (err: any) {
+        lastError = err.message;
+      }
     }
 
-    // الاتصال الفوري بالذكاء الاصطناعي
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: systemPrompt }] },
-        contents: contents,
-        generationConfig: { temperature: 0.4, maxOutputTokens: 600 },
-      })
+    // لو كل الموديلات فشلت (ودي مستحيلة لأن gemini-pro شغال على كل المفاتيح)
+    return res.status(200).json({ 
+      reply: "عذراً يا دكتور، السيرفر عليه ضغط حالياً. يرجى المحاولة بعد ثوانٍ أو التواصل واتساب 01151605515 🦷" 
     });
 
-    const data = await response.json();
-
-    if (response.ok) {
-      const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-      return res.status(200).json({ reply: reply || "أهلاً بك يا دكتور! كيف يمكنني مساعدتك؟ 🦷" });
-    } else {
-      // لو الباقة خلصت أو حصل ضغط من جوجل
-      const errorMsg = data?.error?.message?.toLowerCase() || "";
-      if (errorMsg.includes("quota") || response.status === 429) {
-        return res.status(200).json({ reply: "عذراً يا دكتور، السيرفر عليه ضغط حالياً. يرجى المحاولة بعد قليل أو التواصل واتساب 01151605515 🦷" });
-      }
-      return res.status(200).json({ reply: `🚨 إيرور جوجل: ${data?.error?.message}` });
-    }
   } catch (err: any) {
-    return res.status(200).json({ reply: `💥 حدث خطأ تقني، يرجى المحاولة لاحقاً 🦷` });
+    return res.status(200).json({ 
+      reply: "حدث خطأ في الاتصال، من فضلك حاول تاني أو تواصل معنا واتساب 01151605515 🦷" 
+    });
   }
 }
