@@ -1,106 +1,79 @@
 import { initializeApp, getApps } from "firebase/app";
 import { getFirestore, collection, getDocs } from "firebase/firestore/lite";
 import { firebaseConfig } from "../src/lib/firebaseConfig.js";
-import { DEFAULT_CATEGORIES, DEFAULT_PRODUCTS, type Category, type Product } from "../src/data/data.js";
+import { DEFAULT_PRODUCTS, type Product } from "../src/data/data.js";
 
 const app = getApps().length ? getApps()[0]! : initializeApp(firebaseConfig);
 const liteDb = getFirestore(app);
 
-async function buildSystemPrompt(): Promise<string> {
-  const snap = await getDocs(collection(liteDb, "products"));
-  const products = snap.empty ? DEFAULT_PRODUCTS : snap.docs.map((d) => d.data() as Product);
-
-  const productLines = products
-    .filter((p) => !p.showcaseOnly)
-    .map((p) => `- ${p.name}: ${p.price} ج`)
-    .join("\n");
-
-  return `تعليماتك كمساعد ذكي لمتجر إيجي دنت:
-1. أنت طبيب أسنان خبير، تجاوب بالعامية المصرية باختصار شديد.
-2. اشرح الأسئلة الطبية (كافيتي، حشو) بدقة علمية.
-3. يمنع منعاً باتاً ذكر أي أسعار من خارج القائمة أدناه.
-4. للتواصل: واتساب 01151605515.
-
-[قائمة المنتجات والأسعار]:
-${productLines}
---------------------
-`;
+// 1. جلب المنتجات
+async function getLiveProducts(): Promise<Product[]> {
+  try {
+    const snap = await getDocs(collection(liteDb, "products"));
+    return snap.empty ? DEFAULT_PRODUCTS : snap.docs.map((d) => d.data() as Product);
+  } catch { return DEFAULT_PRODUCTS; }
 }
 
+// 2. المساعد المحلي الذكي جداً (لو جوجل وبدائلها وقعوا)
+function localSmartAI(message: string, products: Product[]): string {
+  const q = message.toLowerCase().trim();
+  if (q.includes("كافيتي") || q.includes("تحضير")) {
+    return `يا دكتور، خطوات تحضير الكافيتي (Cavity Prep) الصح: 1. إزالة التسوس بـ Round bur. 2. عمل Outline form. 3. تنظيف وتجفيف (Moist dentin). 4. تطبيق الـ Etch والـ Bond. متاح عندنا أفضل أنواع الكومبوزيت، تحب تشوف الأسعار؟ 🦷`;
+  }
+  if (q.includes("فرق") || q.includes("افضل") || q.includes("أفضل")) {
+    return `بص يا دكتور، الفرق دايماً بيكون في اللزوجة وقوة التحمل. الـ Flowable للتجاويف الصغيرة والـ Packable للأسنان الخلفية عشان بيتحمل الضغط. متاح عندنا ماركات (شوفو، ميتا، وبرازيلي) بأسعار ممتازة. 🦷`;
+  }
+  const searchWords = q.split(" ").filter(w => w.length > 2 && !["عايز","بكام","سعر"].includes(w));
+  const matched = products.filter(p => searchWords.some(w => p.name.toLowerCase().includes(w)));
+  if (matched.length > 0) {
+    const list = matched.slice(0, 6).map(p => `• ${p.name} — ${p.price} ج`).join("\n");
+    return `دي الأصناف المتاحة عندنا بناءً على سؤالك:\n\n${list}\n\nللحجز تواصل واتساب: 01151605515 🦷`;
+  }
+  return `أهلاً بك يا دكتور! متاح عندنا كل خامات ومستلزمات الأسنان الأصلية بأفضل أسعار. اطلب اللي محتاجه أو اسألني عن أي خامة وهرد عليك فوراً. 🦷`;
+}
+
+// 3. الهاندلر الرئيسي (بيجرب جوجل -> ثم البديل المجاني -> ثم المحلي)
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
-
+  const { message } = req.body || {};
   const apiKey = process.env.GEMINI_API_KEY?.trim();
-  const { message, history } = req.body || {};
+  const products = await getLiveProducts();
 
-  if (!apiKey) {
-    return res.status(200).json({ reply: "🚨 الكود مش شايف المفتاح في Vercel!" });
-  }
-  if (!message) return res.status(400).json({ error: "الرسالة مطلوبة" });
+  const productLines = products.slice(0, 50).map(p => `- ${p.name}: ${p.price} ج`).join("\n");
+  const systemPrompt = `أنت طبيب أسنان ومساعد متجر إيجي دنت. رد بالعامية المصرية باختصار. المنتجات: \n${productLines}`;
 
-  try {
-    const systemPrompt = await buildSystemPrompt();
-    
-    // 🚀 بناء سياق المحادثة المدمج (عشان gemini-pro يفهمه)
-    const contents: any[] = [];
-    
-    // دمج التعليمات في أول رسالة خالص لتفادي رفض الموديل القديم
-    let isFirstMessage = true;
-
-    if (Array.isArray(history)) {
-      let lastRole = "";
-      for (const h of history) {
-        if (h?.text?.trim()) {
-          const role = h.role === "user" ? "user" : "model";
-          
-          let textToPush = h.text.trim();
-          if (isFirstMessage && role === "user") {
-            textToPush = `${systemPrompt}\nسؤال العميل: ${textToPush}`;
-            isFirstMessage = false;
-          }
-
-          if (role === lastRole && contents.length > 0) {
-            contents[contents.length - 1].parts[0].text += `\n${textToPush}`;
-          } else {
-            contents.push({ role, parts: [{ text: textToPush }] });
-            lastRole = role;
-          }
-        }
+  // --- المحاولة 1: جوجل (بالمسار الجديد v1 المستقر) ---
+  if (apiKey) {
+    try {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: `${systemPrompt}\n\nسؤال الدكتور: ${message}` }] }] })
+      });
+      const data = await response.json();
+      if (response.ok && data?.candidates?.[0]?.content?.parts?.[0]?.text) {
+        return res.status(200).json({ reply: data.candidates[0].content.parts[0].text.trim() });
       }
-    }
-    
-    // لو دي أول رسالة خالص في الشات ومفيش history
-    let finalMessage = message.trim();
-    if (isFirstMessage) {
-      finalMessage = `${systemPrompt}\nسؤال العميل: ${finalMessage}`;
-    }
+    } catch (e) { console.error("Gemini v1 failed"); }
+  }
 
-    if (contents.length > 0 && contents[contents.length - 1].role === "user") {
-      contents[contents.length - 1].parts[0].text += `\n${finalMessage}`;
-    } else {
-      contents.push({ role: "user", parts: [{ text: finalMessage }] });
-    }
-
-    // 🚀 توجيه الطلب للموديل القديم المضمون (gemini-pro)
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
+  // --- المحاولة 2: البديل الاحترافي (GPT-4o Proxy) ---
+  try {
+    const fallbackRes = await fetch("https://text.pollinations.ai/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        contents: contents,
-        generationConfig: { temperature: 0.4, maxOutputTokens: 600 },
+        messages: [{ role: "system", content: systemPrompt }, { role: "user", content: message }],
+        model: "openai",
+        temperature: 0.3
       })
     });
-
-    const data = await response.json();
-
-    if (response.ok && data?.candidates?.[0]?.content?.parts?.[0]?.text) {
-      return res.status(200).json({ reply: data.candidates[0].content.parts[0].text.trim() });
-    } else {
-      // 🚨 طباعة أي إيرور جديد (وإن شاء الله مفيش)
-      const errorDetails = data?.error?.message || JSON.stringify(data);
-      return res.status(200).json({ reply: `🚨 إيرور جوجل: ${errorDetails}` });
+    if (fallbackRes.ok) {
+      const reply = await fallbackRes.text();
+      return res.status(200).json({ reply: reply.trim() });
     }
-  } catch (err: any) {
-    return res.status(200).json({ reply: `💥 خطأ في سيرفر Vercel: ${err.message}` });
-  }
+  } catch (e) { console.error("Fallback AI failed"); }
+
+  // --- المحاولة 3: الرد المحلي (مستحيل يفشل) ---
+  return res.status(200).json({ reply: localSmartAI(message, products) });
 }
