@@ -7,7 +7,7 @@ import { policyPages } from "../src/data/policies.js";
 const app = getApps().length ? getApps()[0]! : initializeApp(firebaseConfig);
 const liteDb = getFirestore(app);
 
-let storeCache: { preamble: string; products: Product[]; expiresAt: number } | null = null;
+let storeCache: { preamble: string; expiresAt: number } | null = null;
 const TTL = 180_000;
 
 async function getStoreData() {
@@ -48,21 +48,8 @@ ${productLines}
 [سياسات المتجر وفروعه]:
 ${policyText}`;
 
-  storeCache = { preamble, products, expiresAt: Date.now() + TTL };
+  storeCache = { preamble, expiresAt: Date.now() + TTL };
   return storeCache;
-}
-
-// محرك طوارئ محلي خفيف
-function localAIFallback(query: string, products: Product[]): string {
-  const q = query.toLowerCase().trim();
-  const searchWords = q.split(" ").filter(w => w.length > 2 && !["عايز","بكام","سعر","لو","سمحت"].includes(w));
-  const matched = products.filter(p => searchWords.some(w => p.name.toLowerCase().includes(w)));
-
-  if (matched.length > 0) {
-    const list = matched.slice(0, 8).map(p => `• ${p.name} — ${p.price} ج`).join("\n");
-    return `أهلاً بك يا دكتور! دي الأصناف والأسعار المتاحة عندنا بناءً على سؤالك:\n\n${list}\n\nللحجز تواصل واتساب: 01151605515 🦷`;
-  }
-  return `أهلاً بك يا دكتور في إيجي دنت! لمزيد من التفاصيل حول الأسعار والخامات، يرجى التواصل مع المبيعات مباشرة على واتساب: 01151605515 🦷`;
 }
 
 export default async function handler(req: any, res: any) {
@@ -71,31 +58,33 @@ export default async function handler(req: any, res: any) {
   const apiKey = process.env.COHERE_API_KEY?.trim();
   const { message, history } = req.body || {};
 
+  if (!apiKey) {
+    return res.status(200).json({ reply: "🚨 الكود مش شايف المفتاح COHERE_API_KEY في Vercel! تأكد من إضافة الاسم مظبوط وعمل Redeploy." });
+  }
+
   if (!message || typeof message !== "string") {
     return res.status(400).json({ error: "الرسالة مطلوبة" });
   }
 
-  const { preamble, products } = await getStoreData();
-
-  if (!apiKey) {
-    return res.status(200).json({ reply: localAIFallback(message, products) });
-  }
-
   try {
-    // تنسيق التاريخ وفق نموذج Cohere الرسمي
-    const chatHistory: { role: "USER" | "CHATBOT"; message: string }[] = [];
-    if (Array.isArray(history)) {
-      for (const h of history.slice(-6)) {
+    const { preamble } = await getStoreData();
+
+    // بناء الرسالة البسيطة المباشرة لتفادي أخطاء التنسيق
+    let fullPrompt = `${preamble}\n\n`;
+    
+    if (Array.isArray(history) && history.length > 0) {
+      fullPrompt += `[المحادثة السابقة]:\n`;
+      for (const h of history.slice(-4)) {
         if (h?.text?.trim()) {
-          chatHistory.push({
-            role: h.role === "user" ? "USER" : "CHATBOT",
-            message: h.text.trim(),
-          });
+          const role = h.role === "user" ? "العميل" : "المساعد";
+          fullPrompt += `${role}: ${h.text.trim()}\n`;
         }
       }
     }
+    
+    fullPrompt += `\n[سؤال العميل الحقيقي]:\n${message.trim()}\n\nأجب كطبيب أسنان ومساعد ذكي:`;
 
-    // 🚀 الاتصال بموديل Cohere Command-R الفائق الذكاء والدقة
+    // 🚀 الاتصال المباشر والمبسط بـ Cohere API
     const response = await fetch("https://api.cohere.com/v1/chat", {
       method: "POST",
       headers: {
@@ -103,10 +92,8 @@ export default async function handler(req: any, res: any) {
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "command-r", // موديل متخصص جداً في RAG واللغات العربية
-        preamble: preamble,
-        message: message.trim(),
-        chat_history: chatHistory,
+        model: "command-r",
+        message: fullPrompt,
         temperature: 0.3,
       }),
     });
@@ -116,11 +103,11 @@ export default async function handler(req: any, res: any) {
     if (response.ok && data?.text) {
       return res.status(200).json({ reply: data.text.trim() });
     } else {
-      console.error("Cohere Error:", data?.message || data);
-      return res.status(200).json({ reply: localAIFallback(message, products) });
+      // 🚨 طبع الإيرور الحقيقي بدلاً من الرد الافتراضي المزعج
+      const errMsg = data?.message || JSON.stringify(data);
+      return res.status(200).json({ reply: `🚨 إيرور Cohere: ${errMsg}` });
     }
   } catch (err: any) {
-    console.error("Server Error:", err.message);
-    return res.status(200).json({ reply: localAIFallback(message, products) });
+    return res.status(200).json({ reply: `💥 خطأ في السيرفر: ${err.message}` });
   }
 }
