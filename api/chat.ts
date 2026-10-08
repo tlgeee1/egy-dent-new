@@ -1,79 +1,126 @@
 import { initializeApp, getApps } from "firebase/app";
 import { getFirestore, collection, getDocs } from "firebase/firestore/lite";
 import { firebaseConfig } from "../src/lib/firebaseConfig.js";
-import { DEFAULT_PRODUCTS, type Product } from "../src/data/data.js";
+import { DEFAULT_CATEGORIES, DEFAULT_PRODUCTS, type Category, type Product } from "../src/data/data.js";
+import { policyPages } from "../src/data/policies.js";
 
 const app = getApps().length ? getApps()[0]! : initializeApp(firebaseConfig);
 const liteDb = getFirestore(app);
 
-// 1. جلب المنتجات
-async function getLiveProducts(): Promise<Product[]> {
-  try {
-    const snap = await getDocs(collection(liteDb, "products"));
-    return snap.empty ? DEFAULT_PRODUCTS : snap.docs.map((d) => d.data() as Product);
-  } catch { return DEFAULT_PRODUCTS; }
+let storeCache: { preamble: string; products: Product[]; expiresAt: number } | null = null;
+const TTL = 180_000;
+
+async function getStoreData() {
+  if (storeCache && storeCache.expiresAt > Date.now()) return storeCache;
+
+  const snap = await getDocs(collection(liteDb, "products"));
+  const products = snap.empty ? DEFAULT_PRODUCTS : snap.docs.map((d) => d.data() as Product);
+
+  const catSnap = await getDocs(collection(liteDb, "categories"));
+  const categories = catSnap.empty ? DEFAULT_CATEGORIES : catSnap.docs.map((d) => d.data() as Category);
+  
+  const catNames: Record<string, string> = {};
+  categories.forEach((c) => (catNames[c.id] = c.name));
+
+  const productLines = products
+    .filter((p) => !p.showcaseOnly)
+    .map((p) => `- [قسم ${catNames[p.cat] ?? "عام"}]: ${p.name} — السعر: ${p.price} جنيه`)
+    .join("\n");
+
+  const policyText = Object.values(policyPages)
+    .map((page) =>
+      `## ${page.title}\n` +
+      page.sections.map((s) => [s.heading, s.body, ...(s.bullets ?? [])].filter(Boolean).join(" — ")).join("\n")
+    )
+    .join("\n\n");
+
+  const preamble = `أنت "مساعد إيجي دنت الذكي"، طبيب أسنان محترف ومستشار مبيعات لمتجر إيجي دنت لمستلزمات طب الأسنان في مصر.
+تعليماتك الصارمة:
+1. تحدث بالعامية المصرية الراقية، السلسة، والموجزة.
+2. أجب عن أي سؤال طبي، خطوات عمل، أو مقارنات بين المواد السنية بشكل علمي دقيق وشامل ومبسط.
+3. إذا سألك العميل عن أي منتجات أو أسعار، اعتمد حصرياً على القائمة المرفقة بالأسفل ولا تبتكر أو تؤلف أي سعر نهائياً.
+4. إذا سأل عن صنف غير موجود، قل: "الصنف ده مش متاح حالياً، تواصل مع المبيعات على 01151605515 لتأكيد التوافر".
+5. رقم المبيعات للتواصل وحجز الأوردرات: واتساب 01151605515.
+
+[دليل المنتجات والأسعار المتاحة في المتجر اليوم]:
+${productLines}
+
+[سياسات المتجر وفروعه]:
+${policyText}`;
+
+  storeCache = { preamble, products, expiresAt: Date.now() + TTL };
+  return storeCache;
 }
 
-// 2. المساعد المحلي الذكي جداً (لو جوجل وبدائلها وقعوا)
-function localSmartAI(message: string, products: Product[]): string {
-  const q = message.toLowerCase().trim();
-  if (q.includes("كافيتي") || q.includes("تحضير")) {
-    return `يا دكتور، خطوات تحضير الكافيتي (Cavity Prep) الصح: 1. إزالة التسوس بـ Round bur. 2. عمل Outline form. 3. تنظيف وتجفيف (Moist dentin). 4. تطبيق الـ Etch والـ Bond. متاح عندنا أفضل أنواع الكومبوزيت، تحب تشوف الأسعار؟ 🦷`;
-  }
-  if (q.includes("فرق") || q.includes("افضل") || q.includes("أفضل")) {
-    return `بص يا دكتور، الفرق دايماً بيكون في اللزوجة وقوة التحمل. الـ Flowable للتجاويف الصغيرة والـ Packable للأسنان الخلفية عشان بيتحمل الضغط. متاح عندنا ماركات (شوفو، ميتا، وبرازيلي) بأسعار ممتازة. 🦷`;
-  }
-  const searchWords = q.split(" ").filter(w => w.length > 2 && !["عايز","بكام","سعر"].includes(w));
+// محرك طوارئ محلي خفيف
+function localAIFallback(query: string, products: Product[]): string {
+  const q = query.toLowerCase().trim();
+  const searchWords = q.split(" ").filter(w => w.length > 2 && !["عايز","بكام","سعر","لو","سمحت"].includes(w));
   const matched = products.filter(p => searchWords.some(w => p.name.toLowerCase().includes(w)));
+
   if (matched.length > 0) {
-    const list = matched.slice(0, 6).map(p => `• ${p.name} — ${p.price} ج`).join("\n");
-    return `دي الأصناف المتاحة عندنا بناءً على سؤالك:\n\n${list}\n\nللحجز تواصل واتساب: 01151605515 🦷`;
+    const list = matched.slice(0, 8).map(p => `• ${p.name} — ${p.price} ج`).join("\n");
+    return `أهلاً بك يا دكتور! دي الأصناف والأسعار المتاحة عندنا بناءً على سؤالك:\n\n${list}\n\nللحجز تواصل واتساب: 01151605515 🦷`;
   }
-  return `أهلاً بك يا دكتور! متاح عندنا كل خامات ومستلزمات الأسنان الأصلية بأفضل أسعار. اطلب اللي محتاجه أو اسألني عن أي خامة وهرد عليك فوراً. 🦷`;
+  return `أهلاً بك يا دكتور في إيجي دنت! لمزيد من التفاصيل حول الأسعار والخامات، يرجى التواصل مع المبيعات مباشرة على واتساب: 01151605515 🦷`;
 }
 
-// 3. الهاندلر الرئيسي (بيجرب جوجل -> ثم البديل المجاني -> ثم المحلي)
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
-  const { message } = req.body || {};
-  const apiKey = process.env.GEMINI_API_KEY?.trim();
-  const products = await getLiveProducts();
 
-  const productLines = products.slice(0, 50).map(p => `- ${p.name}: ${p.price} ج`).join("\n");
-  const systemPrompt = `أنت طبيب أسنان ومساعد متجر إيجي دنت. رد بالعامية المصرية باختصار. المنتجات: \n${productLines}`;
+  const apiKey = process.env.COHERE_API_KEY?.trim();
+  const { message, history } = req.body || {};
 
-  // --- المحاولة 1: جوجل (بالمسار الجديد v1 المستقر) ---
-  if (apiKey) {
-    try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: `${systemPrompt}\n\nسؤال الدكتور: ${message}` }] }] })
-      });
-      const data = await response.json();
-      if (response.ok && data?.candidates?.[0]?.content?.parts?.[0]?.text) {
-        return res.status(200).json({ reply: data.candidates[0].content.parts[0].text.trim() });
-      }
-    } catch (e) { console.error("Gemini v1 failed"); }
+  if (!message || typeof message !== "string") {
+    return res.status(400).json({ error: "الرسالة مطلوبة" });
   }
 
-  // --- المحاولة 2: البديل الاحترافي (GPT-4o Proxy) ---
-  try {
-    const fallbackRes = await fetch("https://text.pollinations.ai/", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        messages: [{ role: "system", content: systemPrompt }, { role: "user", content: message }],
-        model: "openai",
-        temperature: 0.3
-      })
-    });
-    if (fallbackRes.ok) {
-      const reply = await fallbackRes.text();
-      return res.status(200).json({ reply: reply.trim() });
-    }
-  } catch (e) { console.error("Fallback AI failed"); }
+  const { preamble, products } = await getStoreData();
 
-  // --- المحاولة 3: الرد المحلي (مستحيل يفشل) ---
-  return res.status(200).json({ reply: localSmartAI(message, products) });
+  if (!apiKey) {
+    return res.status(200).json({ reply: localAIFallback(message, products) });
+  }
+
+  try {
+    // تنسيق التاريخ وفق نموذج Cohere الرسمي
+    const chatHistory: { role: "USER" | "CHATBOT"; message: string }[] = [];
+    if (Array.isArray(history)) {
+      for (const h of history.slice(-6)) {
+        if (h?.text?.trim()) {
+          chatHistory.push({
+            role: h.role === "user" ? "USER" : "CHATBOT",
+            message: h.text.trim(),
+          });
+        }
+      }
+    }
+
+    // 🚀 الاتصال بموديل Cohere Command-R الفائق الذكاء والدقة
+    const response = await fetch("https://api.cohere.com/v1/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "command-r", // موديل متخصص جداً في RAG واللغات العربية
+        preamble: preamble,
+        message: message.trim(),
+        chat_history: chatHistory,
+        temperature: 0.3,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (response.ok && data?.text) {
+      return res.status(200).json({ reply: data.text.trim() });
+    } else {
+      console.error("Cohere Error:", data?.message || data);
+      return res.status(200).json({ reply: localAIFallback(message, products) });
+    }
+  } catch (err: any) {
+    console.error("Server Error:", err.message);
+    return res.status(200).json({ reply: localAIFallback(message, products) });
+  }
 }
