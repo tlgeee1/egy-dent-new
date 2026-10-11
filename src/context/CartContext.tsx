@@ -4,8 +4,10 @@ import { useStore } from "./StoreContext";
 
 const CART_STORAGE_KEY = "egy-dent-cart";
 
-/** أقصى عدد أصناف مختلفة في الطلب الواحد (حد Firestore Rules) */
+/** أقصى عدد أصناف مختلفة في الطلب الواحد المحفوظ (حد Firestore Rules). صفحة الدفع بتقسّم السلة على أجزاء بالحجم ده */
 export const MAX_ORDER_ITEMS = 10;
+/** أقصى عدد أصناف مختلفة في السلة كلها (بتتقسّم تلقائيًا على أكتر من طلب وقت التأكيد) */
+export const MAX_CART_ITEMS = 50;
 /** أقصى كمية للصنف الواحد (نفس حد الرولز) */
 export const MAX_ITEM_QTY = 1000;
 
@@ -19,7 +21,7 @@ function loadStoredLines(): CartLine[] {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
 
-    // تنظيف السلة القديمة: كميات صحيحة فقط، بدون تكرار، وبحد أقصى 10 أصناف
+    // تنظيف السلة القديمة: كميات صحيحة فقط، بدون تكرار، وبحد أقصى MAX_CART_ITEMS صنف
     const seen = new Set<number>();
     const clean: CartLine[] = [];
     for (const l of parsed) {
@@ -29,7 +31,7 @@ function loadStoredLines(): CartLine[] {
       seen.add(l.id);
       clean.push({ id: l.id, qty });
     }
-    return clean.slice(0, MAX_ORDER_ITEMS);
+    return clean.slice(0, MAX_CART_ITEMS);
   } catch {
     return [];
   }
@@ -78,9 +80,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const exists = lines.some((l) => l.id === id);
 
       // صنف جديد بعد ما السلة وصلت للحد الأقصى = ممنوع مع رسالة واضحة
-      if (!exists && lines.length >= MAX_ORDER_ITEMS) {
+      if (!exists && lines.length >= MAX_CART_ITEMS) {
         alert(
-          `الحد الأقصى ${MAX_ORDER_ITEMS} أصناف مختلفة في الطلب الواحد.\nكمّل الطلب الحالي الأول، وبعدين اعمل طلب جديد بباقي الأصناف.`,
+          `الحد الأقصى ${MAX_CART_ITEMS} صنف مختلف في السلة الواحدة.\nكمّل الطلب الحالي الأول، وبعدين اعمل طلب جديد بباقي الأصناف.`,
         );
         return;
       }
