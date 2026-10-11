@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Banknote, CheckCircle2, CreditCard, Loader2, MapPin, Smartphone, StickyNote, User, Wallet, X, Zap, AlertCircle } from "lucide-react";
 import { useCart, MAX_ORDER_ITEMS } from "@/context/CartContext";
@@ -15,6 +15,10 @@ const payIcons: Record<string, typeof Wallet> = {
   cod: Banknote,
 };
 
+// لو رسالة واتساب الكاملة (بعد الترميز) أطول من الحد ده، بنبعت ملخص بدل قايمة الأصناف
+// (التفاصيل كلها محفوظة في الطلبات نفسها). الرقم متحفظ عشان الروابط الطويلة جدًا ممكن تفشل.
+const WA_URL_BUDGET = 6000;
+
 export default function CheckoutModal() {
   const { checkoutOpen, setCheckoutOpen, lines, clear } = useCart();
   const { products, settings, addOrder } = useStore();
@@ -27,17 +31,21 @@ export default function CheckoutModal() {
     [lines, products],
   );
   const total = items.reduce((s, x) => s + x.p.price * x.qty, 0);
+  const partsCount = Math.max(1, Math.ceil(items.length / MAX_ORDER_ITEMS));
 
   const [form, setForm] = useState({ name: "", clinic: "", phone: "", notes: "" });
   const [payment, setPayment] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [stage, setStage] = useState<"form" | "sending" | "success">("form");
   const [waUrl, setWaUrl] = useState("");
-  const [orderId, setOrderId] = useState("");
+  const [orderIds, setOrderIds] = useState<string[]>([]);
   const [submitError, setSubmitError] = useState("");
-  
+
   // ✅ متغير حماية لمنع إرسال الطلب مرتين متتاليتين
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // بيفتكر الأجزاء اللي اتحفظت لو الإرسال فشل في النص، عشان المحاولة التانية متكررش اللي اتحفظ
+  const attemptRef = useRef<{ sig: string; base: string; saved: number } | null>(null);
 
   const close = () => {
     setCheckoutOpen(false);
@@ -46,13 +54,14 @@ export default function CheckoutModal() {
       setForm({ name: "", clinic: "", phone: "", notes: "" });
       setPayment("");
       setErrors({});
+      setOrderIds([]);
       setStage("form");
     }
   };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // ✅ حماية إضافية: لو جاري الإرسال بالفعل، ارفض العملية الجديدة
     if (isSubmitting) return;
 
@@ -64,65 +73,91 @@ export default function CheckoutModal() {
     setErrors(errs);
     if (Object.keys(errs).length > 0 || items.length === 0) return;
 
-    if (items.length > MAX_ORDER_ITEMS) {
-      setSubmitError(`الحد الأقصى ${MAX_ORDER_ITEMS} أصناف مختلفة في الطلب الواحد. احذف صنف أو قسّم الطلب على طلبين.`);
-      return;
-    }
-
     setSubmitError("");
     setStage("sending");
     setIsSubmitting(true); // ✅ تفعيل وضع الإرسال فوراً لمنع أي نقرات أخرى
 
-    const id = `EG-${Date.now().toString(36).toUpperCase()}`;
+    // مرجع واحد للطلب كله — لو الطلب اتقسّم، كل جزء ياخد رقم مرجع + رقم الجزء
+    const sig = items.map((x) => `${x.id}:${x.qty}:${x.p.price}`).join("|");
+    if (!attemptRef.current || attemptRef.current.sig !== sig) {
+      attemptRef.current = { sig, base: `EG-${Date.now().toString(36).toUpperCase()}`, saved: 0 };
+    }
+    const attempt = attemptRef.current;
+
     const phone = form.phone.replace(/\s/g, "");
-    const order: Order = {
-      id,
-      customer: {
-        name: form.name.trim(),
-        clinic: form.clinic.trim(),
-        phone,
-        notes: form.notes.trim(),
-      },
-      payment: paymentMethods.find((m) => m.id === payment)?.name ?? payment,
-      items: items.map((x) => ({ id: x.p.id, name: x.p.name, price: x.p.price, qty: x.qty })),
-      total,
-      status: "جديد",
-      date: Date.now(),
-    };
+    const paymentName = paymentMethods.find((m) => m.id === payment)?.name ?? payment;
+    const orderItems = items.map((x) => ({ id: x.p.id, name: x.p.name, price: x.p.price, qty: x.qty }));
 
-    const msg = [
-      `طلب جديد من موقع إيجي دنت`,
-      `رقم الطلب: ${id}`,
-      `━━━━━━━━━━`,
-      `الاسم: ${order.customer.name}`,
-      `العيادة: ${order.customer.clinic}`,
-      `التليفون: ${phone}`,
-      order.customer.notes ? `ملاحظات: ${order.customer.notes}` : "",
-      `━━━━━━━━━━`,
-      ...order.items.map((i) => `• ${i.name} × ${i.qty} = ${fmt(i.price * i.qty)} جنيه`),
-      `━━━━━━━━━━`,
-      `الإجمالي: ${fmt(total)} جنيه`,
-      `طريقة الدفع: ${order.payment}`,
-    ]
-      .filter(Boolean)
-      .join("\n");
+    // تقسيم السلة لأجزاء، كل جزء لحد MAX_ORDER_ITEMS أصناف، وإجماليه بيتحسب لوحده
+    const chunks: (typeof orderItems)[] = [];
+    for (let i = 0; i < orderItems.length; i += MAX_ORDER_ITEMS) chunks.push(orderItems.slice(i, i + MAX_ORDER_ITEMS));
 
-    const url = `https://wa.me/${settings.whatsapp}?text=${encodeURIComponent(msg)}`;
+    const orders: Order[] = chunks.map((chunk, idx) => {
+      const split = chunks.length > 1;
+      const note = form.notes.trim();
+      const splitNote = split ? `[طلب مقسّم ${idx + 1}/${chunks.length} — مرجع ${attempt.base}]` : "";
+      return {
+        id: split ? `${attempt.base}-${idx + 1}` : attempt.base,
+        customer: {
+          name: form.name.trim(),
+          clinic: form.clinic.trim(),
+          phone,
+          notes: [splitNote, note].filter(Boolean).join(" ").slice(0, 500), // الرولز بتقبل 500 حرف بالكتير
+        },
+        payment: paymentName,
+        items: chunk,
+        total: chunk.reduce((s, i) => s + i.price * i.qty, 0),
+        status: "جديد",
+        date: Date.now(),
+      };
+    });
+    const ids = orders.map((o) => o.id);
+
+    const buildMsg = (withItems: boolean) =>
+      [
+        `طلب جديد من موقع إيجي دنت`,
+        ids.length > 1 ? `أرقام الطلبات (${ids.length}): ${ids.join(" ، ")}` : `رقم الطلب: ${ids[0]}`,
+        `━━━━━━━━━━`,
+        `الاسم: ${form.name.trim()}`,
+        `العيادة: ${form.clinic.trim()}`,
+        `التليفون: ${phone}`,
+        form.notes.trim() ? `ملاحظات: ${form.notes.trim()}` : "",
+        `━━━━━━━━━━`,
+        ...(withItems
+          ? orderItems.map((i) => `• ${i.name} × ${i.qty} = ${fmt(i.price * i.qty)} جنيه`)
+          : [`عدد الأصناف: ${orderItems.length} (التفاصيل في الطلبات المذكورة فوق)`]),
+        `━━━━━━━━━━`,
+        `الإجمالي: ${fmt(total)} جنيه`,
+        `طريقة الدفع: ${paymentName}`,
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+    const full = encodeURIComponent(buildMsg(true));
+    const text = full.length <= WA_URL_BUDGET ? full : encodeURIComponent(buildMsg(false));
+    const url = `https://wa.me/${settings.whatsapp}?text=${text}`;
 
     try {
-      await addOrder(order);
+      for (let i = attempt.saved; i < orders.length; i++) {
+        await addOrder(orders[i]);
+        attempt.saved = i + 1;
+      }
+      attemptRef.current = null;
       setWaUrl(url);
-      setOrderId(id);
+      setOrderIds(ids);
       clear();
       setStage("success");
-      
+
       setTimeout(() => {
         window.open(url, "_blank");
       }, 500);
-      
     } catch (err) {
       console.error("addOrder failed:", err);
-      setSubmitError("حصلت مشكلة وطلبك ماتحفظش. حاول تاني، ولو المشكلة مستمرة كلمنا على واتساب مباشرة.");
+      setSubmitError(
+        attempt.saved > 0
+          ? `اتحفظ ${attempt.saved} من ${orders.length} أجزاء من طلبك، والباقي ماتحفظش. اضغط تأكيد الطلب تاني لاستكمال الباقي، ولو المشكلة مستمرة كلمنا على واتساب مباشرة.`
+          : "حصلت مشكلة وطلبك ماتحفظش. حاول تاني، ولو المشكلة مستمرة كلمنا على واتساب مباشرة.",
+      );
       setStage("form");
     } finally {
       setIsSubmitting(false); // ✅ إعادة تعيين الحماية بعد انتهاء المحاولة (فشل أو نجاح)
@@ -174,7 +209,8 @@ export default function CheckoutModal() {
                 </motion.div>
                 <h3 className="mt-6 font-display text-3xl font-black">تم استلام طلبك!</h3>
                 <p className="mt-2 text-sm text-frost-400">
-                  رقم الطلب <span className="font-display font-black text-volt-300" dir="ltr">{orderId}</span> —
+                  {orderIds.length > 1 ? "أرقام الطلبات" : "رقم الطلب"}{" "}
+                  <span className="font-display font-black text-volt-300" dir="ltr">{orderIds.join(" , ")}</span> —
                   هنكلمك خلال دقايق لتأكيد الطلب والتوصيل.
                 </p>
                 <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -332,13 +368,16 @@ export default function CheckoutModal() {
                     </div>
                   </div>
 
-                  {items.length > MAX_ORDER_ITEMS && (
+                  {partsCount > 1 && (
                     <div className="mt-4 flex items-start gap-2 rounded-xl bg-amber-400/10 p-3 text-xs text-amber-300">
                       <AlertCircle className="size-4 shrink-0 mt-0.5" />
-                      <p>الطلب فيه {items.length} صنف. الحد الأقصى {MAX_ORDER_ITEMS} أصناف مختلفة في الطلب الواحد.</p>
+                      <p>
+                        الطلب فيه {items.length} صنف، فهيتسجّل على {partsCount} طلبات (كل طلب لحد {MAX_ORDER_ITEMS} أصناف)
+                        برسالة واتساب واحدة، والإجمالي واحد.
+                      </p>
                     </div>
                   )}
-                  
+
                   {submitError && (
                     <div className="mt-4 flex items-start gap-2 rounded-xl bg-red-400/10 p-3 text-xs text-red-300">
                       <AlertCircle className="size-4 shrink-0 mt-0.5" />
@@ -349,7 +388,7 @@ export default function CheckoutModal() {
                   {/* ✅ الزرار يتعطل تلقائياً لو جاري الإرسال لمنع التكرار */}
                   <button
                     type="submit"
-                    disabled={stage === "sending" || isSubmitting || items.length > MAX_ORDER_ITEMS || items.length === 0}
+                    disabled={stage === "sending" || isSubmitting || items.length === 0}
                     className="mt-6 flex w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-l from-volt-400 to-volt-600 py-4 font-display text-lg font-black text-[var(--onaccent)] shadow-[0_14px_36px_rgba(34,211,238,0.35)] transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
                   >
                     {stage === "sending" || isSubmitting ? (
