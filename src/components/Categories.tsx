@@ -1,6 +1,7 @@
 import { ArrowLeft } from "lucide-react";
 import { Reveal, SectionHead } from "./ui";
 import { useStore } from "@/context/StoreContext";
+import { cdn } from "@/utils/img";
 
 export default function Categories() {
   const { products, categories } = useStore();
@@ -54,7 +55,7 @@ export default function Categories() {
                   style={{ clipPath: "url(#category-tooth-clip)" }}
                 >
                   <img
-                    src={c.img || "images/c-consumables.jpg"}
+                    src={cdn(c.img, 600) || "images/c-consumables.jpg"}
                     alt={c.name}
                     loading="lazy"
                     className="absolute inset-0 h-full w-full object-cover transition-transform duration-[1.2s] ease-out group-hover:scale-110"

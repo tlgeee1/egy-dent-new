@@ -5,6 +5,7 @@ import { useCart, MAX_ORDER_ITEMS } from "@/context/CartContext";
 import { useStore, type Order } from "@/context/StoreContext";
 import { fmt, paymentMethods } from "@/data/data";
 import { cn } from "@/utils/cn";
+import { cdn } from "@/utils/img";
 
 const payIcons: Record<string, typeof Wallet> = {
   vodafone: Smartphone,
@@ -347,7 +348,7 @@ export default function CheckoutModal() {
                   <div className="mt-5 flex-1 space-y-3 overflow-y-auto">
                     {items.map((x) => (
                       <div key={x.id} className="flex items-center gap-3">
-                        <img src={x.p.img} alt={x.p.name} className="size-12 rounded-xl object-cover" />
+                        <img src={cdn(x.p.img, 120)} alt={x.p.name} loading="lazy" className="size-12 rounded-xl object-cover" />
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-xs font-bold">{x.p.name}</p>
                           <p className="text-[11px] text-frost-500">× {x.qty}</p>

@@ -7,7 +7,7 @@ export default function Preloader() {
 
   useEffect(() => {
     const start = performance.now();
-    const dur = 850;
+    const dur = 400;
     let raf: number;
     const tick = (now: number) => {
       const p = Math.min((now - start) / dur, 1);
@@ -21,7 +21,7 @@ export default function Preloader() {
   return (
     <motion.div
       exit={{ y: "-100%" }}
-      transition={{ duration: 0.9, ease: [0.76, 0, 0.24, 1] }}
+      transition={{ duration: 0.5, ease: [0.76, 0, 0.24, 1] }}
       className="fixed inset-0 z-[200] grid place-items-center bg-ink-950"
     >
       <div className="absolute inset-0 bg-grid opacity-60 mask-fade-y" />

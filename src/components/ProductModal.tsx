@@ -4,6 +4,7 @@ import { BadgeCheck, Minus, Plus, ShoppingBag, Star, Truck, X, Zap } from "lucid
 import { useCart } from "@/context/CartContext";
 import { useStore } from "@/context/StoreContext";
 import { fmt } from "@/data/data";
+import { cdn } from "@/utils/img";
 
 export default function ProductModal() {
   const { quickView: p, setQuickView, add, setOpen } = useCart();
@@ -52,7 +53,7 @@ export default function ProductModal() {
                 </svg>
                 <div className="relative aspect-[4/5] w-full max-w-[300px] [filter:drop-shadow(0_10px_24px_rgba(0,0,0,0.4))]">
                   <div className="h-full w-full overflow-hidden" style={{ clipPath: "url(#modal-tooth-clip)" }}>
-                    <img src={p.img} alt={p.name} className="h-full w-full object-cover" />
+                    <img src={cdn(p.img, 900)} alt={p.name} className="h-full w-full object-cover" />
                   </div>
                 </div>
                 {p.badge && (
