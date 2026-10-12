@@ -1,5 +1,5 @@
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
-import { ArrowDown, BadgePercent, ShieldCheck, Sparkles, Truck } from "lucide-react";
+import { ArrowDown, MessageCircle, ShieldCheck, Sparkles, Truck } from "lucide-react";
 import Marquee from "./Marquee";
 import { useStore } from "@/context/StoreContext";
 
@@ -69,13 +69,6 @@ export default function Hero() {
               >
                 <span className="relative z-10">تسوّق المنتجات</span>
                 <span className="absolute inset-y-0 w-1/3 bg-[var(--fill-7)] blur-md animate-shine" />
-              </a>
-              <a
-                href="#offer"
-                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-gold-500/40 bg-gold-500/[0.07] px-9 py-4 font-display text-lg font-bold text-gold-400 transition-colors hover:bg-gold-500/15 sm:w-auto"
-              >
-                <BadgePercent className="size-5" />
-                عرض خصم 20%
               </a>
             </motion.div>
 
@@ -149,11 +142,11 @@ export default function Hero() {
                 <div className="glass animate-float-late rounded-2xl border border-gold-500/30 px-4 py-3 shadow-[0_16px_40px_rgba(0,0,0,0.5)]">
                   <div className="flex items-center gap-2.5">
                     <span className="grid size-9 place-items-center rounded-xl bg-gold-500/15 text-gold-400">
-                      <BadgePercent className="size-4.5" />
+                      <MessageCircle className="size-4.5" />
                     </span>
                     <div>
-                      <p className="font-display text-sm font-extrabold text-gold-300">خصم 20%</p>
-                      <p className="text-[11px] text-frost-500">لفترة محدودة</p>
+                      <p className="font-display text-sm font-extrabold text-gold-300">اطلب على واتساب</p>
+                      <p className="text-[11px] text-frost-500">وتأكيد سريع على طلبك</p>
                     </div>
                   </div>
                 </div>
