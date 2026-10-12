@@ -32,6 +32,13 @@ import { uploadImage } from "@/utils/uploadImage";
 import CategoriesAdmin from "@/pages/CategoriesAdmin";
 import BulkImages from "@/pages/BulkImages";
 
+// الطلب الكبير بيتقسّم على أجزاء، وكل جزء بيحمل في ملاحظاته: [طلب مقسّم 1/3 — مرجع EG-XXXX]
+const SPLIT_RE = /\[طلب مقسّم (\d+)\/(\d+) — مرجع ([^\]]+)\]\s*/;
+function splitInfo(o: Order): { part: number; parts: number; base: string } | null {
+  const m = o.customer.notes?.match(SPLIT_RE);
+  return m ? { part: Number(m[1]), parts: Number(m[2]), base: m[3] } : null;
+}
+
 type Tab = "overview" | "products" | "categories" | "orders" | "settings";
 
 const tabs: { id: Tab; label: string; icon: typeof Package }[] = [
@@ -351,17 +358,36 @@ export default function Admin() {
   const [importMsg, setImportMsg] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // تجميع أجزاء الطلب الواحد مع بعض (الطلب غير المقسّم = مجموعة من جزء واحد)
+  const orderGroups = useMemo(() => {
+    const map = new Map<string, Order[]>();
+    const keys: string[] = [];
+    for (const o of store.orders) {
+      const k = splitInfo(o)?.base ?? o.id;
+      if (!map.has(k)) {
+        map.set(k, []);
+        keys.push(k);
+      }
+      map.get(k)!.push(o);
+    }
+    return keys.map((k) => {
+      const list = map.get(k)!;
+      list.sort((a, b) => (splitInfo(a)?.part ?? 0) - (splitInfo(b)?.part ?? 0));
+      return { key: k, list, total: list.reduce((s, o) => s + o.total, 0), parts: splitInfo(list[0])?.parts ?? 1 };
+    });
+  }, [store.orders]);
+
   const stats = useMemo(() => {
     const totalRevenue = store.orders.reduce((sum, o) => sum + o.total, 0);
-    const newOrders = store.orders.filter((o) => o.status === "جديد").length;
+    const newOrders = orderGroups.filter((g) => g.list.some((o) => o.status === "جديد")).length;
 
     return [
       { label: "عدد المنتجات", value: String(store.products.length), icon: Package, tone: "text-volt-300 bg-volt-500/10" },
-      { label: "إجمالي الطلبات", value: String(store.orders.length), icon: ShoppingBag, tone: "text-gold-300 bg-gold-500/10" },
+      { label: "إجمالي الطلبات", value: String(orderGroups.length), icon: ShoppingBag, tone: "text-gold-300 bg-gold-500/10" },
       { label: "قيمة الطلبات", value: `${fmt(totalRevenue)} ج`, icon: Wallet, tone: "text-emerald-300 bg-emerald-400/10" },
       { label: "طلبات جديدة", value: String(newOrders), icon: Loader2, tone: "text-indigo-300 bg-indigo-400/10" },
     ];
-  }, [store.orders, store.products.length]);
+  }, [store.orders, orderGroups, store.products.length]);
 
   const duplicateIds = useMemo(() => {
     const seen = new Set<string>();
@@ -501,9 +527,9 @@ export default function Admin() {
             >
               <t.icon className="size-4" />
               {t.label}
-              {t.id === "orders" && store.orders.length > 0 && (
+              {t.id === "orders" && orderGroups.length > 0 && (
                 <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-black", tab === t.id ? "bg-ink-950/20" : "bg-gold-500/20 text-gold-300")}>
-                  {store.orders.length}
+                  {orderGroups.length}
                 </span>
               )}
             </button>
@@ -544,6 +570,7 @@ export default function Admin() {
                         <p className="text-sm font-extrabold">{o.customer.name}</p>
                         <p className="text-[11px] text-frost-500">
                           {o.id} · {relTime(o.date)}
+                          {splitInfo(o) && ` · جزء ${splitInfo(o)!.part} من ${splitInfo(o)!.parts}`}
                         </p>
                       </div>
                     </div>
@@ -553,9 +580,9 @@ export default function Admin() {
                     </div>
                   </div>
                 ))}
-                {store.orders.length > 5 && (
+                {orderGroups.length > 5 && (
                   <button onClick={() => setTab("orders")} className="w-full rounded-2xl border border-[var(--line-3)] py-3 text-sm font-bold text-frost-300 hover:bg-[var(--fill-4)]">
-                    عرض كل الطلبات ({store.orders.length})
+                    عرض كل الطلبات ({orderGroups.length})
                   </button>
                 )}
               </div>
@@ -725,12 +752,35 @@ export default function Admin() {
               </p>
             ) : (
               <div className="space-y-4">
-                {store.orders.map((o: Order) => (
+                {orderGroups.map((g) => (
+                  <div
+                    key={g.key}
+                    className={cn("space-y-3", g.list.length > 1 && "rounded-[1.75rem] border border-gold-500/30 bg-gold-500/[0.04] p-3")}
+                  >
+                    {g.list.length > 1 && (
+                      <div className="flex flex-wrap items-center justify-between gap-2 px-2 pt-1 text-sm">
+                        <span className="font-bold text-gold-300">
+                          طلب واحد مقسّم على {g.parts} أجزاء — {g.list[0].customer.name}
+                          {g.list.length < g.parts && (
+                            <span className="mr-2 text-[11px] font-normal text-red-300">(ظاهر {g.list.length} من {g.parts})</span>
+                          )}
+                        </span>
+                        <span className="font-display text-base font-black text-[var(--text-primary)]">
+                          الإجمالي الكلي: {fmt(g.total)} ج
+                        </span>
+                      </div>
+                    )}
+                    {g.list.map((o: Order) => (
                   <div key={o.id} className="overflow-hidden rounded-[1.5rem] border border-[var(--line-2)] bg-ink-900">
                     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line-2)] p-4">
                       <div className="flex items-center gap-3">
                         <span className="font-display font-black text-volt-300" dir="ltr">{o.id}</span>
                         <span className="text-[11px] text-frost-500">{relTime(o.date)}</span>
+                        {splitInfo(o) && (
+                          <span className="rounded-full border border-gold-500/40 bg-gold-500/10 px-2.5 py-0.5 text-[10px] font-bold text-gold-300">
+                            جزء {splitInfo(o)!.part} من {splitInfo(o)!.parts}
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-2.5">
                         <select
@@ -764,7 +814,9 @@ export default function Admin() {
                           </a>
                         </p>
                         <p className="text-frost-400">{o.customer.clinic}</p>
-                        {o.customer.notes && <p className="rounded-xl bg-[var(--fill-3)] p-2.5 text-xs text-frost-500">ملاحظات: {o.customer.notes}</p>}
+                        {o.customer.notes?.replace(SPLIT_RE, "").trim() && (
+                          <p className="rounded-xl bg-[var(--fill-3)] p-2.5 text-xs text-frost-500">ملاحظات: {o.customer.notes.replace(SPLIT_RE, "").trim()}</p>
+                        )}
                         <p className="inline-flex rounded-full border border-[var(--line-3)] px-3 py-1 text-[11px] font-bold text-frost-300">{o.payment}</p>
                       </div>
                       <div className="space-y-1.5 text-xs">
@@ -782,6 +834,8 @@ export default function Admin() {
                         </div>
                       </div>
                     </div>
+                  </div>
+                    ))}
                   </div>
                 ))}
               </div>
