@@ -5,7 +5,7 @@ import { useStore } from "./StoreContext";
 const CART_STORAGE_KEY = "egy-dent-cart";
 
 /** أقصى عدد أصناف مختلفة في الطلب الواحد المحفوظ (حد Firestore Rules). صفحة الدفع بتقسّم السلة على أجزاء بالحجم ده */
-export const MAX_ORDER_ITEMS = 10;
+export const MAX_ORDER_ITEMS = 6;
 /** أقصى عدد أصناف مختلفة في السلة كلها (بتتقسّم تلقائيًا على أكتر من طلب وقت التأكيد) */
 export const MAX_CART_ITEMS = 50;
 /** أقصى كمية للصنف الواحد (نفس حد الرولز) */
