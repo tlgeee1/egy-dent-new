@@ -1,4 +1,4 @@
-import { Heart, Mail, MapPin, Phone, Code2 } from "lucide-react";
+import { Heart, MapPin, Phone, Code2 } from "lucide-react";
 import { ToothMark } from "./ui";
 import { socialLinks } from "@/data/data";
 
@@ -80,10 +80,6 @@ export default function Footer() {
                 <Phone className="size-4.5 shrink-0 text-volt-400" />
                 <span dir="ltr">0115 160 5515</span>
               </li>
-              <li className="flex items-center gap-3">
-                <Mail className="size-4.5 shrink-0 text-volt-400" />
-                <span dir="ltr">orders@egydent.com</span>
-              </li>
               <li className="flex items-start gap-3">
                 <MapPin className="size-4.5 shrink-0 translate-y-0.5 text-volt-400" />
                 60 ش الطيران، مدينة نصر، القاهرة
@@ -118,7 +114,7 @@ export default function Footer() {
         </p>
         
         {/* الشريط السفلي الأخير (تمت موازنته ليحتوي على اسمك بشكل فخم) */}
-        <div className="absolute inset-x-0 bottom-0 flex flex-col items-center justify-between gap-4 border-t border-[var(--line-1)] bg-ink-950 px-5 py-5 md:flex-row lg:px-14">
+        <div className="relative flex flex-col items-center justify-between gap-4 border-t border-[var(--line-1)] bg-ink-950 px-5 py-5 md:absolute md:inset-x-0 md:bottom-0 md:flex-row lg:px-14">
           
           {/* حقوق الملكية */}
           <p className="text-xs text-frost-400 order-3 md:order-1">

@@ -67,7 +67,6 @@ interface StoreContextType {
   deleteProduct: (id: number) => Promise<void>;
   deleteProducts: (ids: number[]) => Promise<void>;
   importProducts: (products: Omit<Product, "id">[]) => Promise<void>;
-  resetProducts: () => Promise<void>;
   addOrder: (order: Order) => Promise<void>;
   setOrderStatus: (id: string, status: OrderStatus) => Promise<void>;
   deleteOrder: (id: string) => Promise<void>;
@@ -317,25 +316,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const resetProducts = async () => {
-    const database = db;
-    if (!database) return;
-    try {
-      const existing = await getDocs(collection(database, PRODUCTS_COLLECTION));
-      const deleteBatch = writeBatch(database);
-      existing.docs.forEach((d) => deleteBatch.delete(d.ref));
-      await deleteBatch.commit();
-
-      const addBatch = writeBatch(database);
-      DEFAULT_PRODUCTS.forEach((p) => {
-        addBatch.set(doc(database, PRODUCTS_COLLECTION, String(p.id)), p);
-      });
-      await addBatch.commit();
-    } catch (err) {
-      reportError("فشل إعادة تعيين المنتجات:", err);
-    }
-  };
-
   /* ---------------- Categories ---------------- */
   const categoriesManaged = dbCategories.length > 0;
   const categories = useMemo<Category[]>(
@@ -485,7 +465,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         deleteProduct,
         deleteProducts,
         importProducts,
-        resetProducts,
         addOrder,
         setOrderStatus,
         deleteOrder,
