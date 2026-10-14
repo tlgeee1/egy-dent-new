@@ -6,6 +6,7 @@ import { useCart } from "@/context/CartContext";
 import { useStore } from "@/context/StoreContext";
 import { SectionHead, Reveal } from "./ui";
 import { cn } from "@/utils/cn";
+import { thumb } from "@/utils/imageUrl";
 
 function ProductCard({ p, index }: { p: Product; index: number }) {
   const { add, setQuickView } = useCart();
@@ -43,9 +44,10 @@ function ProductCard({ p, index }: { p: Product; index: number }) {
             </div>
           ) : (
             <img
-              src={p.img}
+              src={thumb(p.img, 480)}
               alt={p.name}
               loading="lazy"
+              decoding="async"
               onError={() => setImgError(true)}
               className="h-full w-full object-cover transition-transform duration-[1.1s] ease-out group-hover:scale-[1.08]"
             />

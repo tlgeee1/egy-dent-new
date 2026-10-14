@@ -71,7 +71,7 @@ function Store() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const id = setTimeout(() => setLoading(false), 900);
+    const id = setTimeout(() => setLoading(false), 350);
     return () => clearTimeout(id);
   }, []);
 

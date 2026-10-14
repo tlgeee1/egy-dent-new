@@ -3,6 +3,7 @@ import { ArrowRight, ClipboardList, Minus, Plus, ShoppingBag, Trash2, X } from "
 import { useCart } from "@/context/CartContext";
 import { useStore } from "@/context/StoreContext";
 import { fmt } from "@/data/data";
+import { thumb } from "@/utils/imageUrl";
 
 export default function CartDrawer() {
   const { lines, total, count, isOpen, setOpen, setQty, remove, setCheckoutOpen } = useCart();
@@ -91,7 +92,7 @@ export default function CartDrawer() {
                           exit={{ opacity: 0, x: -60, transition: { duration: 0.25 } }}
                           className="flex gap-3.5 rounded-2xl border border-[var(--line-2)] bg-ink-800/60 p-3"
                         >
-                          <img src={p.img} alt={p.name} className="size-20 shrink-0 rounded-xl object-cover" />
+                          <img src={thumb(p.img, 160)} alt={p.name} loading="lazy" decoding="async" className="size-20 shrink-0 rounded-xl object-cover" />
                           <div className="flex min-w-0 flex-1 flex-col">
                             <div className="flex items-start justify-between gap-2">
                               <h4 className="truncate font-display text-sm font-extrabold">{p.name}</h4>
