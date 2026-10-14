@@ -32,7 +32,7 @@ export default function Navbar() {
       <motion.header
         initial={{ y: -90, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.8, delay: 1.9, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ duration: 0.8, delay: 0.6, ease: [0.22, 1, 0.36, 1] }}
         className={cn(
           "fixed inset-x-0 top-0 z-[100] transition-all duration-500",
           scrolled ? "glass border-b border-[var(--line-1)] py-3 shadow-[0_10px_40px_rgba(0,0,0,0.45)]" : "py-5",

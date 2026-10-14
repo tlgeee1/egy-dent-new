@@ -5,7 +5,7 @@ import { useStore } from "@/context/StoreContext";
 
 const stagger = {
   hidden: {},
-  show: { transition: { staggerChildren: 0.13, delayChildren: 1.75 } },
+  show: { transition: { staggerChildren: 0.13, delayChildren: 0.45 } },
 };
 const item = {
   hidden: { opacity: 0, y: 44 },
@@ -94,7 +94,7 @@ export default function Hero() {
           <motion.div
             initial={{ opacity: 0, scale: 0.92, y: 40 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ duration: 1.1, delay: 2, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: 0.9, delay: 0.7, ease: [0.22, 1, 0.36, 1] }}
             className="relative z-10 mx-auto w-full max-w-[540px] [perspective:1200px]"
             onMouseMove={(e) => {
               const r = e.currentTarget.getBoundingClientRect();
@@ -117,7 +117,7 @@ export default function Hero() {
               <motion.div
                 initial={{ opacity: 0, x: 30 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 2.7, duration: 0.7 }}
+                transition={{ delay: 1.4, duration: 0.7 }}
                 className="absolute -right-3 top-8 md:-right-8"
               >
                 <div className="glass animate-float rounded-2xl border border-volt-400/30 px-4 py-3 shadow-[0_16px_40px_rgba(0,0,0,0.5)]">
@@ -136,7 +136,7 @@ export default function Hero() {
               <motion.div
                 initial={{ opacity: 0, x: -30 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 2.9, duration: 0.7 }}
+                transition={{ delay: 1.6, duration: 0.7 }}
                 className="absolute -left-3 top-1/3 md:-left-10"
               >
                 <div className="glass animate-float-late rounded-2xl border border-gold-500/30 px-4 py-3 shadow-[0_16px_40px_rgba(0,0,0,0.5)]">
@@ -155,7 +155,7 @@ export default function Hero() {
               <motion.div
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 3.1, duration: 0.7 }}
+                transition={{ delay: 1.8, duration: 0.7 }}
                 className="absolute -bottom-5 right-8"
               >
                 <div className="glass animate-float rounded-2xl border border-[var(--line-4)] px-4 py-3 shadow-[0_16px_40px_rgba(0,0,0,0.5)]">
@@ -180,14 +180,14 @@ export default function Hero() {
         href="#categories"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 3.4 }}
+        transition={{ delay: 2.1 }}
         className="absolute bottom-24 left-1/2 hidden -translate-x-1/2 flex-col items-center gap-2 text-frost-500 transition-colors hover:text-volt-300 lg:flex"
       >
         <span className="text-[11px] font-semibold tracking-widest">اسكرول لتحت</span>
         <ArrowDown className="size-4 animate-bounce" />
       </motion.a>
 
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2.5, duration: 1 }}>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.2, duration: 1 }}>
         <Marquee
           items={["زراعة أسنان", "تقويم شفاف", "أجهزة عيادات", "حشوات تجميلية", "أدوات جراحة", "تعقيم وتطهير", "مستهلكات يومية", "أشعة وتصوير"]}
         />

@@ -13,13 +13,13 @@ import WhyUs from "@/components/WhyUs";
 import Guarantees from "@/components/Guarantees";
 import Branches from "@/components/Branches";
 import Footer from "@/components/Footer";
-import CartDrawer from "@/components/CartDrawer";
-import CheckoutModal from "@/components/CheckoutModal";
-import ProductModal from "@/components/ProductModal";
 import WhatsAppFloat from "@/components/WhatsAppFloat";
-import ChatBot from "@/components/ChatBot";
 import { fmt } from "@/data/data";
 
+const CartDrawer = lazy(() => import("@/components/CartDrawer"));
+const CheckoutModal = lazy(() => import("@/components/CheckoutModal"));
+const ProductModal = lazy(() => import("@/components/ProductModal"));
+const ChatBot = lazy(() => import("@/components/ChatBot"));
 const Admin = lazy(() => import("@/pages/Admin"));
 const InfoPage = lazy(() => import("@/pages/InfoPage"));
 
@@ -96,11 +96,15 @@ function Store() {
         <Branches />
       </main>
       <Footer />
-      <CartDrawer />
-      <CheckoutModal />
-      <ProductModal />
+      <Suspense fallback={null}>
+        <CartDrawer />
+        <CheckoutModal />
+        <ProductModal />
+      </Suspense>
       <WhatsAppFloat />
-      <ChatBot />
+      <Suspense fallback={null}>
+        <ChatBot />
+      </Suspense>
       <Toast />
     </div>
   );
