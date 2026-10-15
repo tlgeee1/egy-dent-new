@@ -1,6 +1,7 @@
 import { ArrowLeft } from "lucide-react";
 import { Reveal, SectionHead } from "./ui";
 import { useStore } from "@/context/StoreContext";
+import { thumb } from "@/utils/imageUrl";
 
 export default function Categories() {
   const { products, categories } = useStore();
@@ -54,9 +55,10 @@ export default function Categories() {
                   style={{ clipPath: "url(#category-tooth-clip)" }}
                 >
                   <img
-                    src={c.img || "images/c-consumables.jpg"}
+                    src={thumb(c.img || "images/c-consumables.jpg", 360)}
                     alt={c.name}
                     loading="lazy"
+                    decoding="async"
                     className="absolute inset-0 h-full w-full object-cover transition-transform duration-[1.2s] ease-out group-hover:scale-110"
                   />
                   {/* الصورة كاملة الوضوح — طبقة سودا خفيفة في الشريط السفلي بس عشان الاسم يتقري.

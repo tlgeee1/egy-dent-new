@@ -44,7 +44,7 @@ function ProductCard({ p, index }: { p: Product; index: number }) {
             </div>
           ) : (
             <img
-              src={thumb(p.img, 480)}
+              src={thumb(p.img, 400)}
               alt={p.name}
               loading="lazy"
               decoding="async"
